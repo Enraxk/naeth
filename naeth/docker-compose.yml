@@ -14,7 +14,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-naeth}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-naeth}
       POSTGRES_DB: ${POSTGRES_DB:-naeth}
-      EMBED_DIM: ${EMBED_DIM:-384}
+      EMBED_DIM: ${EMBED_DIM:-1024}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/schema.sql:/schema/schema.sql:ro
@@ -36,8 +36,8 @@ services:
     environment:
       # Fase 4 (CENIT): DSN al Postgres del NUCLEO (modules-db); schema memory via search_path del rol.
       NAETH_DSN: postgresql://cenit:${CENIT_DB_PASSWORD:?falta CENIT_DB_PASSWORD (usa up.ps1)}@modules-db:5432/cenit
-      EMBED_MODEL: ${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
-      EMBED_DIM: ${EMBED_DIM:-384}
+      EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
+      EMBED_DIM: ${EMBED_DIM:-1024}
       BEARER_TOKEN: ${BEARER_TOKEN:-}
       # Fase 4: auth via IdP central (Pocket-ID) con OIDCProxy; Naeth ya no es su propio AS.
       OAUTH_ENABLED: "1"
@@ -66,8 +66,8 @@ services:
     command: python -m app.worker
     environment:
       NAETH_DSN: postgresql://cenit:${CENIT_DB_PASSWORD:?falta CENIT_DB_PASSWORD (usa up.ps1)}@modules-db:5432/cenit
-      EMBED_MODEL: ${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
-      EMBED_DIM: ${EMBED_DIM:-384}
+      EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
+      EMBED_DIM: ${EMBED_DIM:-1024}
     volumes:
       - ./app:/srv/app                            # banco Fase 1: iterar sin rebuild
       - ${ASSETS_PATH:-E:/naeth/assets}:/assets
@@ -87,8 +87,8 @@ services:
     command: uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
     environment:
       NAETH_DSN: postgresql://cenit:${CENIT_DB_PASSWORD:?falta CENIT_DB_PASSWORD (usa up.ps1)}@modules-db:5432/cenit
-      EMBED_MODEL: ${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
-      EMBED_DIM: ${EMBED_DIM:-384}
+      EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
+      EMBED_DIM: ${EMBED_DIM:-1024}
       OAUTH_ENABLED: "0"        # SSO por oauth2-proxy delante (publico) + loopback local
       AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}   # Paso 10 (ver nota en api)
     volumes:
@@ -112,7 +112,7 @@ services:
     environment:
       TEST_DB_HOST: db
       SCHEMA_PATH: /srv/db/schema.sql
-      EMBED_DIM: ${EMBED_DIM:-384}
+      EMBED_DIM: ${EMBED_DIM:-1024}
     volumes:
       - ./app:/srv/app
       - ./db:/srv/db:ro

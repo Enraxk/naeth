@@ -41,7 +41,11 @@ claude.ai (Remote MCP) y Claude Code sin atarse a un vendor.
   claude.ai web, bug anthropics/claude-ai-mcp #410, cerrado not-planned). Claude Code
   habla por `localhost` con bearer en header; el visor se queda en `localhost`.
   **Embeddings por-nodo** (no se sincronizan): bge-m3 1024-dim en local, e5-small 384-dim
-  en `finally`; dimensión `vector(N)` parametrizada. Replanteo 2026-06-23, ⚠ resueltos
+  en `finally`; dimensión `vector(N)` parametrizada. ⚠ **DEROGADO 2026-07-21**: lo de
+  "384 en `finally`" ya no vale. El Paso 8 de CENIT sincroniza por **replicación lógica**,
+  que copia la columna `embedding vector(N)` tal cual ⇒ **la dimensión debe ser idéntica en
+  todos los nodos** (1024/e5-large). Valía cuando el sync iba a ser a nivel de aplicación y
+  los embeddings no viajaban. Replanteo 2026-06-23, ⚠ resueltos
   2026-06-24. **Fase 1 EJECUTADA 2026-06-25** (ver abajo): código en `naeth/`.
 - `pasos/paso7-resultados-fase1.md` — Paso 7 **Fase 1 (ejecutada 2026-06-25)**: pila base
   real (`db`+`api`+`worker`) en Docker Desktop. Núcleo Paso 6 aplicado (6 tablas + vista +
