@@ -1,0 +1,3 @@
+# Dependencias solo de test (no van en la imagen de produccion).
+# Se instalan en el servicio 'test' del compose: pip install -r app/requirements-dev.txt
+pytest==8.3.4

@@ -1,0 +1,2446 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>naeth/research · paso 1 · mapeo de interfaces e integrabilidad</title>
+<meta name="description" content="Paso 1 del proyecto Naeth: análisis documental de integrabilidad de los 5 sistemas top de memoria persistente OSS para LLMs. Mayo 2026." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   DESIGN DNA — Terminal × Notion · Lab Edition
+   ============================================================ */
+:root{
+  --bg:        oklch(98%  0.005 80);
+  --bg-elev:   oklch(100% 0 0);
+  --bg-code:   oklch(96%  0.008 80);
+  --bg-hl:     oklch(94%  0.012 80);
+  --bg-side:   oklch(95%  0.006 80);
+
+  --ink:       oklch(18% 0.012 60);
+  --ink-soft:  oklch(42% 0.012 60);
+  --ink-mute:  oklch(62% 0.010 60);
+  --ink-inv:   oklch(98% 0.005 80);
+
+  --rule:      oklch(88% 0.006 80);
+  --rule-strong: oklch(78% 0.008 80);
+
+  --acc:       oklch(48% 0.16 145);
+  --acc-soft:  oklch(94% 0.04 145);
+  --win:       oklch(48% 0.16 145);
+  --warn:      oklch(60% 0.17 70);
+  --warn-soft: oklch(95% 0.06 80);
+  --err:       oklch(52% 0.21 28);
+  --err-soft:  oklch(94% 0.05 28);
+  --info:      oklch(48% 0.18 245);
+  --info-soft: oklch(94% 0.05 245);
+  --gold:      oklch(68% 0.14 80);
+
+  /* lab edition */
+  --lab-grid:    oklch(88% 0.006 80);
+  --lab-port:    oklch(52% 0.05 250);
+  --lab-conflict:oklch(52% 0.21 28);
+
+  --fs-base: clamp(14px, 0.95vw, 16px);
+  --fs-sm:   clamp(12px, 0.82vw, 14px);
+  --fs-xs:   clamp(11px, 0.72vw, 12px);
+  --fs-lg:   clamp(17px, 1.15vw, 20px);
+  --fs-xl:   clamp(22px, 1.6vw, 30px);
+  --fs-2xl:  clamp(28px, 2.2vw, 42px);
+  --fs-3xl:  clamp(40px, 3.6vw, 72px);
+  --fs-4xl:  clamp(56px, 5.5vw, 120px);
+
+  --sans: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --sidebar-w: 280px;
+  --content-max: 1180px;
+  --gutter: clamp(24px, 4vw, 96px);
+
+  --ease: cubic-bezier(.16,1,.3,1);
+}
+
+[data-theme="dark"]{
+  --bg:        oklch(14%  0.008 80);
+  --bg-elev:   oklch(18%  0.010 80);
+  --bg-code:   oklch(22%  0.012 80);
+  --bg-hl:     oklch(24%  0.014 80);
+  --bg-side:   oklch(16%  0.008 80);
+  --ink:       oklch(94%  0.005 80);
+  --ink-soft:  oklch(72%  0.006 80);
+  --ink-mute:  oklch(54%  0.008 80);
+  --ink-inv:   oklch(14%  0.008 80);
+  --rule:      oklch(28%  0.010 80);
+  --rule-strong: oklch(40% 0.012 80);
+  --acc:       oklch(72%  0.18 145);
+  --acc-soft:  oklch(28%  0.06 145);
+  --warn:      oklch(78%  0.17 70);
+  --warn-soft: oklch(28%  0.08 80);
+  --err:       oklch(72%  0.20 28);
+  --err-soft:  oklch(28%  0.10 28);
+  --info:      oklch(72%  0.18 245);
+  --info-soft: oklch(28%  0.10 245);
+  --gold:      oklch(78%  0.14 80);
+  --lab-grid:  oklch(28%  0.010 80);
+  --lab-port:  oklch(72%  0.08 250);
+}
+
+*,*::before,*::after{ box-sizing: border-box; }
+html,body{ margin:0; padding:0; }
+html{ scroll-behavior: smooth; }
+body{
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color .2s ease, color .2s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ transition: none !important; animation: none !important; }
+  html{ scroll-behavior: auto; }
+}
+
+::selection{ background: var(--acc-soft); color: var(--ink); }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.app{
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+
+.progress{
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 2px; background: transparent;
+  z-index: 100;
+}
+.progress__bar{
+  height: 100%; width: 0%;
+  background: var(--acc);
+  transition: width .1s linear;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar{
+  position: sticky; top: 0;
+  height: 100vh;
+  background: var(--bg-side);
+  border-right: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  overflow-y: auto;
+  padding: 28px 22px;
+  display: flex; flex-direction: column;
+}
+.sidebar__brand{
+  font-weight: 700;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.sidebar__brand .prompt{ color: var(--acc); }
+.sidebar__sub{
+  color: var(--ink-mute);
+  font-size: var(--fs-xs);
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--rule);
+}
+.sidebar__sub .blink{
+  animation: blink 1.1s steps(1) infinite;
+  color: var(--acc);
+}
+@keyframes blink{ 50%{ opacity: 0; } }
+
+.theme-row{
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--rule);
+}
+.theme-row__label{
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+.theme-toggle{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.theme-toggle:hover{ background: var(--bg-hl); border-color: var(--rule-strong); }
+.theme-toggle:focus-visible{ outline: 2px solid var(--acc); outline-offset: 2px; }
+.theme-toggle .icon{ display: inline-block; width: 12px; }
+
+.toc__title{
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.toc{ list-style: none; padding: 0; margin: 0 0 22px; }
+.toc li{ margin: 0; }
+.toc a{
+  display: block;
+  padding: 6px 10px 6px 14px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: background .15s, color .15s, border-color .15s;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+.toc a:hover{ background: var(--bg-hl); color: var(--ink); }
+.toc a:focus-visible{ outline: 2px solid var(--acc); outline-offset: -2px; }
+.toc a.is-active{
+  color: var(--acc);
+  border-left-color: var(--acc);
+  background: var(--acc-soft);
+  font-weight: 500;
+}
+.toc a .n{ color: var(--ink-mute); margin-right: 6px; font-weight: 400; }
+.toc a.is-active .n{ color: var(--acc); }
+
+.toc--sub{ margin: 4px 0 8px; padding-left: 18px; border-left: 1px dashed var(--rule); }
+.toc--sub a{
+  padding: 4px 10px 4px 12px;
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+}
+.toc--sub a.is-active{
+  color: var(--acc);
+  background: transparent;
+  border-left-color: var(--acc);
+  font-weight: 500;
+}
+
+.sidebar__foot{
+  margin-top: auto;
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  padding-top: 16px;
+  border-top: 1px dashed var(--rule);
+  line-height: 1.7;
+}
+.sidebar__foot kbd{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--ink);
+}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main{
+  padding: 64px var(--gutter) 96px;
+  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.hero{ margin-bottom: 64px; }
+.hero__meta{
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); margin-bottom: 24px;
+  display: flex; gap: 12px; align-items: center;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  flex-wrap: wrap;
+}
+.hero__meta::before{
+  content: ""; width: 8px; height: 8px; background: var(--acc);
+  border-radius: 1px; display: inline-block;
+}
+.hero__meta .sep{ color: var(--rule-strong); }
+.hero h1{
+  font-family: var(--sans);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  margin: 0 0 16px;
+  max-width: 22ch;
+}
+.hero__sub{
+  color: var(--ink-soft);
+  font-size: var(--fs-lg);
+  max-width: 70ch;
+  line-height: 1.55;
+  margin: 0 0 36px;
+}
+.hero__sub strong{ color: var(--ink); font-weight: 600; }
+
+.cmdline{
+  background: var(--ink);
+  color: var(--ink-inv);
+  padding: 20px 24px;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  border-radius: 6px;
+  box-shadow: 0 1px 0 var(--rule), 0 12px 32px -16px color-mix(in oklch, var(--ink) 20%, transparent);
+  overflow-x: auto;
+}
+.cmdline .p{ color: var(--acc); user-select: none; }
+.cmdline .c{ color: oklch(78% 0.008 60); }
+.cmdline .o{ color: oklch(85% 0.04 80); }
+.cmdline .ok{ color: oklch(78% 0.18 145); font-weight: 600; }
+.cmdline .warn{ color: oklch(82% 0.16 80); font-weight: 600; }
+.cmdline .err{ color: oklch(75% 0.20 28); font-weight: 600; }
+.cmdline .info{ color: oklch(75% 0.16 245); font-weight: 600; }
+.cmdline .dim{ color: oklch(60% 0.008 60); }
+.cmdline .blink{ animation: blink 1.1s steps(1) infinite; color: var(--acc); }
+
+/* ============================================================
+   SECTION
+   ============================================================ */
+.section{
+  margin: 96px 0;
+  scroll-margin-top: 32px;
+}
+.section__head{
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 18px;
+}
+.section__tag{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section__tag .hash{ color: var(--acc); }
+.section h2{
+  font-family: var(--sans);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 0;
+  display: flex; align-items: center; gap: 14px;
+}
+.section h2 .mono{ font-family: var(--mono); color: var(--ink-mute); font-weight: 500; }
+.section__lede{
+  color: var(--ink-soft);
+  font-size: var(--fs-lg);
+  margin: 14px 0 0;
+  max-width: 72ch;
+}
+.section__lede strong{ color: var(--ink); font-weight: 600; }
+
+/* anchor link */
+.anchor-link{
+  opacity: 0;
+  font-family: var(--mono);
+  color: var(--ink-mute);
+  text-decoration: none;
+  font-size: 0.65em;
+  margin-left: 8px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  transition: opacity .15s, background .15s, color .15s;
+}
+h2:hover .anchor-link,
+h3:hover .anchor-link,
+h4:hover .anchor-link,
+.anchor-link:focus-visible{ opacity: 1; }
+.anchor-link:hover{ background: var(--bg-hl); color: var(--acc); }
+.anchor-link:focus-visible{ outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* ============================================================
+   CALLOUTS
+   ============================================================ */
+.callout{
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 1px solid var(--rule);
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: var(--bg-elev);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  margin: 18px 0;
+}
+.callout__tag{
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  letter-spacing: 1.2px;
+  align-self: start;
+  padding-top: 2px;
+}
+.callout__body{ color: var(--ink-soft); }
+.callout__body p{ margin: 0 0 8px; }
+.callout__body p:last-child{ margin-bottom: 0; }
+.callout__body strong{ color: var(--ink); font-weight: 600; }
+.callout--win{  border-left-color: var(--win);   background: color-mix(in oklch, var(--acc-soft) 50%, var(--bg-elev)); }
+.callout--win  .callout__tag{ color: var(--win); }
+.callout--warn{ border-left-color: var(--warn);  background: color-mix(in oklch, var(--warn-soft) 50%, var(--bg-elev)); }
+.callout--warn .callout__tag{ color: var(--warn); }
+.callout--err{  border-left-color: var(--err);   background: color-mix(in oklch, var(--err-soft) 50%, var(--bg-elev)); }
+.callout--err  .callout__tag{ color: var(--err); }
+.callout--info{ border-left-color: var(--info);  background: color-mix(in oklch, var(--info-soft) 50%, var(--bg-elev)); }
+.callout--info .callout__tag{ color: var(--info); }
+
+/* ============================================================
+   TL;DR CARDS
+   ============================================================ */
+.tldr{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+@media (max-width: 900px){ .tldr{ grid-template-columns: 1fr; } }
+.tldr__card{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--acc);
+  padding: 24px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: transform .35s var(--ease), box-shadow .35s var(--ease);
+}
+.tldr__card:hover{ transform: translateY(-3px); box-shadow: 0 12px 24px -16px color-mix(in oklch, var(--ink) 24%, transparent); }
+.tldr__card--win{ border-top-color: var(--win); }
+.tldr__card--info{ border-top-color: var(--info); }
+.tldr__card--err{ border-top-color: var(--err); }
+.tldr__head{
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); letter-spacing: 1.2px;
+}
+.tldr__head .status{ font-weight: 700; }
+.tldr__head .status.ok{ color: var(--win); }
+.tldr__head .status.info{ color: var(--info); }
+.tldr__head .status.err{ color: var(--err); }
+.tldr__title{
+  font-size: var(--fs-xl); font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.2; margin: 0;
+}
+.tldr__title code{ font-family: var(--mono); background: var(--bg-code); padding: 2px 6px; border-radius: 3px; font-size: 0.85em; }
+.tldr__body{ color: var(--ink-soft); font-size: var(--fs-sm); line-height: 1.6; }
+.tldr__body strong{ color: var(--ink); font-weight: 600; }
+
+/* ============================================================
+   FILTER CHIPS (sobre tabla maestra)
+   ============================================================ */
+.chips{
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 24px 0 16px;
+}
+.chip{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.chip:hover{ background: var(--bg-hl); border-color: var(--rule-strong); color: var(--ink); }
+.chip:focus-visible{ outline: 2px solid var(--acc); outline-offset: 2px; }
+.chip.is-active{
+  background: var(--acc);
+  border-color: var(--acc);
+  color: var(--ink-inv);
+  font-weight: 600;
+}
+[data-theme="dark"] .chip.is-active{ color: var(--bg); }
+
+/* ============================================================
+   TABLES (maestra y binaria)
+   ============================================================ */
+.tbl-wrap{
+  margin: 18px 0 28px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow-x: auto;
+  background: var(--bg-elev);
+}
+.tbl{
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  min-width: 720px;
+}
+.tbl th, .tbl td{
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  line-height: 1.5;
+}
+.tbl thead th{
+  background: var(--bg-side);
+  font-weight: 700;
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: sticky; top: 0;
+  border-bottom: 2px solid var(--rule-strong);
+}
+.tbl tbody tr:hover{ background: color-mix(in oklch, var(--bg-hl) 50%, transparent); }
+.tbl tbody tr:last-child td{ border-bottom: 0; }
+.tbl td .row-name{ font-weight: 700; color: var(--ink); }
+.tbl td .row-sub{ color: var(--ink-mute); font-size: 0.9em; display: block; margin-top: 2px; }
+.tbl td.ok{ color: var(--acc); }
+.tbl td.warn{ color: var(--warn); }
+.tbl td.err{ color: var(--err); }
+.tbl td.no{ color: var(--ink-mute); }
+.tbl td .yes{ color: var(--acc); font-weight: 600; }
+.tbl td .no-i{ color: var(--ink-mute); font-weight: 600; }
+.tbl td .partial{ color: var(--warn); font-weight: 600; }
+
+/* tabla binaria: cells centradas con icono */
+.tbl--binary td:not(:first-child){ text-align: center; font-size: var(--fs-base); }
+.tbl--binary td:not(:first-child) .marker{
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.tbl--binary .m-ok{ background: var(--acc-soft); color: var(--acc); }
+.tbl--binary .m-no{ background: var(--bg-hl); color: var(--ink-mute); }
+.tbl--binary .m-partial{ background: var(--warn-soft); color: var(--warn); }
+.tbl--binary .m-na{ background: repeating-linear-gradient(45deg, var(--bg-elev), var(--bg-elev) 3px, var(--bg-hl) 3px, var(--bg-hl) 6px); color: var(--ink-mute); }
+
+/* hidden cols (via filter chips) */
+.tbl [hidden]{ display: none !important; }
+
+/* ============================================================
+   MATRIX 5×5 — compatibilidad cruzada (icónico)
+   ============================================================ */
+.matrix-wrap{
+  margin: 24px 0;
+  overflow-x: auto;
+}
+.matrix{
+  display: grid;
+  grid-template-columns: 240px repeat(5, minmax(120px, 1fr));
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-elev);
+  min-width: 800px;
+}
+.matrix__cell{
+  padding: 14px 12px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  min-height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  text-align: center;
+}
+.matrix__cell:nth-child(6n){ border-right: 0; }
+.matrix__cell--head{
+  background: var(--bg-side);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  letter-spacing: 1px;
+  color: var(--ink);
+  text-transform: uppercase;
+}
+.matrix__cell--row{
+  background: var(--bg-side);
+  font-weight: 600;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: var(--fs-sm);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.matrix__cell--corner{ background: var(--bg-hl); }
+.matrix__cell--self{
+  background: repeating-linear-gradient(45deg,
+    var(--bg-elev), var(--bg-elev) 4px,
+    var(--bg-hl) 4px, var(--bg-hl) 8px);
+  color: var(--ink-mute);
+  cursor: not-allowed;
+}
+.matrix__cell--ok{
+  background: color-mix(in oklch, var(--acc-soft) 70%, var(--bg-elev));
+  color: var(--acc);
+  font-weight: 700;
+  font-size: var(--fs-lg);
+}
+.matrix__cell--warn{
+  background: color-mix(in oklch, var(--warn-soft) 70%, var(--bg-elev));
+  color: var(--warn);
+  font-weight: 700;
+  font-size: var(--fs-lg);
+  cursor: help;
+}
+.matrix__cell--err{
+  background: color-mix(in oklch, var(--err-soft) 70%, var(--bg-elev));
+  color: var(--err);
+  font-weight: 700;
+  font-size: var(--fs-lg);
+  cursor: help;
+}
+.matrix__cell[data-tooltip]{ cursor: help; transition: transform .15s var(--ease); }
+.matrix__cell[data-tooltip]:hover,
+.matrix__cell[data-tooltip]:focus-visible{
+  transform: scale(1.04);
+  z-index: 2;
+  outline: 2px solid var(--acc);
+  outline-offset: -2px;
+}
+.matrix__legend{
+  display: flex; flex-wrap: wrap; gap: 16px;
+  margin-top: 14px;
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute);
+}
+.matrix__legend span{ display: inline-flex; align-items: center; gap: 6px; }
+.matrix__legend .sq{
+  display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+}
+.matrix__legend .sq--ok{ background: color-mix(in oklch, var(--acc-soft) 70%, var(--bg-elev)); border: 1px solid var(--acc); }
+.matrix__legend .sq--warn{ background: color-mix(in oklch, var(--warn-soft) 70%, var(--bg-elev)); border: 1px solid var(--warn); }
+.matrix__legend .sq--err{ background: color-mix(in oklch, var(--err-soft) 70%, var(--bg-elev)); border: 1px solid var(--err); }
+.matrix__legend .sq--self{
+  background: repeating-linear-gradient(45deg,
+    var(--bg-elev), var(--bg-elev) 3px,
+    var(--bg-hl) 3px, var(--bg-hl) 6px);
+  border: 1px solid var(--rule);
+}
+
+/* tooltip flotante */
+.tooltip{
+  position: fixed;
+  background: var(--ink);
+  color: var(--ink-inv);
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  max-width: 280px;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -100%) translateY(-8px);
+  transition: opacity .12s ease-out;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.4);
+}
+.tooltip.is-visible{ opacity: 1; }
+.tooltip::after{
+  content: ""; position: absolute;
+  bottom: -6px; left: 50%; transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--ink);
+}
+
+/* ============================================================
+   PORTS DIAGRAM (SVG blueprint)
+   ============================================================ */
+.ports{
+  margin: 24px 0;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background:
+    radial-gradient(circle, var(--lab-grid) 1px, transparent 1px),
+    var(--bg-elev);
+  background-size: 18px 18px;
+  padding: 32px 24px;
+  overflow-x: auto;
+}
+.ports svg{
+  display: block;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 920px;
+  height: auto;
+}
+.ports__legend{
+  display: flex; flex-wrap: wrap; gap: 18px;
+  margin-top: 18px;
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute);
+}
+.ports__fallback{
+  margin-top: 20px;
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-soft);
+}
+.ports__fallback summary{
+  cursor: pointer;
+  padding: 6px 10px;
+  background: var(--bg-hl);
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* ============================================================
+   FICHA (sistema)
+   ============================================================ */
+.ficha{
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  padding: 28px 32px;
+  margin: 32px 0;
+  position: relative;
+}
+.ficha__head{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: start;
+  padding-bottom: 18px;
+  border-bottom: 1px dashed var(--rule);
+  margin-bottom: 24px;
+}
+.ficha__title{
+  font-family: var(--mono);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.ficha__title .num{ color: var(--ink-mute); font-weight: 500; margin-right: 8px; }
+.ficha__title .org{ color: var(--ink-mute); font-weight: 400; font-size: 0.7em; margin-left: 8px; }
+.ficha__badges{
+  display: flex; gap: 6px; flex-wrap: wrap;
+  justify-content: flex-end;
+  font-family: var(--mono); font-size: var(--fs-xs);
+}
+.badge{
+  padding: 3px 8px; border-radius: 3px;
+  background: var(--bg-hl);
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.badge--license{ color: var(--info); border-color: color-mix(in oklch, var(--info) 30%, var(--rule)); }
+.badge--stars{ color: var(--gold); border-color: color-mix(in oklch, var(--gold) 30%, var(--rule)); }
+.badge--ver{ color: var(--acc); border-color: color-mix(in oklch, var(--acc) 30%, var(--rule)); }
+.badge--warn{ color: var(--warn); border-color: color-mix(in oklch, var(--warn) 30%, var(--rule)); }
+
+.ficha__strip{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  background: var(--bg-hl);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+.ficha__strip dt{
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.ficha__strip dd{
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+.ficha__strip dd .neg{ color: var(--ink-mute); font-weight: 400; }
+
+.ficha h4{
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 28px 0 10px;
+  color: var(--ink);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 8px;
+}
+.ficha h4 .h4-num{
+  font-family: var(--mono);
+  color: var(--ink-mute);
+  font-size: 0.7em;
+  font-weight: 500;
+}
+
+.ficha p{ margin: 10px 0; color: var(--ink-soft); }
+.ficha p strong{ color: var(--ink); font-weight: 600; }
+.ficha ul{ padding-left: 22px; margin: 10px 0; color: var(--ink-soft); }
+.ficha ul li{ margin: 6px 0; }
+.ficha ol{ padding-left: 22px; margin: 10px 0; color: var(--ink-soft); }
+.ficha ol li{ margin: 6px 0; }
+.ficha code{
+  font-family: var(--mono);
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+
+.ficha__verdict{
+  border-left: 4px solid var(--info);
+  background: color-mix(in oklch, var(--info-soft) 50%, var(--bg-elev));
+  padding: 16px 20px;
+  margin: 20px 0;
+  border-radius: 4px;
+  font-style: italic;
+}
+.ficha__verdict strong{ font-style: normal; }
+.ficha__verdict::before{
+  content: "VEREDICTO";
+  display: block;
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--info);
+  margin-bottom: 8px;
+}
+
+/* tabla pequeña dentro de ficha */
+.ficha .tbl-wrap{ background: transparent; }
+
+/* ============================================================
+   IDEAS ROBABLES (cards apilables)
+   ============================================================ */
+.ideas{
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 8px;
+}
+.idea{
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg-elev);
+  padding: 16px 20px 16px 56px;
+  position: relative;
+  transition: border-color .15s, box-shadow .15s;
+}
+.idea__tag{
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 40px;
+  background: var(--bg-hl);
+  border-right: 1px solid var(--rule);
+  border-radius: 6px 0 0 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-mute);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 1.5px;
+}
+.idea__head{
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.idea__num{
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); font-weight: 600;
+}
+.idea__title{
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  flex: 1;
+}
+.idea__body{
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  margin-top: 6px;
+}
+.idea__body code{ background: var(--bg-code); padding: 1px 5px; border-radius: 3px; font-family: var(--mono); font-size: 0.88em; }
+
+.idea__actions{
+  display: flex; gap: 8px;
+  margin-top: 10px;
+  font-family: var(--mono); font-size: var(--fs-xs);
+}
+.idea__prio{
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-mute);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  transition: all .15s;
+}
+.idea__prio:hover{ background: var(--bg-hl); color: var(--ink); }
+.idea__prio:focus-visible{ outline: 2px solid var(--acc); outline-offset: 2px; }
+.idea__prio.is-active{
+  background: var(--acc);
+  color: var(--ink-inv);
+  border-color: var(--acc);
+  font-weight: 600;
+}
+[data-theme="dark"] .idea__prio.is-active{ color: var(--bg); }
+
+.idea.is-prio{ border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc); }
+.idea.is-prio .idea__tag{ background: var(--acc-soft); color: var(--acc); }
+
+/* ============================================================
+   FINDINGS — dos columnas contrastadas
+   ============================================================ */
+.findings{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 24px 0;
+}
+@media (max-width: 900px){ .findings{ grid-template-columns: 1fr; } }
+.findings__col{
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 20px 22px;
+}
+.findings__col--repeated{
+  background: color-mix(in oklch, var(--acc-soft) 25%, var(--bg-elev));
+  border-color: color-mix(in oklch, var(--acc) 25%, var(--rule));
+}
+.findings__col--gaps{
+  background: color-mix(in oklch, var(--warn-soft) 25%, var(--bg-elev));
+  border-color: color-mix(in oklch, var(--warn) 25%, var(--rule));
+}
+.findings__title{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 0 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed currentColor;
+}
+.findings__col--repeated .findings__title{ color: var(--acc); }
+.findings__col--gaps .findings__title{ color: var(--warn); }
+.findings__list{
+  list-style: none;
+  padding: 0; margin: 0;
+}
+.findings__list li{
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  border-bottom: 1px dashed var(--rule);
+}
+.findings__list li:last-child{ border-bottom: 0; }
+.findings__list .icon{
+  font-family: var(--mono); font-weight: 700;
+  font-size: var(--fs-base);
+}
+.findings__col--repeated .icon{ color: var(--acc); }
+.findings__col--gaps .icon{ color: var(--warn); }
+.findings__list strong{ color: var(--ink); font-weight: 600; }
+.findings__list code{
+  font-family: var(--mono);
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+
+/* ============================================================
+   CHECKLIST INTERACTIVO
+   ============================================================ */
+.checklist{
+  display: flex; flex-direction: column;
+  gap: 10px;
+  margin: 24px 0;
+}
+.check{
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: var(--bg-elev);
+  align-items: start;
+  transition: border-color .15s, background .15s;
+  cursor: pointer;
+}
+.check:hover{ background: var(--bg-hl); }
+.check:focus-within{ outline: 2px solid var(--acc); outline-offset: 2px; }
+.check input{
+  width: 18px; height: 18px;
+  margin-top: 3px;
+  accent-color: var(--acc);
+  cursor: pointer;
+}
+.check__body{ display: block; }
+.check__head{
+  display: flex; gap: 10px; align-items: baseline;
+  margin-bottom: 4px;
+}
+.check__num{
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); font-weight: 600;
+  letter-spacing: 1px;
+}
+.check__title{
+  font-family: var(--sans);
+  font-weight: 600;
+  color: var(--ink);
+  font-size: var(--fs-base);
+}
+.check__desc{
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.check__desc code{
+  font-family: var(--mono);
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+.check.is-prio{
+  border-color: var(--acc);
+  background: color-mix(in oklch, var(--acc-soft) 30%, var(--bg-elev));
+  order: -1;
+}
+.check.is-prio .check__num{ color: var(--acc); }
+
+.check__count{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  text-align: right;
+  margin-top: 8px;
+  letter-spacing: 1px;
+}
+.check__count strong{ color: var(--acc); font-weight: 700; }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer{
+  margin-top: 96px;
+  padding-top: 32px;
+  border-top: 1px dashed var(--rule);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.footer .end{ color: var(--acc); }
+
+/* ============================================================
+   TOAST (copy link feedback)
+   ============================================================ */
+.toast{
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--ink);
+  color: var(--ink-inv);
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .15s ease, transform .15s ease;
+  z-index: 95;
+  pointer-events: none;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.4);
+}
+.toast.is-visible{ opacity: 1; transform: translateY(0); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1024px){
+  .app{ grid-template-columns: 1fr; }
+  .sidebar{
+    position: relative; height: auto;
+    border-right: 0; border-bottom: 1px solid var(--rule);
+    padding: 18px 22px;
+  }
+  .main{ padding: 32px var(--gutter) 64px; }
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+.text-mono{ font-family: var(--mono); }
+.text-mute{ color: var(--ink-mute); }
+.text-acc{ color: var(--acc); }
+.warn-mark{ color: var(--warn); font-family: var(--mono); font-size: 0.88em; }
+.kbd{
+  font-family: var(--mono);
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.85em;
+  color: var(--ink);
+}
+</style>
+</head>
+
+<body>
+
+<div class="progress" aria-hidden="true"><div class="progress__bar" id="progressBar"></div></div>
+
+<div class="app">
+
+  <!-- ============================================================
+       SIDEBAR
+       ============================================================ -->
+  <aside class="sidebar" aria-label="Tabla de contenidos">
+    <div class="sidebar__brand"><span class="prompt">$ </span>naeth/research</div>
+    <div class="sidebar__sub">paso 01 · mapeo de interfaces<span class="blink"> _</span></div>
+
+    <div class="theme-row">
+      <span class="theme-row__label">tema</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+        <span class="icon" id="themeIcon">☾</span> <span id="themeLabel">dark</span>
+      </button>
+    </div>
+
+    <h3 class="toc__title">Secciones</h3>
+    <nav>
+      <ul class="toc" id="toc">
+        <li><a href="#tldr"><span class="n">00</span>tl;dr</a></li>
+        <li><a href="#resumen"><span class="n">01</span>resumen ejecutivo</a></li>
+        <li>
+          <a href="#fichas"><span class="n">02</span>fichas técnicas</a>
+          <ul class="toc toc--sub">
+            <li><a href="#f-mcp-memory">mcp-memory-service</a></li>
+            <li><a href="#f-hindsight">hindsight</a></li>
+            <li><a href="#f-cognee">cognee</a></li>
+            <li><a href="#f-basic-memory">basic memory</a></li>
+            <li><a href="#f-graphiti">graphiti</a></li>
+          </ul>
+        </li>
+        <li><a href="#matrix"><span class="n">03</span>matriz cruzada 5×5</a></li>
+        <li><a href="#findings"><span class="n">04</span>hallazgos transversales</a></li>
+        <li><a href="#preguntas"><span class="n">05</span>preguntas paso 2</a></li>
+        <li><a href="#anti-doc"><span class="n">06</span>lo que NO está aquí</a></li>
+      </ul>
+    </nav>
+
+    <div class="sidebar__foot">
+      <div>shortcut: <kbd>t</kbd> tema · <kbd>g</kbd> ir-a</div>
+      <div style="margin-top:8px">v1.0 · 2026-05-21</div>
+    </div>
+  </aside>
+
+  <!-- ============================================================
+       MAIN
+       ============================================================ -->
+  <main class="main">
+
+    <!-- HERO -->
+    <header class="hero">
+      <div class="hero__meta">
+        <span>2026-05-21</span>
+        <span class="sep">·</span>
+        <span>paso 1 de 4</span>
+        <span class="sep">·</span>
+        <span>análisis documental puro</span>
+        <span class="sep">·</span>
+        <span>5 sistemas</span>
+      </div>
+      <h1>Mapeo de interfaces e integrabilidad</h1>
+      <p class="hero__sub">
+        Antes de forkear nada, antes de un spike, antes incluso de las arquitecturas en papel:
+        <strong>¿son los 5 sistemas top buenos ciudadanos en una arquitectura compuesta</strong>,
+        o son cajas cerradas que quieren dueñar todo el stack? Este documento contesta esa pregunta
+        sólo leyendo READMEs, código en GitHub, papers e issues. Cero install.
+      </p>
+
+      <pre class="cmdline" aria-hidden="true">
+<span class="p">$</span> <span class="o">paso1</span> --analyze=5 --no-install --cite-evidence
+<span class="dim">›</span> mapping mcp-memory-service     <span class="ok">[ok]</span>  apache-2.0 · 18+ mcp tools · sqlite-vec
+<span class="dim">›</span> mapping hindsight               <span class="ok">[ok]</span>  mit · 26 mcp tools · postgres pg0
+<span class="dim">›</span> mapping cognee                  <span class="ok">[ok]</span>  apache-2.0 · ecl pipeline · poly-store
+<span class="dim">›</span> mapping basic-memory            <span class="ok">[ok]</span>  agpl-3.0 · 23 mcp tools · md+sqlite
+<span class="dim">›</span> mapping graphiti                <span class="ok">[ok]</span>  apache-2.0 · 9 mcp tools · kg temporal
+
+<span class="ok">[done]</span> 5/5 fichas completas
+<span class="warn">[warn]</span> 11 claims marcados ⚠ no verificable desde docs/código
+<span class="info">[next]</span> paso2-architecture-papers.md (3 arquitecturas candidatas en papel)<span class="blink"> _</span>
+</pre>
+    </header>
+
+    <!-- ============================================================
+         §00 TL;DR
+         ============================================================ -->
+    <section id="tldr" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§00</span><span>tl;dr</span></div>
+        <h2>Tres titulares en cinco frases <a class="anchor-link" href="#tldr" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Si solo lees esto, lleva tres cosas: <strong>quién es el mejor ciudadano</strong>,
+          <strong>quién es el más potente pero menos cooperativo</strong>, y
+          <strong>cuál es el principal riesgo de adoptar uno como base</strong>.
+        </p>
+      </div>
+
+      <div class="tldr">
+        <article class="tldr__card tldr__card--win">
+          <header class="tldr__head"><span>mejor ciudadano</span><span class="status ok">[ok]</span></header>
+          <h3 class="tldr__title"><code>Basic Memory</code></h3>
+          <p class="tldr__body">
+            Su storage <strong>es</strong> Markdown en disco. Cualquier sistema externo escribe/lee los
+            mismos archivos sin pedir permiso; <code>watchfiles</code> reindexa automáticamente.
+            Triple superficie (MCP + REST + CLI), tool annotations bien declaradas. Único bemol: licencia
+            <strong>AGPL-3.0</strong> — fricción si Naeth se monetiza como SaaS.
+          </p>
+        </article>
+
+        <article class="tldr__card tldr__card--info">
+          <header class="tldr__head"><span>más potente, menos cooperativo</span><span class="status info">[info]</span></header>
+          <h3 class="tldr__title"><code>Hindsight</code></h3>
+          <p class="tldr__body">
+            91.4% LongMemEval (Gemini-3), 83.6% con OSS-20B local. El valor está en el stack
+            <strong>TEMPR</strong> + RRF + cross-encoder funcionando como sistema cerrado. Viable como
+            caja-negra federada detrás de router, no como librería de componentes sueltos. <strong>No
+            acepta embeddings precomputados</strong>.
+          </p>
+        </article>
+
+        <article class="tldr__card tldr__card--err">
+          <header class="tldr__head"><span>mayor riesgo de adopción</span><span class="status err">[risk]</span></header>
+          <h3 class="tldr__title"><code>mcp-memory-service</code></h3>
+          <p class="tldr__body">
+            Bus factor <strong>1</strong> (single maintainer <code>doobidoo</code>, 2298 commits vs siguiente 36).
+            Cadencia 1 release cada 3 días → mantener fork tight es caro. Mejor integrar vía REST/MCP estable
+            que forkear. La inconsistencia README "24 tools" vs código "~18 + aliases" da pista del estilo.
+          </p>
+        </article>
+      </div>
+
+      <div class="callout callout--info">
+        <span class="callout__tag">decisión</span>
+        <div class="callout__body">
+          <p>Ningún sistema del top 5 cumple los 6 ejes a la vez. <strong>El 40/40 hipotético solo es alcanzable componiendo capas especializadas</strong> — esa es la tesis a investigar en el Paso 2, no a asumir aquí.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §01 RESUMEN EJECUTIVO + TABLA MAESTRA
+         ============================================================ -->
+    <section id="resumen" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§01</span><span>resumen ejecutivo</span></div>
+        <h2>Tabla maestra de integrabilidad <a class="anchor-link" href="#resumen" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Filtros sobre los aspectos clave de integración. Por defecto se muestra todo;
+          usa los chips para aislar una dimensión.
+        </p>
+      </div>
+
+      <div class="chips" role="tablist" aria-label="Filtrar columnas">
+        <button class="chip is-active" role="tab" aria-selected="true" data-filter="all">todo</button>
+        <button class="chip" role="tab" aria-selected="false" data-filter="api">APIs</button>
+        <button class="chip" role="tab" aria-selected="false" data-filter="storage">storage</button>
+        <button class="chip" role="tab" aria-selected="false" data-filter="concurrency">concurrencia</button>
+        <button class="chip" role="tab" aria-selected="false" data-filter="extra">runtime</button>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="tbl" id="tblMaster">
+          <thead>
+            <tr>
+              <th>sistema</th>
+              <th data-col="api">licencia real</th>
+              <th data-col="api">api no-mcp</th>
+              <th data-col="storage">import / export</th>
+              <th data-col="storage">write-through externo</th>
+              <th data-col="concurrency">concurrencia segura</th>
+              <th data-col="extra">idea robable principal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="row-name">mcp-memory-service</span><span class="row-sub">doobidoo · v10.63.0</span></td>
+              <td data-col="api" class="ok">Apache-2.0</td>
+              <td data-col="api">REST FastAPI (76 endpoints) + CLI + SDK Python</td>
+              <td data-col="storage"><span class="yes">Sí</span> · <code>memory_ingest</code> + scripts migración</td>
+              <td data-col="storage"><span class="no-i">No</span> — siempre regenera embedding</td>
+              <td data-col="concurrency"><span class="yes">Buena</span> WAL + doble lock</td>
+              <td data-col="extra">Tool annotations + backends conmutables tras ABC <code>MemoryStorage</code></td>
+            </tr>
+            <tr>
+              <td><span class="row-name">Hindsight</span><span class="row-sub">Vectorize · v0.6.2</span></td>
+              <td data-col="api" class="ok">MIT <span class="warn-mark">⚠</span></td>
+              <td data-col="api">REST <code>/v1</code> + SDK Py/TS + Helm chart</td>
+              <td data-col="storage">Solo vía <code>pg_dump</code> (sin export REST)</td>
+              <td data-col="storage"><span class="no-i">No</span> — pipeline <code>cognify</code> obligatorio</td>
+              <td data-col="concurrency"><span class="yes">ACID</span> Postgres + worker slots</td>
+              <td data-col="extra">Stack <strong>TEMPR</strong> (4 retrievers paralelos) + RRF + cross-encoder reranker</td>
+            </tr>
+            <tr>
+              <td><span class="row-name">Cognee</span><span class="row-sub">topoteretes · v1.1.0</span></td>
+              <td data-col="api" class="ok">Apache-2.0</td>
+              <td data-col="api">REST + SDK Py + CLI + Vercel adapter + Rust SDK</td>
+              <td data-col="storage">Ingesta 30+ connectors; sin export REST canónico <span class="warn-mark">⚠</span></td>
+              <td data-col="storage"><span class="partial">Parcial</span> — DataPoints permiten saltar <code>extract_graph</code></td>
+              <td data-col="concurrency">Eventual entre 3 stores (sin tx distribuida)</td>
+              <td data-col="extra">Plugin Claude Code con <strong>5 hooks</strong> de session lifecycle</td>
+            </tr>
+            <tr>
+              <td><span class="row-name">Basic Memory</span><span class="row-sub">basicmachines-co · v0.21.1</span></td>
+              <td data-col="api" class="warn"><strong>AGPL-3.0</strong></td>
+              <td data-col="api">REST FastAPI v2 (10 routers) + CLI Typer</td>
+              <td data-col="storage"><span class="yes">Trivial</span> — el storage <strong>es</strong> Markdown en disco</td>
+              <td data-col="storage"><span class="yes">Sí, nativo</span> — <code>watchfiles</code> reindexa al detectar archivo nuevo</td>
+              <td data-col="concurrency"><span class="partial">Last-write-wins</span> (sin file locks)</td>
+              <td data-col="extra">Storage = MD legible por humanos + wikilinks como grafo emergente</td>
+            </tr>
+            <tr>
+              <td><span class="row-name">Graphiti</span><span class="row-sub">getzep · v0.29.0</span></td>
+              <td data-col="api" class="ok">Apache-2.0</td>
+              <td data-col="api">REST FastAPI + SDK Python <code>graphiti-core</code></td>
+              <td data-col="storage">Sin export propio (vía backend: <code>neo4j-admin dump</code>)</td>
+              <td data-col="storage"><span class="no-i">No</span> — LLM obligatorio en <code>add_episode</code></td>
+              <td data-col="concurrency">ACID del backend + dedup con LLM (race-prone)</td>
+              <td data-col="extra">Bi-temporalidad explícita <code>valid_at</code>/<code>invalid_at</code> + episodes con provenance</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-family:var(--sans); font-size: var(--fs-xl); margin: 48px 0 12px; letter-spacing:-0.02em;">
+        Tabla binaria de patrones <a class="anchor-link" href="#resumen" aria-label="copiar enlace">#</a>
+      </h3>
+      <p style="color:var(--ink-soft); margin: 0 0 14px; max-width: 72ch;">
+        ¿Qué tiene y qué no cada sistema en 16 capacidades clave. Aquí se ven los <em>huecos comunes</em> a simple vista.
+      </p>
+
+      <div class="tbl-wrap">
+        <table class="tbl tbl--binary">
+          <thead>
+            <tr>
+              <th>capacidad</th>
+              <th>mcp-mem</th>
+              <th>hindsight</th>
+              <th>cognee</th>
+              <th>basic-mem</th>
+              <th>graphiti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>MCP server first-class</td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td></tr>
+            <tr><td>REST / HTTP API estable</td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td></tr>
+            <tr><td>SDK Python</td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-partial">CLI</span></td><td><span class="marker m-ok">✓</span></td></tr>
+            <tr><td>SDK JS / TS</td><td><span class="marker m-no">✗</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-no">✗</span></td></tr>
+            <tr><td>Tool annotations FastMCP</td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-partial">?</span></td><td><span class="marker m-partial">?</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-partial">?</span></td></tr>
+            <tr><td>Embedding pre-computado externo aceptado</td><td><span class="marker m-no">✗</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-partial">parcial</span></td><td><span class="marker m-na">n/a</span></td><td><span class="marker m-no">✗</span></td></tr>
+            <tr><td>Hooks / eventos al escribir</td><td><span class="marker m-partial">SSE</span></td><td><span class="marker m-partial">poll</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-no">✗</span></td></tr>
+            <tr><td>Storage soberanía (human-readable)</td><td><span class="marker m-no">✗</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-no">✗</span></td></tr>
+            <tr><td>Razonamiento temporal nativo</td><td><span class="marker m-partial">NL</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-partial">FM</span></td><td><span class="marker m-ok">✓✓</span></td></tr>
+            <tr><td>Multi-tenant nativo</td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td></tr>
+            <tr><td>Backend conmutable</td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-ok">✓</span></td></tr>
+            <tr><td>Embeddings 100% local sin API</td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-ok">✓</span></td></tr>
+            <tr><td>LLM obligatorio en path escritura</td><td><span class="marker m-no">✗</span></td><td><span class="marker m-ok">!</span></td><td><span class="marker m-ok">!</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-ok">!</span></td></tr>
+            <tr><td>Multi-cliente concurrente probado</td><td><span class="marker m-partial">caveat</span></td><td><span class="marker m-ok">✓</span></td><td><span class="marker m-partial">⚠</span></td><td><span class="marker m-partial">LWW</span></td><td><span class="marker m-ok">ACID</span></td></tr>
+            <tr><td>Bus factor visible</td><td><span class="marker m-no">1</span></td><td><span class="marker m-ok">Inc.</span></td><td><span class="marker m-ok">80+</span></td><td><span class="marker m-partial">org</span></td><td><span class="marker m-ok">Zep</span></td></tr>
+            <tr><td>Webhooks salientes estándar</td><td><span class="marker m-no">✗</span></td><td><span class="marker m-partial">⚠</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-no">✗</span></td><td><span class="marker m-no">✗</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout--warn">
+        <span class="callout__tag">patrón</span>
+        <div class="callout__body">
+          <p>Mira la fila <strong>"webhooks salientes estándar"</strong>: prácticamente <code>✗</code> en los 5. Y <strong>"embedding pre-computado externo aceptado"</strong>: igual. <strong>Estos dos huecos definen el espacio donde Naeth puede aportar</strong> sin reinventar la rueda.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §02 FICHAS TÉCNICAS
+         ============================================================ -->
+    <section id="fichas" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§02</span><span>fichas técnicas</span></div>
+        <h2>Cinco fichas, mismo esquema <a class="anchor-link" href="#fichas" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Datos básicos · superficie · modelo de datos · escritura · lectura · import/export · concurrencia · runtime · upstream · veredicto · <strong>ideas robables</strong> (lo más valioso).
+        </p>
+      </div>
+
+      <!-- ===== FICHA 1: mcp-memory-service ===== -->
+      <article class="ficha" id="f-mcp-memory">
+        <header class="ficha__head">
+          <h3 class="ficha__title">
+            <span class="num">2.1</span>mcp-memory-service<span class="org">doobidoo</span>
+            <a class="anchor-link" href="#f-mcp-memory" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--license">Apache-2.0</span>
+            <span class="badge badge--ver">v10.63.0</span>
+            <span class="badge badge--stars">~1.9k★</span>
+            <span class="badge badge--warn">bus factor 1</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>puertos</dt><dd>:8000 REST · :8765 MCP SSE</dd></div>
+          <div><dt>storage default</dt><dd>SQLite-vec</dd></div>
+          <div><dt>LLM en write</dt><dd><span class="neg">no</span></dd></div>
+          <div><dt>cadencia</dt><dd>~3-5 días / release</dd></div>
+          <div><dt>último release</dt><dd>2026-05-20</dd></div>
+        </dl>
+
+        <h4><span class="h4-num">a</span>Superficie de integración</h4>
+        <p>~18 MCP tools modernas en <code>server_impl.py</code> (no 24 como dice el README — el resto son aliases legacy en <code>compat.py</code>). REST FastAPI con <strong>76 endpoints</strong>, OAuth 2.1 con Dynamic Client Registration, header <code>X-Agent-ID</code>. Dashboard React con 8 pestañas y SSE en vivo. CLI con entry points <code>memory</code>, <code>memory-server</code>, <code>mcp-memory-server</code>. <strong>No hay SDK JS oficial.</strong></p>
+
+        <h4><span class="h4-num">b</span>Modelo de datos</h4>
+        <p>Clase <code>Memory</code> con identidad por <code>content_hash</code> externo (no UUID interno). Metadata extensible vía dict libre + propiedades SHODH (<code>quality_score</code>, <code>credibility</code>, <code>emotion</code>, <code>episode_id</code>, <code>sequence_number</code>). Ontología validada de 9-12 tipos base extensible por env var <code>MCP_CUSTOM_MEMORY_TYPES</code>.</p>
+
+        <h4><span class="h4-num">c</span>Operaciones de escritura · lectura</h4>
+        <p><strong>Embedding pre-computado NO se acepta en flujo normal.</strong> <code>sqlite_vec.py:_generate_embedding(memory.content)</code> siempre regenera. Solo <code>MCP_EXTERNAL_EMBEDDING_URL</code> permite usar Ollama/vLLM/TEI — pero el servidor llama, no recibe vector ya hecho. <strong>Cuello de botella para arquitecturas federadas.</strong></p>
+        <p>Lectura: semantic (<code>retrieve</code>), hybrid BM25+vector (RRF), tag-based, temporal NL (<code>memory_recall</code> parsea expresiones en lenguaje natural), por tipo, graph traversal (<code>memory_graph</code>).</p>
+
+        <h4><span class="h4-num">d</span>Concurrencia · upstream</h4>
+        <p>WAL mode + doble lock (asyncio + threading). Last-write-wins por <code>content_hash</code>. SHODH UMAS v1.0.0 mencionado en README pero <span class="warn-mark">⚠ no se encuentra la spec ni en docs/ ni en wiki</span> — posible vapor.</p>
+        <p><strong>Bus factor 1.</strong> <code>doobidoo</code> con ~2298 commits; siguiente top contributor con ~36. Últimos 3 meses ~6 logins únicos (incluyendo dependabot). Esencialmente single-maintainer aunque con tracción y cadencia altísima (27+ releases en mayo 2026 solo).</p>
+
+        <div class="ficha__verdict">
+          <strong>Ciudadano técnicamente correcto pero territorialmente expansivo.</strong> La ABC <code>MemoryStorage</code> (11 métodos) es superficie limpia, pero el sistema asume que <em>él</em> computa embedding, gestiona consolidación, sirve dashboard, define ontología y es broker MCP. Sin webhooks salientes ni MCP notifications. Funciona como store-of-record único detrás de adaptadores, no como pieza igualitaria. El ritmo de releases + bus factor 1 → integrar vía REST/MCP estable mejor que forkear.
+        </div>
+
+        <h4><span class="h4-num">★</span>Ideas robables</h4>
+        <div class="ideas" data-system="mcp-memory">
+          <div class="idea"><span class="idea__tag">mcp-mem</span>
+            <header class="idea__head"><span class="idea__num">#1</span><h5 class="idea__title">Tool annotations sistemáticas por tool MCP</h5></header>
+            <p class="idea__body"><code>readOnlyHint</code>/<code>destructiveHint</code>/<code>idempotentHint</code> aplicados a cada tool en <code>server_impl.py</code>. Permite policies de aprobación diferenciadas por destructividad. Replicar desde día uno.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="mcp-1">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">mcp-mem</span>
+            <header class="idea__head"><span class="idea__num">#2</span><h5 class="idea__title">Backends conmutables tras ABC mínima + factory por env var</h5></header>
+            <p class="idea__body">11 métodos en <code>MemoryStorage</code> + <code>factory.py</code> seleccionable por env. Hybrid (local+cloud) emerge como composición trivial sin migrar datos.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="mcp-2">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">mcp-mem</span>
+            <header class="idea__head"><span class="idea__num">#3</span><h5 class="idea__title">Imagen Docker <code>:quality-cpu</code> con ONNX runtime sin PyTorch</h5></header>
+            <p class="idea__body">Modelos pre-exportados en build, runtime sin <code>torch</code>. Reduce footprint un orden de magnitud sin sacrificar inferencia. Dos imágenes oficiales (full / cpu-quality) con misma API.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="mcp-3">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">mcp-mem</span>
+            <header class="idea__head"><span class="idea__num">#4</span><h5 class="idea__title">Ontología validada + extensible vía env var</h5></header>
+            <p class="idea__body"><code>MCP_CUSTOM_MEMORY_TYPES</code> combina rigor (tipos coercionados con warning) con apertura (subtipos custom registrables). Mejor que metadata-libre puro y mejor que enum cerrado.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="mcp-4">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">mcp-mem</span>
+            <header class="idea__head"><span class="idea__num">#5</span><h5 class="idea__title">Triada de operaciones de alto nivel sobre el mismo store</h5></header>
+            <p class="idea__body"><code>memory_recall</code> (parser NL temporal) + <code>memory_graph</code> (transitive inference) + <code>memory_consolidate</code> (dream-inspired). Es la idea de "no solo CRUD vectorial" que diferencia el repo.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="mcp-5">marcar prioridad</button></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== FICHA 2: Hindsight ===== -->
+      <article class="ficha" id="f-hindsight">
+        <header class="ficha__head">
+          <h3 class="ficha__title">
+            <span class="num">2.2</span>Hindsight<span class="org">Vectorize</span>
+            <a class="anchor-link" href="#f-hindsight" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--license">MIT <span class="warn-mark">⚠</span></span>
+            <span class="badge badge--ver">v0.6.2</span>
+            <span class="badge badge--stars">~14k★</span>
+            <span class="badge">paper arXiv:2512.12818</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>puertos</dt><dd>:8888 REST+MCP · :9999 UI</dd></div>
+          <div><dt>storage default</dt><dd>Postgres pg0 embedded</dd></div>
+          <div><dt>LLM en write</dt><dd><strong>sí</strong> (extract+cognify)</dd></div>
+          <div><dt>cadencia</dt><dd>semanal</dd></div>
+          <div><dt>último release</dt><dd>2026-05-14</dd></div>
+        </dl>
+
+        <h4><span class="h4-num">a</span>Superficie de integración</h4>
+        <p>MCP server montado en <code>/mcp/{bank_id}/</code> dentro del API server (HTTP). Binario aparte <code>hindsight-local-mcp</code> con stdio para Claude Desktop. <strong>26 MCP tools</strong> single-bank, 29 multi-bank: <code>retain</code>, <code>recall</code>, <code>reflect</code> + mental models + directives + operations + tags. REST <code>/v1/{tenant}/banks/{bank_id}/…</code>. SDKs Python (<code>hindsight-client</code>) y Node/TS (<code>@vectorize-io/hindsight-client</code>). Helm chart producción. v0.6.0 añadió Oracle 23ai backend, v0.6.1 AlloyDB ScaNN.</p>
+
+        <h4><span class="h4-num">b</span>Modelo de datos</h4>
+        <p>Tablas Postgres documentadas: <code>memories</code>, <code>entities</code>, <code>relations</code>, <code>temporal_facts</code>, <code>mental_models</code>, <code>banks</code>, <code>sessions</code>, <code>documents</code>, <code>opinions</code>. <strong>Aislamiento multi-tenant a nivel de schema Postgres</strong> vía variable de contexto <code>_current_schema</code>. El paper organiza la memoria conceptualmente en cuatro redes lógicas: <em>world facts</em>, <em>agent experiences</em>, <em>mental models</em> (synthesized entity summaries) y <em>opinions</em> (evolving beliefs).</p>
+
+        <h4><span class="h4-num">c</span>Operaciones de escritura · lectura</h4>
+        <p>Pipeline interno de 3 fases (DeepWiki): <strong>Extraction</strong> (LLM parsea contenido en atomic facts), <strong>Cognify</strong> (consolidación async por <code>hindsight-worker</code>), <strong>Indexing + Graph construction</strong>. Endpoint <code>POST /consolidate</code> para forzar cognify. <span class="warn-mark">⚠</span> No hay endpoint para inyectar <code>embedding</code> precomputado documentado.</p>
+        <p>Lectura: <strong>4 estrategias en paralelo (TEMPR)</strong> — Semantic (pgvector), Keyword (BM25), Graph (entity/temporal/causal), Temporal. Fusion por <strong>RRF + cross-encoder reranker</strong>. Budget levels <code>low|mid|high</code> modulan la activación. <span class="warn-mark">⚠</span> Selector explícito por estrategia no documentado.</p>
+
+        <h4><span class="h4-num">d</span>Concurrencia · upstream</h4>
+        <p>Postgres ACID. v0.5.5 introdujo per-operation slot reservations en worker pool. <span class="warn-mark">⚠</span> Embedded pg0 probablemente no apto para múltiples APIs apuntando al mismo data dir.</p>
+        <p>Cadencia semanal confirmada (6 releases en 4 semanas). Sponsor: Vectorize AI Inc. Benchmarks en repo separado <code>hindsight-benchmarks</code> con leaderboard reproducible. LongMemEval: <strong>Gemini-3 91.4%, OSS-120B 89.0%, OSS-20B 83.6%</strong> vs 39.0% baseline (+44.6pp). Declara explícitamente que LoComo tiene "significant flaws" y recomienda LongMemEval.</p>
+
+        <div class="ficha__verdict">
+          <strong>Quiere ser el backend.</strong> Su valor de paper sale del stack TEMPR + RRF + cross-encoder + cognify worker actuando como sistema cerrado. Sí expone API limpios y multi-tenant nativo. Como caja-negra federable detrás de un router encaja bien. Como librería para arrancar componentes sueltos encaja mal — está diseñado como producto. No hay write-through trivial; si Naeth quiere ser dueño del schema o el flujo de scoring, Hindsight resiste.
+        </div>
+
+        <h4><span class="h4-num">★</span>Ideas robables</h4>
+        <div class="ideas" data-system="hindsight">
+          <div class="idea"><span class="idea__tag">hindsight</span>
+            <header class="idea__head"><span class="idea__num">#1</span><h5 class="idea__title">Stack TEMPR: 4 retrievers paralelos + RRF + cross-encoder reranker</h5></header>
+            <p class="idea__body">Receta como default de recall. El paper muestra delta empírico de <strong>39% → 83.6%</strong> con el mismo backbone. Documentado lo bastante para replicarlo sin clonar código.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="hin-1">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">hindsight</span>
+            <header class="idea__head"><span class="idea__num">#2</span><h5 class="idea__title">Embedded Postgres (pg0) zero-setup + upgrade path</h5></header>
+            <p class="idea__body">Modo default sin servicios externos + Postgres externo / AlloyDB / Oracle como upgrade. DX de onboarding inmejorable sin sacrificar producción.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="hin-2">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">hindsight</span>
+            <header class="idea__head"><span class="idea__num">#3</span><h5 class="idea__title">Benchmarks-en-repo-aparte + reproducción en MacBook</h5></header>
+            <p class="idea__body">Credibilidad académica + barra baja para terceros que auditen. Vs Mem0/Zep que mezclan o no publican reproducibles.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="hin-3">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">hindsight</span>
+            <header class="idea__head"><span class="idea__num">#4</span><h5 class="idea__title">Vocabulario público de 3 ops + 4 redes lógicas</h5></header>
+            <p class="idea__body"><code>retain</code> / <code>recall</code> / <code>reflect</code> + <em>world / experiences / mental-models / opinions</em>. Modelo mental limpio y mapeable, distinto del "memory chunk" plano que tienen los demás.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="hin-4">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">hindsight</span>
+            <header class="idea__head"><span class="idea__num">#5</span><h5 class="idea__title">Ollama / LM Studio desde día 1 con benchmark publicado</h5></header>
+            <p class="idea__body">OSS-20B local rinde 83.6% — claim explícito sobre trade-off frontera-vs-local. Honestidad como ventaja competitiva.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="hin-5">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">hindsight</span>
+            <header class="idea__head"><span class="idea__num">#6</span><h5 class="idea__title">MCP HTTP en el mismo binario + binario local-mcp aparte (stdio)</h5></header>
+            <p class="idea__body">Cubre cloud (HTTP, multi-bank, auth header) y desktop (stdio, single-user) sin duplicar lógica. Patrón limpio.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="hin-6">marcar prioridad</button></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== FICHA 3: Cognee ===== -->
+      <article class="ficha" id="f-cognee">
+        <header class="ficha__head">
+          <h3 class="ficha__title">
+            <span class="num">2.3</span>Cognee<span class="org">topoteretes</span>
+            <a class="anchor-link" href="#f-cognee" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--license">Apache-2.0</span>
+            <span class="badge badge--ver">v1.1.0</span>
+            <span class="badge badge--stars">~17.4k★</span>
+            <span class="badge">GitHub Secure OSS</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>puertos</dt><dd>:8000 MCP HTTP</dd></div>
+          <div><dt>storage default</dt><dd>NetworkX + SQLite + LanceDB</dd></div>
+          <div><dt>LLM en write</dt><dd><strong>sí</strong> (cognify, 4-6 calls/chunk)</dd></div>
+          <div><dt>cadencia</dt><dd>varias menores / trimestre</dd></div>
+          <div><dt>último release</dt><dd>2026-05-16</dd></div>
+        </dl>
+
+        <h4><span class="h4-num">a</span>Superficie de integración</h4>
+        <p>MCP server (Docker HTTP o stdio local). <strong>Plugin Claude Code oficial con 5 hooks</strong>: <code>SessionStart</code>, <code>PostToolUse</code>, <code>UserPromptSubmit</code>, <code>PreCompact</code>, <code>SessionEnd</code>. REST API en <code>:8000/docs</code>. SDK Python (87.3% del codebase, patrón <code>add → cognify → search</code> async). CLI <code>cognee-cli</code>. SDKs extras: Vercel AI SDK adapter, Rust SDK (<code>cognee-RS</code>). Frameworks: LangGraph, Google ADK, OpenClaw, n8n, Claude Agent SDK, OpenAI Agent SDK. <span class="warn-mark">⚠</span> Conflicto de puerto <code>:8000</code> con mcp-memory-service.</p>
+
+        <h4><span class="h4-num">b</span>Modelo de datos · ECL pipeline</h4>
+        <p><strong>Extract</strong> (<code>add()</code>): content-hash, metadata. <strong>Cognify</strong> (<code>cognify()</code>): 6 tasks — classify documents → permissions → extract chunks → extract graph (LLM) → summarize text → add data points. <strong>Load</strong>: persistencia al poly-store.</p>
+        <p><strong>Poly-store</strong>: grafo (NetworkX/Neo4j/FalkorDB/Kuzu/Memgraph/Spanner/TuringDB) + vectorial (LanceDB/Qdrant/Pinecone/Weaviate/Redis/Milvus/OpenSearch/Valkey/PGVector/Azure) + relacional (SQLite/PostgreSQL/DuckDB).</p>
+        <p>Schema del KG <strong>emerge dinámicamente</strong> — sin ontología predefinida (4 prompts built-in + custom). Ontología opcional RDF/OWL externa vía <code>RDFLibOntologyResolver</code>. DataPoints Pydantic permiten ontología-like de facto.</p>
+
+        <h4><span class="h4-num">c</span>Operaciones de escritura · lectura</h4>
+        <p>¿Saltar Cognify? Sí técnicamente — <code>add()</code> y <code>cognify()</code> son ops separadas. Pero si te saltas <code>extract_graph</code> y <code>add_data_points</code> no hay grafo ni vectores: solo metadata relacional. Aceptar memoria pre-procesada requiere bypaseo de adapters — posible pero no flujo de primera clase. Idempotencia: content-hash en add + pipeline-status en cognify.</p>
+        <p>Lectura: <strong>15+ search modes</strong> (<code>SearchType</code>): <code>GRAPH_COMPLETION</code> (default), <code>RAG_COMPLETION</code>, <code>CHUNKS</code>/<code>CHUNKS_LEXICAL</code>, <code>SUMMARIES</code>, <code>TRIPLET_COMPLETION</code>, <code>GRAPH_COMPLETION_COT</code>, <code>CYPHER</code>, <code>NATURAL_LANGUAGE</code>, <code>TEMPORAL</code>, <code>CODING_RULES</code>, <code>FEELING_LUCKY</code>, <code>FEEDBACK</code>. Query a un solo store es posible — cada SearchType es elección del plano del poly-store.</p>
+
+        <h4><span class="h4-num">d</span>Concurrencia · upstream</h4>
+        <p>Search en paralelo con cognify sin global lock. LanceDB tiene commit conflicts en multi-proceso. Transacciones distribuidas <span class="warn-mark">⚠</span> no documentadas — eventual consistency entre 3 planos.</p>
+        <p>$7.5M seed funding. 80+ contributors. Adopters citados: Bayer (research workflows), University of Wyoming (evidence graph). Graduado del GitHub Secure OSS Program (ago 2025).</p>
+
+        <div class="ficha__verdict">
+          Se vende como framework pero internamente es <strong>library modular</strong>: pipeline ECL ensamblable, adapters de cada plano del poly-store sustituibles. Dicho esto, <em>quiere ser el cerebro</em>: el plugin de Claude Code engancha 5 hooks invasivos (<code>UserPromptSubmit</code> inyecta contexto, <code>SessionEnd</code> vuelca al grafo). Aceptarlo como "servicio especializado en KG generation" es viable consumiendo solo <code>cognify()</code> + <code>SearchType.CYPHER/INSIGHTS</code> sin adoptar el MCP server ni el plugin. Barrera real: 6 tasks de Cognify fuertemente acopladas al LLM.
+        </div>
+
+        <h4><span class="h4-num">★</span>Ideas robables</h4>
+        <div class="ideas" data-system="cognee">
+          <div class="idea"><span class="idea__tag">cognee</span>
+            <header class="idea__head"><span class="idea__num">#1</span><h5 class="idea__title">ECL como separation of concerns</h5></header>
+            <p class="idea__body">Tres fases nítidas: <em>Extract</em> idempotente, <em>Cognify</em> costosa-LLM, <em>Load</em> multi-store. Optimizar cada una independientemente y skipear Cognify para datos ya estructurados.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="cog-1">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">cognee</span>
+            <header class="idea__head"><span class="idea__num">#2</span><h5 class="idea__title">Poly-store con adapters comunitarios por DB</h5></header>
+            <p class="idea__body"><code>cognee-community</code> aloja paquetes por DB. Patrón limpio para no casarse con un vendor manteniendo API uniforme.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="cog-2">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">cognee</span>
+            <header class="idea__head"><span class="idea__num">#3</span><h5 class="idea__title">Plugin Claude Code con los 5 hooks de session lifecycle</h5></header>
+            <p class="idea__body"><code>SessionStart</code>/<code>UserPromptSubmit</code>/<code>PostToolUse</code>/<code>PreCompact</code>/<code>SessionEnd</code>. Cualquier sistema de memoria persistente para Claude Code debería al menos contemplar <code>PreCompact</code> y <code>SessionEnd</code>.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="cog-3">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">cognee</span>
+            <header class="idea__head"><span class="idea__num">#4</span><h5 class="idea__title">Search-type catálogo explícito + auto-routing</h5></header>
+            <p class="idea__body">15+ modos nombrados con <code>FEELING_LUCKY</code> como auto-router. Mejor UX que un endpoint <code>search()</code> opaco. NodeSets como tagging ligero ortogonal a Datasets.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="cog-4">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">cognee</span>
+            <header class="idea__head"><span class="idea__num">#5</span><h5 class="idea__title">Ontología opcional RDF/OWL externa sobre KG emergente</h5></header>
+            <p class="idea__body">Mezclar schema emergente LLM con vocabulario canónico cuando el dominio lo requiere. Patrón híbrido valioso.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="cog-5">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">cognee</span>
+            <header class="idea__head"><span class="idea__num">#6</span><h5 class="idea__title">Idempotencia content-hash + pipeline-status doble layer</h5></header>
+            <p class="idea__body">Barato, robusto, no requiere transacciones distribuidas. <code>incremental_loading=True</code> por defecto.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="cog-6">marcar prioridad</button></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== FICHA 4: Basic Memory ===== -->
+      <article class="ficha" id="f-basic-memory">
+        <header class="ficha__head">
+          <h3 class="ficha__title">
+            <span class="num">2.4</span>Basic Memory<span class="org">basicmachines-co</span>
+            <a class="anchor-link" href="#f-basic-memory" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--warn">AGPL-3.0</span>
+            <span class="badge badge--ver">v0.21.1</span>
+            <span class="badge badge--stars">~3.1k★</span>
+            <span class="badge">Obsidian-native</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>storage</dt><dd><strong>filesystem (.md)</strong> + SQLite</dd></div>
+          <div><dt>puertos</dt><dd>configurable (FastAPI)</dd></div>
+          <div><dt>LLM en write</dt><dd><span class="neg">no</span></dd></div>
+          <div><dt>cadencia</dt><dd>semanal/quincenal</dd></div>
+          <div><dt>último release</dt><dd>2026-05-16</dd></div>
+        </dl>
+
+        <h4><span class="h4-num">a</span>Superficie de integración</h4>
+        <p>MCP server nativo sobre <strong>FastMCP 3.3.1</strong>. <strong>23 tools exportadas</strong> en <code>__all__</code>: CRUD (<code>write_note</code>, <code>read_note</code>, <code>edit_note</code>, <code>move_note</code>, <code>delete_note</code>, <code>view_note</code>, <code>read_content</code>), búsqueda (<code>search</code>, <code>search_notes</code>, <code>recent_activity</code>, <code>list_directory</code>), grafo/contexto (<code>build_context</code> con URLs <code>memory://...</code>, <code>canvas</code> genera canvas Obsidian), proyectos (<code>list_memory_projects</code>, <code>create_memory_project</code>, <code>delete_project</code>, <code>list_workspaces</code>), schema (<code>schema_infer</code>, <code>schema_validate</code>, <code>schema_diff</code>), info (<code>cloud_info</code>, <code>release_notes</code>) + adapter ChatGPT (<code>fetch</code>).</p>
+        <p><strong>Tool annotations confirmadas</strong>: <code>write_note</code> declara <code>destructiveHint: True</code>, <code>idempotentHint: False</code>, <code>openWorldHint: False</code>. REST FastAPI con 10 routers v2. CLI con dos entry points (<code>basic-memory</code>, <code>bm</code>). <strong>Port TypeScript MIT</strong> (<code>openclaw-basic-memory</code>) abre integración fuera del runtime Python.</p>
+
+        <h4><span class="h4-num">b</span>Modelo de datos</h4>
+        <p><strong>Frontmatter YAML</strong> + wikilinks <code>[[Target]]</code> + observations bracket <code>- [category] Text #tag (context)</code>. SQLite index actualizado por file watcher + on-demand vía <code>sync_service.py</code>. Embeddings precomputados con <code>fastembed</code> + <code>sqlite-vec</code>. Modos: FTS / vector / hybrid.</p>
+
+        <h4><span class="h4-num">c</span>Operaciones de escritura · lectura</h4>
+        <p><strong>Ingesta de Markdown externo es caso de uso de primera clase.</strong> <code>watch_service.py</code> usa <code>watchfiles.awatch</code> y procesa eventos <code>Added</code>/<code>Modified</code>/<code>Deleted</code> sobre filesystem. <strong>Cualquier proceso externo puede dejar caer Markdown y Basic Memory lo recoge.</strong> Detección de moves por checksum entre <code>deleted</code> y <code>added</code> en el mismo batch. Atomic writes (write-then-rename). <strong>No hay file locks explícitos.</strong></p>
+        <p>Búsqueda: filtros por <code>note_types</code>, <code>entity_types</code>, <code>after_date</code>, <code>metadata_filters</code>, <code>tags</code>, <code>status</code>, <code>min_similarity</code>. Paginación. Multi-proyecto con <code>search_all_projects</code>. Wikilink graph traversal vía <code>build_context</code>.</p>
+
+        <h4><span class="h4-num">d</span>Import/export · concurrencia · upstream</h4>
+        <p>Export trivial (<code>cp -r ~/basic-memory ./backup</code>). Import nativo: ChatGPT, Claude conversations, Claude Projects, memory_json (Anthropic Memory MCP). Compatibilidad de facto con Obsidian/Logseq/Foam.</p>
+        <p>Filesystem-based: si humano edita en Obsidian mientras Claude escribe vía MCP, last-write-wins a nivel de archivo, sin merge automático. <code>v0.21.0</code> menciona "concurrent delete fixes" y "N+1 query eliminations" — upstream endureciendo concurrencia.</p>
+        <p>~79 releases totales, ~1329 commits en main. Org Basic Machines mantiene <code>basic-memory-skills</code>, <code>basic-memory-benchmarks</code>, port TS MIT.</p>
+
+        <div class="ficha__verdict">
+          <strong>El mejor ciudadano del top 5 para arquitectura compuesta.</strong> Su storage <strong>es</strong> Markdown en disco; cualquier sistema externo escribe/lee los mismos archivos sin pedir permiso. Triple superficie (MCP + REST + CLI) sobre el mismo modelo, tool annotations bien declaradas, atomic writes respetados. Como sistema principal también funciona (búsqueda híbrida con fastembed/sqlite-vec, grafo emergente vía wikilinks), pero techo de rendimiento depende del filesystem. Único bemol serio: <strong>AGPL-3.0</strong> impone obligaciones si Naeth se hostea como SaaS y toca código de Basic Memory en runtime.
+        </div>
+
+        <h4><span class="h4-num">★</span>Ideas robables</h4>
+        <div class="ideas" data-system="basic-memory">
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#1</span><h5 class="idea__title">Storage = Markdown en disco como contrato (no como export)</h5></header>
+            <p class="idea__body">Los archivos son la fuente de verdad; SQLite es índice derivado, regenerable desde cero leyendo el filesystem. Soberanía radical.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-1">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#2</span><h5 class="idea__title">Wikilinks <code>[[Target]]</code> como grafo emergente sin DB de grafo</h5></header>
+            <p class="idea__body">Relaciones tipadas inline (<code>depends_on [[X]]</code>, <code>"multi-word" [[X]]</code>) + fallback <code>links_to</code>. Sin Neo4j, sin FalkorDB.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-2">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#3</span><h5 class="idea__title">Observations bracket syntax con categorías abiertas</h5></header>
+            <p class="idea__body"><code>- [category] text #tags (context)</code> — categorías libres, no enum. Permite tipar hechos sin schema rígido.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-3">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#4</span><h5 class="idea__title">FastMCP tool annotations declaradas por tool</h5></header>
+            <p class="idea__body"><code>destructiveHint</code>, <code>idempotentHint</code>, <code>openWorldHint</code>. Patrón disciplinado que ayuda al cliente MCP a planificar acciones.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-4">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#5</span><h5 class="idea__title">Bi-direccionalidad humano-LLM real vía file watcher</h5></header>
+            <p class="idea__body"><code>watchfiles</code> + debouncing + detección de moves por checksum. Mejor que "export periódico".</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-5">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#6</span><h5 class="idea__title">Frontmatter con normalización defensiva</h5></header>
+            <p class="idea__body">Fechas → ISO, números/bools → str. No romper YAML del usuario humano. Robustez sobre purismo.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-6">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#7</span><h5 class="idea__title">Triple superficie sobre un único modelo + adapter ChatGPT</h5></header>
+            <p class="idea__body">MCP para LLMs, REST v2 para apps, CLI para humanos. Adapter ChatGPT (<code>fetch</code>/<code>search</code>) muestra cómo bajar a otros protocolos.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-7">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">basic-mem</span>
+            <header class="idea__head"><span class="idea__num">#8</span><h5 class="idea__title">Compatibilidad de facto con ecosystem PKM</h5></header>
+            <p class="idea__body">Obsidian/Logseq/Foam reutilizando convenciones existentes (wikilinks + frontmatter). No inventar formato propio.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="bm-8">marcar prioridad</button></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== FICHA 5: Graphiti ===== -->
+      <article class="ficha" id="f-graphiti">
+        <header class="ficha__head">
+          <h3 class="ficha__title">
+            <span class="num">2.5</span>Graphiti<span class="org">getzep</span>
+            <a class="anchor-link" href="#f-graphiti" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--license">Apache-2.0</span>
+            <span class="badge badge--ver">v0.29.0</span>
+            <span class="badge badge--stars">~26.3k★</span>
+            <span class="badge">arXiv:2501.13956</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>backend obligatorio</dt><dd>Neo4j/FalkorDB/Kuzu</dd></div>
+          <div><dt>puertos</dt><dd>:8000 MCP HTTP · :7687 Neo4j</dd></div>
+          <div><dt>LLM en write</dt><dd><strong>sí</strong> (extract+resolve)</dd></div>
+          <div><dt>cadencia</dt><dd>2-4 / mes</dd></div>
+          <div><dt>downloads PyPI</dt><dd>77.8k / semana</dd></div>
+        </dl>
+
+        <h4><span class="h4-num">a</span>Superficie de integración</h4>
+        <p>MCP server propio en monorepo (<code>mcp_server/</code> con releases independientes). Tools: <code>add_episode</code>, <code>delete_episode</code>, <code>get_episodes</code>, <code>search_nodes</code>, <code>search_facts</code>, <code>delete_entity_edge</code>, <code>get_entity_edge</code>, <code>clear_graph</code>, <code>get_status</code>. REST FastAPI en <code>server/</code>. SDK Python <code>graphiti-core</code>. Hybrid search con 3 rerankers seleccionables: <strong>RRF, MMR, cross-encoder (LLM o BGE)</strong>.</p>
+
+        <h4><span class="h4-num">b</span>Modelo de datos · bi-temporalidad</h4>
+        <p>Tres primitivas: <strong>Episodes</strong> (dato crudo + provenance), <strong>Entities (nodes)</strong> con summaries evolutivos, <strong>Edges</strong> con validity window <code>valid_at</code>/<code>invalid_at</code>. Los facts no se borran al cambiar — se marca <code>invalid_at</code>. Custom Types vía clases Pydantic (ontologías prescritas) o emergentes (learned). <code>add_episode</code> acepta <code>entity_types</code>, <code>excluded_entity_types</code>, <code>edge_types</code>, <code>edge_type_map</code>.</p>
+
+        <h4><span class="h4-num">c</span>Operaciones de escritura · lectura</h4>
+        <p>Pipeline canónico de <code>add_episode</code>: ingest → extract entities (LLM) → resolve duplicates (LLM + embedding match) → create/update edges con lógica temporal → invalidar edges contradictorios. <code>add_episode_bulk</code> sacrifica edge invalidation por throughput. LLM en path de escritura <strong>obligatorio</strong>; <code>SEMAPHORE_LIMIT=10</code> controla concurrencia.</p>
+        <p>Lectura: hybrid search high-level <code>graphiti.search(query, center_node_uuid, num_results)</code> o low-level <code>_search</code> con <code>SearchConfig</code>. Temporal queries vía <code>valid_at</code>/<code>invalid_at</code> en resultados + <code>reference_time</code>. <strong>No hay DSL "AS OF timestamp" público</strong> — se resuelve filtrando por timestamps en cliente o vía Cypher directo.</p>
+
+        <h4><span class="h4-num">d</span>Concurrencia · upstream</h4>
+        <p>ACID delegado al backend. <strong>Race conditions en entity dedup</strong> <span class="warn-mark">⚠</span> — el pipeline depende del LLM para emparejar entidades; dos <code>add_episode</code> paralelos con la misma entidad nueva pueden producir duplicados antes de que la resolución alcance consistencia. <code>group_id</code> ("Graph Namespacing") es ciudadano de primera para multi-tenancy.</p>
+        <p>~2-4 releases/mes; 194 releases totales. <strong>Zep Community Edition fue deprecada en abril 2025</strong>; Graphiti absorbió la atención: alta cadencia, integración con Neptune, MCP con releases propias. Paper Rasmussen et al. arXiv:2501.13956 (DMR 94.8% vs MemGPT 93.4%; LongMemEval +18.5% accuracy con -90% latencia).</p>
+
+        <div class="ficha__verdict">
+          Integrable como <strong>capa de razonamiento temporal delegada</strong>, no como storage principal: enviar episodes y consultar hybrid search con metadata temporal, manteniendo Naeth como propietaria del corpus. Sin embargo Graphiti <em>quiere</em> ser fuente de verdad — su modelo asume ingesta de episodes crudos. El requisito de Neo4j/FalkorDB/Kuzu es fricción real para uso personal, aunque Kuzu (embedded) la reduce. Pega real: coste LLM por <code>add_episode</code> (extract + resolve + rerank). Buen ciudadano si se le delega solo el subdominio temporal/relacional.
+        </div>
+
+        <h4><span class="h4-num">★</span>Ideas robables</h4>
+        <div class="ideas" data-system="graphiti">
+          <div class="idea"><span class="idea__tag">graphiti</span>
+            <header class="idea__head"><span class="idea__num">#1</span><h5 class="idea__title">Bi-temporalidad explícita <code>valid_at</code>/<code>invalid_at</code></h5></header>
+            <p class="idea__body">Facts no se borran, se invalidan. Permite "time travel" sin recomputación. Único feature realmente diferenciable del top 5.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="grp-1">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">graphiti</span>
+            <header class="idea__head"><span class="idea__num">#2</span><h5 class="idea__title">Episode como unidad de ingest con provenance</h5></header>
+            <p class="idea__body">Todo derived fact apunta al episode origen. Lineage gratis para auditar/explicar el estado del grafo.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="grp-2">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">graphiti</span>
+            <header class="idea__head"><span class="idea__num">#3</span><h5 class="idea__title">Hybrid search de 3 vías con rerankers intercambiables</h5></header>
+            <p class="idea__body">Semantic + BM25 + graph traversal con RRF / MMR / cross-encoder elegibles. Patrón menos dependiente de cosine pura.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="grp-3">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">graphiti</span>
+            <header class="idea__head"><span class="idea__num">#4</span><h5 class="idea__title">Entity resolution LLM-driven con dedup incremental</h5></header>
+            <p class="idea__body">UUID + embedding match + LLM judgment sin batch recomputation. Permite ontologías emergentes además de prescritas vía Pydantic.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="grp-4">marcar prioridad</button></div>
+          </div>
+          <div class="idea"><span class="idea__tag">graphiti</span>
+            <header class="idea__head"><span class="idea__num">#5</span><h5 class="idea__title">Paper-driven development con benchmark reproducible</h5></header>
+            <p class="idea__body">arXiv:2501.13956 — DMR + LongMemEval. El repo está respaldado por evaluación cuantitativa pública. Patrón replicable para justificar decisiones técnicas.</p>
+            <div class="idea__actions"><button class="idea__prio" data-idea="grp-5">marcar prioridad</button></div>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================
+         §03 MATRIZ CRUZADA 5×5
+         ============================================================ -->
+    <section id="matrix" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§03</span><span>matriz cruzada</span></div>
+        <h2>Compatibilidad 5×5 <a class="anchor-link" href="#matrix" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          ¿Puede el sistema X coexistir con el sistema Y en el mismo despliegue sin pisarse? Hover sobre <span style="color:var(--warn);font-weight:600">⚠</span> para ver el conflicto.
+        </p>
+      </div>
+
+      <div class="matrix-wrap">
+        <div class="matrix" role="table" aria-label="Matriz de compatibilidad cruzada entre 5 sistemas">
+          <div class="matrix__cell matrix__cell--head matrix__cell--corner" role="columnheader"></div>
+          <div class="matrix__cell matrix__cell--head" role="columnheader">mcp-mem</div>
+          <div class="matrix__cell matrix__cell--head" role="columnheader">hindsight</div>
+          <div class="matrix__cell matrix__cell--head" role="columnheader">cognee</div>
+          <div class="matrix__cell matrix__cell--head" role="columnheader">basic-mem</div>
+          <div class="matrix__cell matrix__cell--head" role="columnheader">graphiti</div>
+
+          <!-- row 1: mcp-memory-service -->
+          <div class="matrix__cell matrix__cell--row" role="rowheader">mcp-memory-service</div>
+          <div class="matrix__cell matrix__cell--self" aria-label="self">▩</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · puertos distintos (8000/8765 vs 8888/9999). IDs content_hash vs memory_id no chocan. Ambos exponen MCP HTTP — Naeth puede federar.">✓</div>
+          <div class="matrix__cell matrix__cell--warn" tabindex="0" data-tooltip="CONFLICTO PUERTO :8000 · mcp-memory-service REST y Cognee MCP HTTP ambos default. Resolver con env var (cambiar uno).">⚠</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · Basic Memory escribe a filesystem (.md), mcp-memory-service a SQLite-vec. No overlap de storage ni de puertos.">✓</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · Graphiti escribe a Neo4j/FalkorDB/Kuzu, mcp-memory-service a SQLite-vec. No overlap de storage.">✓</div>
+
+          <!-- row 2: hindsight -->
+          <div class="matrix__cell matrix__cell--row" role="rowheader">Hindsight</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · puertos distintos. Ambos pueden compartir Postgres externo si Naeth lo decide, aislando por database.">✓</div>
+          <div class="matrix__cell matrix__cell--self" aria-label="self">▩</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · puertos distintos (8888 vs 8000). Ambos pueden usar pg/pgvector — aislar por database o instancia si lo configuras así.">✓</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · no overlap de storage (Postgres vs filesystem MD).">✓</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · no overlap de storage (Postgres vs Neo4j/Kuzu).">✓</div>
+
+          <!-- row 3: cognee -->
+          <div class="matrix__cell matrix__cell--row" role="rowheader">Cognee</div>
+          <div class="matrix__cell matrix__cell--warn" tabindex="0" data-tooltip="CONFLICTO PUERTO :8000 · Cognee MCP HTTP y mcp-memory-service REST ambos default. Resolver con env var.">⚠</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · puertos distintos. Cognee usa NetworkX/SQLite/LanceDB por defecto; Hindsight Postgres. Sin overlap obligatorio.">✓</div>
+          <div class="matrix__cell matrix__cell--self" aria-label="self">▩</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · no overlap (poly-store interno vs filesystem MD).">✓</div>
+          <div class="matrix__cell matrix__cell--warn" tabindex="0" data-tooltip="CONFLICTO POTENCIAL · ambos pueden usar Neo4j para el grafo. Aislar por database distinta o instancia separada.">⚠</div>
+
+          <!-- row 4: basic-memory -->
+          <div class="matrix__cell matrix__cell--row" role="rowheader">Basic Memory</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · Basic Memory es file-based, sin puertos fijos por defecto. Compatible total.">✓</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · sin overlap de storage ni puerto.">✓</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · sin overlap de storage ni puerto.">✓</div>
+          <div class="matrix__cell matrix__cell--self" aria-label="self">▩</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · sin overlap. Basic Memory podría ser la 'vista soberana' de Naeth con espejo Markdown del grafo Graphiti.">✓</div>
+
+          <!-- row 5: graphiti -->
+          <div class="matrix__cell matrix__cell--row" role="rowheader">Graphiti</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · sin overlap (Neo4j/Kuzu vs SQLite-vec).">✓</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · sin overlap (Neo4j vs Postgres).">✓</div>
+          <div class="matrix__cell matrix__cell--warn" tabindex="0" data-tooltip="CONFLICTO POTENCIAL · ambos pueden usar Neo4j. Aislar por database o instancia.">⚠</div>
+          <div class="matrix__cell matrix__cell--ok" tabindex="0" data-tooltip="OK · sin overlap. Graphiti aporta temporal, Basic Memory aporta soberanía MD.">✓</div>
+          <div class="matrix__cell matrix__cell--self" aria-label="self">▩</div>
+        </div>
+
+        <div class="matrix__legend">
+          <span><span class="sq sq--ok"></span>compatible</span>
+          <span><span class="sq sq--warn"></span>conflicto resoluble</span>
+          <span><span class="sq sq--err"></span>incompatible</span>
+          <span><span class="sq sq--self"></span>self (n/a)</span>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--sans); font-size: var(--fs-xl); margin: 48px 0 12px; letter-spacing:-0.02em;">
+        Diagrama de puertos default <a class="anchor-link" href="#matrix" aria-label="copiar enlace">#</a>
+      </h3>
+      <p style="color:var(--ink-soft); margin: 0 0 14px; max-width: 72ch;">
+        Blueprint de los 5 sistemas con sus puertos por defecto y storage. Las líneas rojas punteadas marcan los conflictos detectados.
+      </p>
+
+      <div class="ports">
+        <svg viewBox="0 0 920 540" role="img" aria-labelledby="portsTitle portsDesc" xmlns="http://www.w3.org/2000/svg">
+          <title id="portsTitle">Diagrama de puertos default de los 5 sistemas</title>
+          <desc id="portsDesc">Cinco cajas representando mcp-memory-service, Hindsight, Cognee, Basic Memory y Graphiti, con sus puertos por defecto (8000, 8765, 8888, 9999, 7687) y storage. Una línea roja punteada conecta el puerto 8000 entre mcp-memory-service y Cognee marcándolo como conflicto.</desc>
+
+          <defs>
+            <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1" opacity="0.15"/>
+            </pattern>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L0,10 L10,5 z" fill="currentColor"/>
+            </marker>
+            <marker id="arrow-err" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L0,10 L10,5 z" fill="var(--err)"/>
+            </marker>
+          </defs>
+
+          <!-- mcp-memory-service -->
+          <g transform="translate(40,40)">
+            <rect width="240" height="100" rx="6" fill="var(--bg-elev)" stroke="var(--ink-soft)" stroke-width="1.2"/>
+            <text x="16" y="28" font-family="var(--mono)" font-size="13" font-weight="700" fill="var(--ink)">mcp-memory-service</text>
+            <text x="16" y="48" font-family="var(--mono)" font-size="11" fill="var(--ink-soft)">SQLite-vec / hybrid Cloudflare</text>
+            <text x="16" y="68" font-family="var(--mono)" font-size="11" fill="var(--lab-port)">:8000 REST · :8765 SSE</text>
+            <text x="16" y="86" font-family="var(--mono)" font-size="10" fill="var(--ink-mute)">apache-2.0 · v10.63 · bus factor 1</text>
+          </g>
+
+          <!-- Hindsight -->
+          <g transform="translate(340,40)">
+            <rect width="240" height="100" rx="6" fill="var(--bg-elev)" stroke="var(--ink-soft)" stroke-width="1.2"/>
+            <text x="16" y="28" font-family="var(--mono)" font-size="13" font-weight="700" fill="var(--ink)">Hindsight</text>
+            <text x="16" y="48" font-family="var(--mono)" font-size="11" fill="var(--ink-soft)">Postgres pg0 embedded / pgvector</text>
+            <text x="16" y="68" font-family="var(--mono)" font-size="11" fill="var(--lab-port)">:8888 REST+MCP · :9999 UI</text>
+            <text x="16" y="86" font-family="var(--mono)" font-size="10" fill="var(--ink-mute)">mit · v0.6.2 · Vectorize Inc.</text>
+          </g>
+
+          <!-- Cognee -->
+          <g transform="translate(640,40)">
+            <rect width="240" height="100" rx="6" fill="var(--bg-elev)" stroke="var(--ink-soft)" stroke-width="1.2"/>
+            <text x="16" y="28" font-family="var(--mono)" font-size="13" font-weight="700" fill="var(--ink)">Cognee</text>
+            <text x="16" y="48" font-family="var(--mono)" font-size="11" fill="var(--ink-soft)">poly-store (NetworkX+SQLite+LanceDB)</text>
+            <text x="16" y="68" font-family="var(--mono)" font-size="11" fill="var(--lab-port)">:8000 MCP HTTP</text>
+            <text x="16" y="86" font-family="var(--mono)" font-size="10" fill="var(--ink-mute)">apache-2.0 · v1.1.0 · 80+ contrib</text>
+          </g>
+
+          <!-- Basic Memory -->
+          <g transform="translate(190,240)">
+            <rect width="240" height="100" rx="6" fill="var(--bg-elev)" stroke="var(--ink-soft)" stroke-width="1.2"/>
+            <text x="16" y="28" font-family="var(--mono)" font-size="13" font-weight="700" fill="var(--ink)">Basic Memory</text>
+            <text x="16" y="48" font-family="var(--mono)" font-size="11" fill="var(--ink-soft)">filesystem (.md) + SQLite index</text>
+            <text x="16" y="68" font-family="var(--mono)" font-size="11" fill="var(--lab-port)">FS://~/basic-memory/ · MCP stdio</text>
+            <text x="16" y="86" font-family="var(--mono)" font-size="10" fill="var(--ink-mute)">agpl-3.0 · v0.21.1 · obsidian-native</text>
+          </g>
+
+          <!-- Graphiti -->
+          <g transform="translate(490,240)">
+            <rect width="240" height="100" rx="6" fill="var(--bg-elev)" stroke="var(--ink-soft)" stroke-width="1.2"/>
+            <text x="16" y="28" font-family="var(--mono)" font-size="13" font-weight="700" fill="var(--ink)">Graphiti</text>
+            <text x="16" y="48" font-family="var(--mono)" font-size="11" fill="var(--ink-soft)">Neo4j / FalkorDB / Kuzu</text>
+            <text x="16" y="68" font-family="var(--mono)" font-size="11" fill="var(--lab-port)">:8000 MCP · :7687 Neo4j</text>
+            <text x="16" y="86" font-family="var(--mono)" font-size="10" fill="var(--ink-mute)">apache-2.0 · v0.29.0 · Zep team</text>
+          </g>
+
+          <!-- CONFLICT line :8000 -->
+          <g stroke="var(--err)" stroke-width="1.5" stroke-dasharray="5 4" fill="none">
+            <path d="M 160 144 Q 400 200 760 144"/>
+          </g>
+          <g transform="translate(420,194)">
+            <rect x="-90" y="-18" width="180" height="34" rx="4" fill="var(--err-soft)" stroke="var(--err)" stroke-width="1"/>
+            <text x="0" y="3" text-anchor="middle" font-family="var(--mono)" font-size="11" font-weight="700" fill="var(--err)">! CONFLICT :8000</text>
+            <text x="0" y="13" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--err)">cognee y mcp-memory-service</text>
+          </g>
+
+          <!-- soft conflict Neo4j -->
+          <g stroke="var(--warn)" stroke-width="1.2" stroke-dasharray="3 3" fill="none">
+            <path d="M 760 144 Q 700 200 610 240"/>
+          </g>
+          <g transform="translate(745,205)">
+            <rect x="-58" y="-12" width="116" height="22" rx="4" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1"/>
+            <text x="0" y="3" text-anchor="middle" font-family="var(--mono)" font-size="10" font-weight="700" fill="var(--warn)">⚠ Neo4j compartido</text>
+          </g>
+
+          <!-- composition pattern hint at bottom -->
+          <g transform="translate(60,440)">
+            <text x="0" y="0" font-family="var(--mono)" font-size="12" font-weight="700" fill="var(--ink)">patrón propuesto Naeth (no instalado):</text>
+            <text x="0" y="22" font-family="var(--mono)" font-size="11" fill="var(--ink-soft)">naeth-router :7777  →  {mcp-mem,hindsight,cognee,basic-mem,graphiti}  →  storage(s) aislado(s)</text>
+            <text x="0" y="42" font-family="var(--mono)" font-size="11" fill="var(--ink-mute)">router unifica auth + ids + entity-resolution; backends siguen siendo MCP/REST nativos</text>
+          </g>
+        </svg>
+
+        <details class="ports__fallback">
+          <summary>texto alternativo del diagrama</summary>
+          <ul style="margin: 12px 0; padding-left: 22px;">
+            <li>mcp-memory-service · SQLite-vec · :8000 REST + :8765 SSE</li>
+            <li>Hindsight · Postgres pg0 embedded · :8888 REST+MCP + :9999 UI</li>
+            <li>Cognee · poly-store · :8000 MCP HTTP — conflicto :8000 con mcp-memory-service</li>
+            <li>Basic Memory · filesystem .md · MCP stdio (sin puerto fijo)</li>
+            <li>Graphiti · Neo4j/FalkorDB/Kuzu · :8000 MCP HTTP + :7687 Neo4j — posible conflicto Neo4j con Cognee</li>
+            <li>Patrón propuesto Naeth: router :7777 enruta a los 5 backends, unifica auth + IDs + entity resolution.</li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="callout callout--info">
+        <span class="callout__tag">conclusión</span>
+        <div class="callout__body">
+          <p><strong>No hay incompatibilidades duras entre los 5 sistemas.</strong> Los únicos conflictos son resolubles por configuración (puerto :8000 colisión entre mcp-memory-service y Cognee; Neo4j compartido entre Cognee y Graphiti aislable por database). Y no hay conflictos de IDs entre sistemas — cada uno usa su propio espacio (<code>content_hash</code>, <code>memory_id</code>, UUID, paths FS). <strong>Si Naeth quiere un ID canónico unificado debe definirlo aparte y mapear</strong>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §04 HALLAZGOS TRANSVERSALES
+         ============================================================ -->
+    <section id="findings" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§04</span><span>hallazgos transversales</span></div>
+        <h2>Patrones repetidos vs huecos de mercado <a class="anchor-link" href="#findings" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          <strong>Patrones repetidos</strong>: candidatos a primitivas de Naeth — si todos lo hacen, no inventes diferente. <strong>Huecos</strong>: ningún sistema lo tiene — donde Naeth puede aportar.
+        </p>
+      </div>
+
+      <div class="findings">
+        <div class="findings__col findings__col--repeated">
+          <h3 class="findings__title">⊕ patrones repetidos (primitivas)</h3>
+          <ul class="findings__list">
+            <li><span class="icon">⊕</span><div><strong>Content-hash como ID natural.</strong> Ningún sistema confía solo en autoincrement. Naeth debe seguir el patrón.</div></li>
+            <li><span class="icon">⊕</span><div><strong>Variante de <em>entity/observation/relation</em>.</strong> Explícita en MM-S y Basic Memory; emergente en Cognee y Graphiti vía LLM extraction; implícita en Hindsight. <em>Primitiva UMAS v2 candidata</em>: triplets con metadata temporal opcional.</div></li>
+            <li><span class="icon">⊕</span><div><strong>Hybrid search semantic + BM25.</strong> Variaciones del mismo patrón (TEMPR, tri-way, <code>retrieve_hybrid</code>, <code>SearchRetrievalMode.HYBRID</code>, <code>GRAPH_COMPLETION</code>).</div></li>
+            <li><span class="icon">⊕</span><div><strong>MCP + REST + SDK + CLI</strong> — tetralogía de superficies estable en los 5. Planificar las cuatro desde día uno.</div></li>
+            <li><span class="icon">⊕</span><div><strong>Embeddings 100% local viable</strong> en los 5 (sentence-transformers / ONNX / fastembed / Ollama). <em>Cero excusa</em> para depender de API.</div></li>
+            <li><span class="icon">⊕</span><div><strong>Tool annotations FastMCP</strong> en MM-S y Basic Memory; soportadas por estándar MCP en los demás. Naeth las debe usar sistemáticamente.</div></li>
+            <li><span class="icon">⊕</span><div><strong>Multi-tenant nativo</strong> en los 5 (con nombres distintos: <code>X-Agent-ID</code>, <code>user_id</code>, NodeSets, <code>workspaces</code>, <code>group_id</code>).</div></li>
+          </ul>
+        </div>
+
+        <div class="findings__col findings__col--gaps">
+          <h3 class="findings__title">⊖ huecos de mercado (espacio para naeth)</h3>
+          <ul class="findings__list">
+            <li><span class="icon">⊖</span><div><strong>Webhooks salientes / MCP notifications al escribir.</strong> Solo SSE de MM-S dashboard y file watcher de Basic Memory. Ninguno tiene HTTP saliente estandarizado. <em>Si Naeth quiere orquestar, debe diseñar event bus propio.</em></div></li>
+            <li><span class="icon">⊖</span><div><strong>Embedding pre-computado externo como input estándar.</strong> Federar 3 sistemas implica <em>re-embeddings triples</em>. Naeth debe manejar cache externo + endpoints raw.</div></li>
+            <li><span class="icon">⊖</span><div><strong>Cross-system identity / entity resolution.</strong> Si "persona Eneko" aparece en MM-S, Hindsight y Basic Memory, ninguno sabe que son la misma entidad. <em>Primitiva clave de Naeth.</em></div></li>
+            <li><span class="icon">⊖</span><div><strong>Export común reversible (roundtrip lossless).</strong> Solo Basic Memory es trivialmente legible. SHODH UMAS v2 podría definir este contrato.</div></li>
+            <li><span class="icon">⊖</span><div><strong>Audit log estilo OTEL GenAI Semantic Conventions.</strong> Solo Ogham-MCP (top 15, no top 5) lo hace.</div></li>
+            <li><span class="icon">⊖</span><div><strong>Cliente identidad como dimensión primaria.</strong> Todos tienen <em>algo</em> (agent_id, user_id, group_id…), pero ninguno expone <code>claude.ai</code> vs <code>claude-code</code> vs <code>cursor</code> vs <code>humano-Obsidian</code> como dimensión de query.</div></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--sans); font-size: var(--fs-xl); margin: 48px 0 12px; letter-spacing:-0.02em;">
+        Inconsistencias observadas <a class="anchor-link" href="#findings" aria-label="copiar enlace">#</a>
+      </h3>
+
+      <div class="callout callout--warn">
+        <span class="callout__tag">⚠ docs vs código</span>
+        <div class="callout__body">
+          <p><strong>mcp-memory-service</strong>: README dice "24 tools" pero el código registra ~18 modernas + aliases legacy en <code>compat.py</code>. Lee con cuidado.</p>
+          <p><strong>mcp-memory-service</strong>: README declara "SHODH Unified Memory API v1.0.0 compatible" pero la spec <strong>no se encuentra ni en docs/, wiki, integrations.md ni memory-ontology.md</strong>. Posible vapor.</p>
+          <p><strong>Hindsight</strong>: README principal MIT pero sub-paquete <code>hindsight-api</code> aparece como Apache 2.0 en algún view. Auditar archivo a archivo antes de derivar.</p>
+          <p><strong>Basic Memory</strong>: año en releases reportado como 2024 en GitHub UI pero v0.21.1 declarada como mayo 2026 en README. Discrepancia de timeline.</p>
+        </div>
+      </div>
+
+      <h3 style="font-family:var(--sans); font-size: var(--fs-xl); margin: 48px 0 12px; letter-spacing:-0.02em;">
+        Riesgos transversales <a class="anchor-link" href="#findings" aria-label="copiar enlace">#</a>
+      </h3>
+
+      <div class="callout callout--err">
+        <span class="callout__tag">riesgo</span>
+        <div class="callout__body">
+          <p><strong>Bus factor</strong>: mcp-memory-service depende esencialmente de <code>doobidoo</code>. En arquitectura compuesta, no apostar el camino crítico a su upstream.</p>
+          <p><strong>Cadencia altísima de releases</strong> (MM-S cada 3 días, Hindsight semanal, Graphiti 2-4/mes) → re-validación constante de adapters. Pinning estricto, versionado de integraciones.</p>
+          <p><strong>Comercial backers</strong>: Vectorize/Hindsight, Zep/Graphiti, Cognee con $7.5M seed, Basic Machines con Cloud paid tier. El roadmap OSS no es libre — ya pasó con <strong>Mem0/OpenMemory (sunset)</strong> y <strong>Zep CE (deprecada)</strong>.</p>
+          <p><strong>Licencia AGPL</strong> (Basic Memory): impone obligaciones si Naeth se hostea como SaaS y toca su código en runtime. Apache/MIT en los otros 4 son neutrales.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §05 PREGUNTAS ABIERTAS
+         ============================================================ -->
+    <section id="preguntas" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§05</span><span>preguntas paso 2</span></div>
+        <h2>12 decisiones que no se resuelven leyendo docs <a class="anchor-link" href="#preguntas" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Marca las que te importen más — el Paso 2 las atacará primero. Estado persistente en este navegador.
+        </p>
+      </div>
+
+      <div class="checklist" id="checklist">
+        <label class="check" data-id="p1">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P01</span><span class="check__title">Latencia compuesta de 5 backends en paralelo</span></div>
+            <div class="check__desc">Si Naeth consulta MM-S + Graphiti + Basic Memory en paralelo, ¿qué p50/p95 obtenemos? ¿Aceptable para chat client de <code>claude.ai</code> (&lt;2s antes de feel laggy)? Solo medible en spike.</div>
+          </div>
+        </label>
+        <label class="check" data-id="p2">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P02</span><span class="check__title">Tamaño de respuesta MCP combinada</span></div>
+            <div class="check__desc">Límite MCP es 1MB por response. Con 5 backends federados, ¿overflow? ¿Naeth trunca antes de devolver al cliente?</div>
+          </div>
+        </label>
+        <label class="check" data-id="p3">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P03</span><span class="check__title">Estrategia ante fallo de un backend</span></div>
+            <div class="check__desc">¿Degradación graceful (resultado parcial)? ¿Reintento? ¿Fallback al siguiente? Define expectativa de fiabilidad.</div>
+          </div>
+        </label>
+        <label class="check" data-id="p4">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P04</span><span class="check__title">Single source of truth vs eventual consistency</span></div>
+            <div class="check__desc">Si Naeth escribe a 3 backends y uno falla, ¿rollback? ¿saga pattern? ¿accept partial write y reconciliar luego? <strong>Decisión que pre-condiciona toda la arquitectura.</strong></div>
+          </div>
+        </label>
+        <label class="check" data-id="p5">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P05</span><span class="check__title">¿Quién computa el embedding canónico?</span></div>
+            <div class="check__desc">Naeth lo haría una vez y reusaría, pero ninguno acepta embedding precomputado en API normal. Significa <strong>N embeddings duplicados</strong> salvo escribir al storage layer directo (frágil).</div>
+          </div>
+        </label>
+        <label class="check" data-id="p6">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P06</span><span class="check__title">¿Identidad cross-system?</span></div>
+            <div class="check__desc">Si "Eneko-decision-on-naeth-arch" se guarda en MM-S y aparece como entity en Graphiti, ¿cómo se sabe que son lo mismo? Diseñar <em>entity resolution layer</em>.</div>
+          </div>
+        </label>
+        <label class="check" data-id="p7">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P07</span><span class="check__title">¿Cuál es el contrato de "memoria"?</span></div>
+            <div class="check__desc">Cada sistema tiene modelo distinto. ¿UMAS v2 estricto y los backends se adaptan, o mínimo común (probablemente text + tags + timestamp)?</div>
+          </div>
+        </label>
+        <label class="check" data-id="p8">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P08</span><span class="check__title">¿Naeth tiene storage propio o solo es router?</span></div>
+            <div class="check__desc">Solo router = sin duplicación pero pierdes control de roundtrip. Con storage = consistencia compleja, mantenimiento doble. <strong>Decisión crítica de Paso 2.</strong></div>
+          </div>
+        </label>
+        <label class="check" data-id="p9">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P09</span><span class="check__title">¿Cuánto se duplica entre Cognee y Graphiti?</span></div>
+            <div class="check__desc">Ambos hacen entity extraction LLM-driven. ¿Usar uno solo, o ambos para distintos casos?</div>
+          </div>
+        </label>
+        <label class="check" data-id="p10">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P10</span><span class="check__title">¿Naeth gestiona el LLM provider o lo delega?</span></div>
+            <div class="check__desc">Cada backend tiene su <code>LLM_API_KEY</code>, son 5 keys distintas y 5 facturas. ¿Naeth proxea? ¿O documenta que el usuario configure cada uno?</div>
+          </div>
+        </label>
+        <label class="check" data-id="p11">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P11</span><span class="check__title">MCP server único de Naeth vs múltiples expuestos</span></div>
+            <div class="check__desc">¿Naeth expone 1 MCP server con prefijos (<code>mem.recall</code>, <code>graph.search</code>, <code>note.write</code>) o registra los 5 directamente? El primero es más limpio pero requiere proxy MCP; el segundo es trivial pero el LLM ve <strong>91+ tools</strong>.</div>
+          </div>
+        </label>
+        <label class="check" data-id="p12">
+          <input type="checkbox" />
+          <div class="check__body">
+            <div class="check__head"><span class="check__num">P12</span><span class="check__title">¿Naeth garantiza orden FIFO entre clientes?</span></div>
+            <div class="check__desc">Si <code>claude.ai</code> escribe a 14:00:00.100 y Claude Code a 14:00:00.200, ¿el orden se conserva en los 5 backends? Solo Hindsight tiene ordering nativo (worker slots).</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="check__count" id="checkCount">0 / 12 marcadas como prioridad</div>
+    </section>
+
+    <!-- ============================================================
+         §06 ANTI-DOC
+         ============================================================ -->
+    <section id="anti-doc" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§06</span><span>anti-doc</span></div>
+        <h2>Lo que NO está en este documento <a class="anchor-link" href="#anti-doc" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Para que sepas qué esperar del Paso 2 y siguientes — y para no perder tiempo buscándolo aquí.
+        </p>
+      </div>
+
+      <div class="callout callout--info">
+        <span class="callout__tag">scope cerrado</span>
+        <div class="callout__body">
+          <ul style="margin: 0; padding-left: 22px;">
+            <li><strong>Recomendación de arquitectura</strong> — Paso 2 (3 candidatas en papel).</li>
+            <li><strong>Benchmarks o replicaciones</strong> — Paso 3+ (spike).</li>
+            <li><strong>Código de pegamento</strong>, ni siquiera pseudocódigo — Paso 3+.</li>
+            <li><strong>Re-ranking de los 5 sistemas</strong> — eso está en <code>investigacion.md</code>.</li>
+            <li><strong>Análisis de los 10 sistemas restantes del Top 15</strong> — fuera de scope.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div>::end-of-paso1::</div>
+      <div class="end">next → paso2-architecture-papers.md</div>
+    </footer>
+
+  </main>
+</div>
+
+<!-- floating tooltip + toast -->
+<div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-live="polite">enlace copiado</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ============================================================
+  // THEME TOGGLE
+  // ============================================================
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIcon = document.getElementById('themeIcon');
+  const themeLabel = document.getElementById('themeLabel');
+  const html = document.documentElement;
+
+  function setTheme(theme){
+    html.setAttribute('data-theme', theme);
+    if(theme === 'dark'){
+      themeIcon.textContent = '☀';
+      themeLabel.textContent = 'light';
+    } else {
+      themeIcon.textContent = '☾';
+      themeLabel.textContent = 'dark';
+    }
+    try { localStorage.setItem('naeth-theme', theme); } catch(e){}
+  }
+
+  function initTheme(){
+    let saved = null;
+    try { saved = localStorage.getItem('naeth-theme'); } catch(e){}
+    if(saved){ setTheme(saved); return; }
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setTheme(prefersDark ? 'dark' : 'light');
+  }
+  initTheme();
+
+  themeToggle.addEventListener('click', () => {
+    const cur = html.getAttribute('data-theme');
+    setTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+
+  // shortcut: t
+  document.addEventListener('keydown', (e) => {
+    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if(e.key === 't' || e.key === 'T'){
+      themeToggle.click();
+    }
+  });
+
+  // ============================================================
+  // PROGRESS BAR
+  // ============================================================
+  const bar = document.getElementById('progressBar');
+  function updateProgress(){
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    const pct = max > 0 ? (h.scrollTop / max) * 100 : 0;
+    bar.style.width = pct + '%';
+  }
+  document.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  // ============================================================
+  // TOC ACTIVE SECTION
+  // ============================================================
+  const sections = Array.from(document.querySelectorAll('.section, .ficha'));
+  const tocLinks = Array.from(document.querySelectorAll('.toc a'));
+
+  function setActive(id){
+    tocLinks.forEach(a => {
+      const href = a.getAttribute('href');
+      a.classList.toggle('is-active', href === '#' + id);
+    });
+  }
+
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){ setActive(entry.target.id); }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+    sections.forEach(s => { if(s.id) io.observe(s); });
+  }
+
+  // ============================================================
+  // MATRIX TOOLTIP
+  // ============================================================
+  const tooltip = document.getElementById('tooltip');
+  const matrixCells = document.querySelectorAll('.matrix__cell[data-tooltip]');
+
+  function showTooltip(cell, evt){
+    const text = cell.getAttribute('data-tooltip');
+    if(!text) return;
+    tooltip.textContent = text;
+    tooltip.classList.add('is-visible');
+    const rect = cell.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTooltip(){
+    tooltip.classList.remove('is-visible');
+  }
+  matrixCells.forEach(cell => {
+    cell.addEventListener('mouseenter', (e) => showTooltip(cell, e));
+    cell.addEventListener('focus', (e) => showTooltip(cell, e));
+    cell.addEventListener('mouseleave', hideTooltip);
+    cell.addEventListener('blur', hideTooltip);
+  });
+  document.addEventListener('scroll', hideTooltip, { passive: true });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hideTooltip(); });
+
+  // ============================================================
+  // FILTER CHIPS (tabla maestra)
+  // ============================================================
+  const chips = document.querySelectorAll('.chip[data-filter]');
+  const tblMaster = document.getElementById('tblMaster');
+  if(tblMaster && chips.length){
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const filter = chip.getAttribute('data-filter');
+        chips.forEach(c => {
+          c.classList.toggle('is-active', c === chip);
+          c.setAttribute('aria-selected', c === chip ? 'true' : 'false');
+        });
+        const cols = tblMaster.querySelectorAll('[data-col]');
+        cols.forEach(el => {
+          if(filter === 'all'){ el.hidden = false; return; }
+          el.hidden = (el.getAttribute('data-col') !== filter);
+        });
+      });
+    });
+  }
+
+  // ============================================================
+  // IDEA PRIORITY (localStorage)
+  // ============================================================
+  const PRIO_KEY = 'naeth-paso1-priorities';
+  function loadPrio(){
+    try { return JSON.parse(localStorage.getItem(PRIO_KEY) || '[]'); } catch(e){ return []; }
+  }
+  function savePrio(arr){
+    try { localStorage.setItem(PRIO_KEY, JSON.stringify(arr)); } catch(e){}
+  }
+  let prio = loadPrio();
+
+  document.querySelectorAll('.idea__prio').forEach(btn => {
+    const id = btn.getAttribute('data-idea');
+    if(prio.includes(id)){
+      btn.classList.add('is-active');
+      btn.textContent = '★ prioridad';
+      btn.closest('.idea').classList.add('is-prio');
+    }
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.idea');
+      if(prio.includes(id)){
+        prio = prio.filter(x => x !== id);
+        btn.classList.remove('is-active');
+        btn.textContent = 'marcar prioridad';
+        card.classList.remove('is-prio');
+      } else {
+        prio.push(id);
+        btn.classList.add('is-active');
+        btn.textContent = '★ prioridad';
+        card.classList.add('is-prio');
+      }
+      savePrio(prio);
+    });
+  });
+
+  // ============================================================
+  // CHECKLIST PRIORIDADES (localStorage)
+  // ============================================================
+  const CHECK_KEY = 'naeth-paso1-checklist';
+  function loadCheck(){
+    try { return JSON.parse(localStorage.getItem(CHECK_KEY) || '[]'); } catch(e){ return []; }
+  }
+  function saveCheck(arr){
+    try { localStorage.setItem(CHECK_KEY, JSON.stringify(arr)); } catch(e){}
+  }
+  let checks = loadCheck();
+  const checkCount = document.getElementById('checkCount');
+
+  function updateCount(){
+    if(!checkCount) return;
+    const n = checks.length;
+    checkCount.innerHTML = '<strong>' + n + '</strong> / 12 marcadas como prioridad' + (n > 0 ? ' — el paso 2 atacará estas primero' : '');
+  }
+
+  document.querySelectorAll('.check').forEach(lbl => {
+    const id = lbl.getAttribute('data-id');
+    const input = lbl.querySelector('input');
+    if(checks.includes(id)){
+      input.checked = true;
+      lbl.classList.add('is-prio');
+    }
+    input.addEventListener('change', () => {
+      if(input.checked){
+        if(!checks.includes(id)) checks.push(id);
+        lbl.classList.add('is-prio');
+      } else {
+        checks = checks.filter(x => x !== id);
+        lbl.classList.remove('is-prio');
+      }
+      saveCheck(checks);
+      updateCount();
+    });
+  });
+  updateCount();
+
+  // ============================================================
+  // COPY-LINK on headings (anchor links)
+  // ============================================================
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg){
+    if(!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1800);
+  }
+
+  document.querySelectorAll('.anchor-link').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = a.getAttribute('href');
+      const url = location.origin + location.pathname + href;
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(() => {
+          showToast('enlace copiado · ' + href);
+          history.pushState(null, '', href);
+        }).catch(() => {
+          showToast('no se pudo copiar');
+        });
+      } else {
+        history.pushState(null, '', href);
+        showToast('navegado · ' + href);
+      }
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>

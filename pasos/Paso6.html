@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>naeth/research · paso 6 · esquema de datos (Postgres)</title>
+<meta name="description" content="Paso 6 de Naeth: esquema Postgres del núcleo, revisado para multi-master (append puro: supersession y tombstone como tablas-evento, is_current como caché local) y embeddings por-nodo. Mayo 2026, rev. junio 2026." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:oklch(98% 0.005 80);--bg-elev:oklch(100% 0 0);--bg-code:oklch(96% 0.008 80);--bg-hl:oklch(94% 0.012 80);--bg-side:oklch(95% 0.006 80);--ink:oklch(18% 0.012 60);--ink-soft:oklch(42% 0.012 60);--ink-mute:oklch(62% 0.010 60);--ink-inv:oklch(98% 0.005 80);--rule:oklch(88% 0.006 80);--rule-strong:oklch(78% 0.008 80);--acc:oklch(48% 0.16 145);--acc-soft:oklch(94% 0.04 145);--win:oklch(48% 0.16 145);--warn:oklch(60% 0.17 70);--warn-soft:oklch(95% 0.06 80);--err:oklch(52% 0.21 28);--err-soft:oklch(94% 0.05 28);--info:oklch(48% 0.18 245);--info-soft:oklch(94% 0.05 245);--gold:oklch(68% 0.14 80);--fs-base:clamp(14px,0.95vw,16px);--fs-sm:clamp(12px,0.82vw,14px);--fs-xs:clamp(11px,0.72vw,12px);--fs-lg:clamp(17px,1.15vw,20px);--fs-xl:clamp(22px,1.6vw,30px);--fs-2xl:clamp(28px,2.2vw,42px);--fs-3xl:clamp(40px,3.6vw,72px);--sans:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;--sidebar-w:280px;--content-max:1180px;--gutter:clamp(24px,4vw,96px);--ease:cubic-bezier(.16,1,.3,1);}
+[data-theme="dark"]{--bg:oklch(14% 0.008 80);--bg-elev:oklch(18% 0.010 80);--bg-code:oklch(22% 0.012 80);--bg-hl:oklch(24% 0.014 80);--bg-side:oklch(16% 0.008 80);--ink:oklch(94% 0.005 80);--ink-soft:oklch(72% 0.006 80);--ink-mute:oklch(54% 0.008 80);--ink-inv:oklch(14% 0.008 80);--rule:oklch(28% 0.010 80);--rule-strong:oklch(40% 0.012 80);--acc:oklch(72% 0.18 145);--acc-soft:oklch(28% 0.06 145);--warn:oklch(78% 0.17 70);--warn-soft:oklch(28% 0.08 80);--err:oklch(72% 0.20 28);--err-soft:oklch(28% 0.10 28);--info:oklch(72% 0.18 245);--info-soft:oklch(28% 0.10 245);--gold:oklch(78% 0.14 80);}
+*,*::before,*::after{box-sizing:border-box;}html,body{margin:0;padding:0;}html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:var(--fs-base);line-height:1.6;-webkit-font-smoothing:antialiased;transition:background-color .2s,color .2s;}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;}html{scroll-behavior:auto;}}
+::selection{background:var(--acc-soft);color:var(--ink);}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;}
+.progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:100;}.progress__bar{height:100%;width:0%;background:var(--acc);transition:width .1s linear;}
+.sidebar{position:sticky;top:0;height:100vh;background:var(--bg-side);border-right:1px solid var(--rule);font-family:var(--mono);font-size:var(--fs-sm);overflow-y:auto;padding:28px 22px;display:flex;flex-direction:column;}
+.sidebar__brand{font-weight:700;letter-spacing:-.02em;margin-bottom:4px;}.sidebar__brand .prompt{color:var(--acc);}
+.sidebar__sub{color:var(--ink-mute);font-size:var(--fs-xs);margin-bottom:22px;padding-bottom:16px;border-bottom:1px dashed var(--rule);}.sidebar__sub .blink{animation:blink 1.1s steps(1) infinite;color:var(--acc);}
+@keyframes blink{50%{opacity:0;}}
+.theme-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:1px dashed var(--rule);}
+.theme-row__label{font-size:var(--fs-xs);color:var(--ink-mute);text-transform:uppercase;letter-spacing:1.2px;}
+.theme-toggle{background:var(--bg-elev);border:1px solid var(--rule);border-radius:4px;padding:4px 8px;font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s,border-color .15s;}
+.theme-toggle:hover{background:var(--bg-hl);border-color:var(--rule-strong);}.theme-toggle:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}.theme-toggle svg{width:13px;height:13px;}
+.toc__title{font-size:var(--fs-xs);color:var(--ink-mute);text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px;font-weight:600;}
+.toc{list-style:none;padding:0;margin:0 0 22px;}.toc a{display:block;padding:6px 10px 6px 14px;color:var(--ink-soft);text-decoration:none;border-left:2px solid transparent;transition:background .15s,color .15s,border-color .15s;font-size:var(--fs-sm);line-height:1.4;}
+.toc a:hover{background:var(--bg-hl);color:var(--ink);}.toc a.is-active{color:var(--acc);border-left-color:var(--acc);background:var(--acc-soft);font-weight:500;}
+.toc a .n{color:var(--ink-mute);margin-right:6px;}.toc a.is-active .n{color:var(--acc);}
+.sidebar__foot{margin-top:auto;font-size:var(--fs-xs);color:var(--ink-mute);padding-top:16px;border-top:1px dashed var(--rule);line-height:1.7;}
+.main{padding:64px var(--gutter) 96px;max-width:calc(var(--content-max) + 2 * var(--gutter));margin:0 auto;width:100%;}
+.hero{margin-bottom:56px;}.hero__meta{font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-mute);margin-bottom:24px;display:flex;gap:12px;align-items:center;text-transform:uppercase;letter-spacing:1.5px;flex-wrap:wrap;}
+.hero__meta::before{content:"";width:8px;height:8px;background:var(--acc);border-radius:1px;display:inline-block;}.hero__meta .sep{color:var(--rule-strong);}
+.hero h1{font-size:var(--fs-3xl);font-weight:700;line-height:1.05;letter-spacing:-.035em;margin:0 0 16px;max-width:22ch;}
+.hero__sub{color:var(--ink-soft);font-size:var(--fs-lg);max-width:70ch;line-height:1.55;margin:0 0 36px;}.hero__sub strong{color:var(--ink);font-weight:600;}
+.section{margin:84px 0;scroll-margin-top:32px;}
+.section__head{margin-bottom:28px;border-bottom:1px solid var(--rule);padding-bottom:16px;}
+.section__tag{font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-mute);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:10px;display:flex;gap:8px;}.section__tag .hash{color:var(--acc);}
+.section h2{font-size:var(--fs-2xl);font-weight:700;line-height:1.1;letter-spacing:-.025em;margin:0;}
+.section__lede{color:var(--ink-soft);font-size:var(--fs-lg);margin:14px 0 0;max-width:72ch;}.section__lede strong{color:var(--ink);font-weight:600;}
+.tbl-wrap{margin:18px 0 22px;border:1px solid var(--rule);border-radius:6px;overflow-x:auto;background:var(--bg-elev);}
+.tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:var(--fs-sm);min-width:620px;}
+.tbl th,.tbl td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.5;}
+.tbl thead th{background:var(--bg-side);font-weight:700;color:var(--ink);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid var(--rule-strong);}
+.tbl tbody tr:hover{background:color-mix(in oklch,var(--bg-hl) 50%,transparent);}.tbl tbody tr:last-child td{border-bottom:0;}
+.tbl td .k{font-family:var(--mono);color:var(--acc);font-weight:700;}.tbl td .t{color:var(--ink-mute);}
+.code{background:var(--ink);color:var(--ink-inv);font-family:var(--mono);font-size:clamp(11px,0.82vw,13.5px);line-height:1.6;padding:18px 22px;border-radius:6px;overflow-x:auto;margin:14px 0;white-space:pre;}
+.code .kw{color:oklch(75% 0.16 245);font-weight:600;}.code .fn{color:oklch(80% 0.18 145);}.code .c{color:oklch(60% 0.008 60);font-style:italic;}.code .s{color:oklch(82% 0.14 80);}
+.callout{display:grid;grid-template-columns:auto 1fr;gap:14px;padding:16px 20px;border:1px solid var(--rule);border-left-width:4px;border-radius:4px;background:var(--bg-elev);font-size:var(--fs-base);line-height:1.6;margin:18px 0;}
+.callout__tag{font-family:var(--mono);font-weight:700;font-size:var(--fs-xs);letter-spacing:1.2px;align-self:start;padding-top:2px;}
+.callout__body{color:var(--ink-soft);}.callout__body p{margin:0 0 8px;}.callout__body p:last-child{margin-bottom:0;}.callout__body strong{color:var(--ink);font-weight:600;}.callout__body code{font-family:var(--mono);background:var(--bg-code);padding:1px 5px;border-radius:3px;font-size:.88em;}
+.callout--win{border-left-color:var(--win);background:color-mix(in oklch,var(--acc-soft) 50%,var(--bg-elev));}.callout--win .callout__tag{color:var(--win);}
+.callout--warn{border-left-color:var(--warn);background:color-mix(in oklch,var(--warn-soft) 50%,var(--bg-elev));}.callout--warn .callout__tag{color:var(--warn);}
+.callout--info{border-left-color:var(--info);background:color-mix(in oklch,var(--info-soft) 50%,var(--bg-elev));}.callout--info .callout__tag{color:var(--info);}
+.list{color:var(--ink-soft);padding-left:22px;line-height:1.75;max-width:76ch;}.list li{margin:8px 0;}.list strong{color:var(--ink);font-weight:600;}.list code{font-family:var(--mono);background:var(--bg-code);padding:1px 5px;border-radius:3px;font-size:.88em;}
+.steps{display:grid;gap:10px;margin:14px 0;}
+.step{display:grid;grid-template-columns:auto 1fr;gap:14px;border:1px solid var(--rule);border-radius:6px;background:var(--bg-elev);padding:14px 18px;}
+.step__b{font-family:var(--mono);font-weight:700;color:var(--acc);}
+.step__t{color:var(--ink-soft);font-size:var(--fs-sm);}.step__t strong{color:var(--ink);}.step__t code{font-family:var(--mono);background:var(--bg-code);padding:1px 5px;border-radius:3px;font-size:.88em;}
+.footer{margin-top:84px;padding-top:32px;border-top:1px dashed var(--rule);font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-mute);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;}.footer .end{color:var(--acc);}
+.anchor-link{opacity:0;font-family:var(--mono);color:var(--ink-mute);text-decoration:none;font-size:.65em;margin-left:8px;}h2:hover .anchor-link{opacity:1;}.anchor-link:hover{color:var(--acc);}
+@media(max-width:1024px){.app{grid-template-columns:1fr;}.sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--rule);padding:18px 22px;}.main{padding:32px var(--gutter) 64px;}}
+</style>
+</head>
+<body>
+<div class="progress" aria-hidden="true"><div class="progress__bar" id="progressBar"></div></div>
+<div class="app">
+  <aside class="sidebar" aria-label="Tabla de contenidos">
+    <div class="sidebar__brand"><span class="prompt">$ </span>naeth/research</div>
+    <div class="sidebar__sub">paso 06 · esquema<span class="blink"> _</span></div>
+    <div class="theme-row"><span class="theme-row__label">tema</span><button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema"><span id="themeIcon"></span> <span id="themeLabel">oscuro</span></button></div>
+    <h3 class="toc__title">Secciones</h3>
+    <nav><ul class="toc" id="toc">
+      <li><a href="#principios"><span class="n">01</span>principios</a></li>
+      <li><a href="#memory"><span class="n">02</span>tabla memory (inmutable)</a></li>
+      <li><a href="#supersession"><span class="n">03</span>supersession</a></li>
+      <li><a href="#tombstone"><span class="n">04</span>tombstone</a></li>
+      <li><a href="#relation"><span class="n">05</span>relation (grafo)</a></li>
+      <li><a href="#attachment"><span class="n">06</span>attachment (q6)</a></li>
+      <li><a href="#job"><span class="n">07</span>job (cola local)</a></li>
+      <li><a href="#indices"><span class="n">08</span>índices y tuning</a></li>
+      <li><a href="#hibrida"><span class="n">09</span>búsqueda híbrida</a></li>
+      <li><a href="#mcp"><span class="n">10</span>MCP</a></li>
+      <li><a href="#multimaster"><span class="n">11</span>listo multi-master</a></li>
+    </ul></nav>
+    <div class="sidebar__foot"><div>sustrato: <span class="text-acc">Postgres + pgvector</span></div><div style="margin-top:8px">v1.1 · rev. 2026-06-24</div></div>
+  </aside>
+  <main class="main">
+    <header class="hero">
+      <div class="hero__meta"><span>2026-05-30 · rev. 2026-06-24</span><span class="sep">·</span><span>paso 6</span><span class="sep">·</span><span>esquema en papel</span></div>
+      <h1>El núcleo de Naeth en Postgres</h1>
+      <p class="hero__sub">El modelo de datos que usan las dos interfaces (web y MCP) sobre el mismo núcleo. <strong>ADD-only append puro</strong> (reemplazo y borrado como tablas-evento), búsqueda híbrida local, adjuntos, cola async, y <strong>listo para sync multi-master</strong> por unión de filas (<a href="Paso8.html">Paso 8</a>). Embeddings <strong>por-nodo</strong> (<a href="Paso7.html">Paso 7</a>).</p>
+    </header>
+
+    <section id="principios" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§01</span><span>principios</span></div><h2>Lo que fija el esquema <a class="anchor-link" href="#principios">#</a></h2></div>
+      <ul class="list">
+        <li><strong>ADD-only estricto</strong>: editar y borrar no pisan datos; añaden versiones y eventos. El reconcile por LLM destruye contexto, por eso se descarta.</li>
+        <li><strong>Append puro para multi-master</strong> (rev. 2026-06-24): lo "mutable" (reemplazo, validez, borrado) se modela como <strong>filas-evento inmutables</strong> en tablas propias (<code>supersession</code>, <code>tombstone</code>) → sincronizar es <strong>unir filas</strong> en todas las tablas (<a href="Paso8.html">Paso 8</a>).</li>
+        <li><strong>Lo derivado es caché local</strong>: <code>is_current</code> se recalcula en cada nodo desde las tablas-evento (para índices parciales). <strong>No viaja</strong> en el sync.</li>
+        <li><strong>Búsqueda híbrida local</strong>: semántica (pgvector HNSW) + texto (tsvector) + filtros, en una query. Sin LLM, sin API.</li>
+        <li><strong>Soberanía por export</strong>: la verdad vive en Postgres, portable (<code>pg_dump</code>, export a Markdown). Sin lock-in.</li>
+        <li><strong>Identidad de cliente</strong>: cada escritura registra quién la hizo (claude.ai / claude-code / web / mcp).</li>
+        <li><strong>Embedding asíncrono y por-nodo</strong>: la escritura es síncrona y barata; el embedding va a una cola. Modelo y dimensión son por-nodo y la columna <strong>no se sincroniza</strong>.</li>
+      </ul>
+    </section>
+
+    <section id="memory" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§02</span><span>tabla memory · inmutable</span></div><h2>El registro atómico <a class="anchor-link" href="#memory">#</a></h2>
+      <p class="section__lede">Cada versión es una fila; nada se sobreescribe (salvo la caché local y el relleno async del embedding).</p></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>columna</th><th>tipo</th><th>significado</th></tr></thead><tbody>
+        <tr><td><span class="k">id</span></td><td class="t">uuid PK</td><td>identidad de esta versión</td></tr>
+        <tr><td><span class="k">content_hash</span></td><td class="t">text</td><td>sha256 (idempotencia/dedup en alta)</td></tr>
+        <tr><td><span class="k">title / content</span></td><td class="t">text</td><td>título y cuerpo</td></tr>
+        <tr><td><span class="k">memory_type</span></td><td class="t">text</td><td>ontología extensible (decision, learning, ...)</td></tr>
+        <tr><td><span class="k">tags / path</span></td><td class="t">text[] / text</td><td>etiquetas; jerarquía lógica (árbol)</td></tr>
+        <tr><td><span class="k">metadata</span></td><td class="t">jsonb</td><td>extensible</td></tr>
+        <tr><td><span class="k">embedding</span></td><td class="t">vector(N)</td><td><strong>dimensión por-nodo</strong> (bge-m3 1024 / e5-small 384); nulo hasta la cola; <strong>no se sincroniza</strong></td></tr>
+        <tr><td><span class="k">tsv</span></td><td class="t">tsvector</td><td>FTS de title+content</td></tr>
+        <tr><td><span class="k">source_client</span></td><td class="t">text</td><td>quién lo escribió</td></tr>
+        <tr><td><span class="k">created_at</span></td><td class="t">timestamptz</td><td>alta (orden + desempate por id)</td></tr>
+        <tr><td><span class="k">valid_from</span></td><td class="t">timestamptz</td><td>desde cuándo es válida (temporal ligero)</td></tr>
+        <tr><td><span class="k">is_current</span></td><td class="t">bool</td><td><strong>caché derivada local</strong>: no superseded ni tombstoned; <strong>no se sincroniza</strong></td></tr>
+      </tbody></table></div>
+      <div class="callout callout--warn"><span class="callout__tag">qué cambió · rev 2026-06-24</span><div class="callout__body"><p>Se quitaron de la fila <code>supersedes</code>, <code>valid_to</code> y <code>deleted_at</code>. El reemplazo vive en <code>supersession</code> (§03), el borrado en <code>tombstone</code> (§04), y la vigencia es <code>is_current</code> (caché). <code>embedding</code> pasa de <code>vector(384)</code> fijo a <code>vector(N)</code> por-nodo. La fila <code>memory</code> queda <strong>100% inmutable</strong> salvo el relleno async del embedding y la recomputación de <code>is_current</code> (ambos locales).</p></div></div>
+      <div class="steps">
+        <div class="step"><span class="step__b">crear</span><span class="step__t"><code>INSERT</code> en memory. Si el <code>content_hash</code> ya existe vigente, idempotente.</span></div>
+        <div class="step"><span class="step__b">editar</span><span class="step__t"><code>INSERT</code> versión nueva + <code>INSERT</code> en <code>supersession</code> (child=nueva, parent=anterior). La anterior <strong>permanece</strong>; <code>is_current=false</code>.</span></div>
+        <div class="step"><span class="step__b">borrar</span><span class="step__t"><code>INSERT</code> en <code>tombstone</code> (target=la fila). La fila <strong>permanece</strong>; <code>is_current=false</code>.</span></div>
+        <div class="step"><span class="step__b">fundir</span><span class="step__t"><code>INSERT</code> versión fusión + <code>supersession</code> con <strong>una fila por rama padre</strong>. Resuelve el conflicto sin perder ninguna rama (<a href="Paso8.html">Paso 8</a>).</span></div>
+      </div>
+      <p class="list">Vista de lo vigente (la verdad, derivada de las tablas-evento):</p>
+      <pre class="code"><span class="kw">CREATE VIEW</span> memory_current <span class="kw">AS</span>
+<span class="kw">SELECT</span> m.* <span class="kw">FROM</span> memory m
+<span class="kw">WHERE NOT EXISTS</span> (<span class="kw">SELECT</span> 1 <span class="kw">FROM</span> tombstone t <span class="kw">WHERE</span> t.target_id = m.id)
+  <span class="kw">AND NOT EXISTS</span> (<span class="kw">SELECT</span> 1 <span class="kw">FROM</span> supersession s <span class="kw">WHERE</span> s.parent_id = m.id);
+<span class="c">-- is_current cachea este predicado para los índices parciales (§08).</span></pre>
+    </section>
+
+    <section id="supersession" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§03</span><span>supersession</span></div><h2>Versionado append-only <a class="anchor-link" href="#supersession">#</a></h2>
+      <p class="section__lede">El reemplazo entre versiones como aristas inmutables (antes la columna <code>supersedes</code>). <strong>Permite varios padres</strong> para fundir ramas.</p></div>
+      <pre class="code">id uuid PK · child_id uuid → memory · parent_id uuid → memory
+created_at timestamptz · source_client text</pre>
+      <ul class="list">
+        <li>Edición normal → <strong>una</strong> fila (child reemplaza a un parent).</li>
+        <li><strong>Fusión</strong> → <strong>N</strong> filas con el mismo child y distintos parent (una por rama).</li>
+        <li><code>parent_id</code> con &gt;1 child vigente = <strong>conflicto de rama</strong> (dos ediciones offline); se detecta y se marca para fundir:</li>
+      </ul>
+      <pre class="code"><span class="kw">SELECT</span> s.parent_id, <span class="fn">array_agg</span>(s.child_id) <span class="kw">AS</span> ramas
+<span class="kw">FROM</span> supersession s <span class="kw">JOIN</span> memory_current c <span class="kw">ON</span> c.id = s.child_id
+<span class="kw">GROUP BY</span> s.parent_id <span class="kw">HAVING</span> <span class="fn">count</span>(*) &gt; 1;</pre>
+    </section>
+
+    <section id="tombstone" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§04</span><span>tombstone</span></div><h2>Borrados append-only y unificados <a class="anchor-link" href="#tombstone">#</a></h2>
+      <p class="section__lede">El borrado lógico como evento inmutable (antes la columna <code>deleted_at</code>). Unificado para memory y relation.</p></div>
+      <pre class="code">id uuid PK · target_id uuid · target_kind text (memory | relation)
+created_at timestamptz · source_client text</pre>
+      <ul class="list">
+        <li>"Borrado" = <strong>existe</strong> una fila <code>tombstone</code> para ese <code>target_id</code>. Nunca hay <code>DELETE</code> físico ni <code>UPDATE</code>.</li>
+        <li>Sincroniza por unión; la unión de tombstones es idempotente (un borrado en cualquier nodo gana, monotónico).</li>
+      </ul>
+    </section>
+
+    <section id="relation" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§05</span><span>relation (grafo)</span></div><h2>Aristas explícitas <a class="anchor-link" href="#relation">#</a></h2></div>
+      <pre class="code">id uuid PK · source_id uuid → memory · target_id uuid → memory
+predicate text (links_to, depends_on, ...) · metadata jsonb
+source_client text · created_at timestamptz</pre>
+      <ul class="list">
+        <li>ADD-only: las relaciones <strong>no</strong> se borran in-place; se registran en <code>tombstone</code> (<code>target_kind='relation'</code>). Vigente = <code>NOT EXISTS</code> tombstone.</li>
+        <li>Recorrido de vecindad (foco + N saltos) con <code>WITH RECURSIVE</code> + índices en source/target.</li>
+        <li><strong>Las aristas semánticas NO se almacenan</strong>: se calculan bajo demanda con pgvector kNN (2-4 ms a 1M). El grafo "qué se parece" pide las K vecinas del nodo en foco, sin materializar millones de aristas.</li>
+      </ul>
+    </section>
+
+    <section id="attachment" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§06</span><span>attachment (q6)</span></div><h2>HTML, PDF, cualquier archivo <a class="anchor-link" href="#attachment">#</a></h2></div>
+      <pre class="code">id uuid PK · memory_id uuid → memory <span class="c">-- el sidecar que lo representa</span>
+filename · mime · size_bytes · sha256
+storage_path text <span class="c">-- ruta en el volumen LUKS; los BYTES no van en Postgres</span>
+extracted_text text <span class="c">-- PDF/HTML → texto; alimenta content/tsv/embedding</span></pre>
+      <ul class="list">
+        <li>El <strong>binario vive en disco</strong> (volumen LUKS), no en la BD (evita bloat).</li>
+        <li>Cada adjunto genera un <strong>sidecar <code>memory</code></strong> (content = texto extraído) → entra en búsqueda, embedding y grafo como un nodo más.</li>
+        <li>Extracción: PDF con PyMuPDF, HTML con trafilatura, texto plano inline; imágenes → metadatos (OCR opcional).</li>
+        <li><strong>Sync</strong> (<a href="Paso8.html">Paso 8</a>): la fila viaja por unión; el <strong>binario</strong> se replica content-addressed por <code>sha256</code> (transferir faltantes, dedup).</li>
+      </ul>
+    </section>
+
+    <section id="job" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§07</span><span>job · cola local</span></div><h2>tabla job (no se sincroniza) <a class="anchor-link" href="#job">#</a></h2>
+      <p class="section__lede">La <code>async write queue</code> del diseño, y lo que el visor muestra. <strong>Local a cada nodo.</strong></p></div>
+      <pre class="code">id bigserial PK · kind text (embed | extract | ...) · memory_id uuid
+status text (pending|processing|done|error) · attempts int
+created_at · started_at · finished_at · error text</pre>
+      <ul class="list">
+        <li>Tras un <code>INSERT</code> en <code>memory</code> se encola <code>job(kind='embed')</code>. Un worker lo toma, genera el embedding en CPU y hace <code>UPDATE memory SET embedding</code> (mutación <strong>local</strong>).</li>
+        <li><code>bigserial</code> es local; la cola <strong>no se sincroniza</strong>: cada nodo regenera sus embeddings con su modelo (<a href="Paso7.html">Paso 7</a>).</li>
+        <li>Da observabilidad (el visor lee de aquí) y reintentos. Desfase = <code>finished_at - created_at</code>.</li>
+      </ul>
+    </section>
+
+    <section id="indices" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§08</span><span>índices y tuning</span></div><h2>Índices <a class="anchor-link" href="#indices">#</a></h2></div>
+      <pre class="code"><span class="c">-- semántico: HNSW solo sobre lo vigente y embebido (usa la caché is_current)</span>
+<span class="kw">CREATE INDEX ON</span> memory <span class="kw">USING</span> hnsw (embedding vector_cosine_ops)
+  <span class="kw">WHERE</span> embedding <span class="kw">IS NOT NULL AND</span> is_current;
+<span class="kw">CREATE INDEX ON</span> memory <span class="kw">USING</span> gin (tsv);     <span class="c">-- texto completo</span>
+<span class="kw">CREATE INDEX ON</span> memory <span class="kw">USING</span> gin (tags);    <span class="c">-- etiquetas</span>
+<span class="kw">CREATE INDEX ON</span> memory (path);              <span class="c">-- árbol</span>
+<span class="kw">CREATE INDEX ON</span> supersession (parent_id);   <span class="c">-- vigencia + sync</span>
+<span class="kw">CREATE INDEX ON</span> tombstone (target_id);
+<span class="kw">CREATE INDEX ON</span> relation (source_id);
+<span class="kw">CREATE INDEX ON</span> job (status) <span class="kw">WHERE</span> status = <span class="s">'pending'</span>;</pre>
+      <div class="callout callout--info"><span class="callout__tag">por qué is_current existe</span><div class="callout__body"><p>El índice parcial HNSW usa <code>is_current</code> (caché de la propia fila) porque un predicado de índice parcial <strong>no puede referenciar otras tablas</strong>. Por eso la vigencia se cachea en la fila (no es la verdad: se recomputa tras cada edición/borrado/sync desde <code>supersession</code> y <code>tombstone</code>).</p></div></div>
+      <div class="callout callout--warn"><span class="callout__tag">tuning de build (Paso 5)</span><div class="callout__body"><p><strong>Solo afecta al BUILD del HNSW, no a las queries.</strong> <code>maintenance_work_mem=2GB</code> (el grafo en RAM → 7,4× build y 2,7× query) · <code>max_parallel_maintenance_workers=4</code> · Docker <strong><code>--shm-size=8g</code></strong> (el build paralelo usa /dev/shm; 64 MB por defecto da un <code>DiskFull</code> engañoso — <strong>crítico en local con Docker Desktop y en finally</strong>). <strong>Ojo</strong>: con bge-m3 (1024-dim) el grafo ocupa ~2,7× más que con 384-dim → recalcular <code>maintenance_work_mem</code> en el nodo local.</p></div></div>
+    </section>
+
+    <section id="hibrida" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§09</span><span>búsqueda híbrida</span></div><h2>Una sola query (RRF) <a class="anchor-link" href="#hibrida">#</a></h2></div>
+      <pre class="code"><span class="kw">WITH</span> sem <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> id, <span class="fn">row_number</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> embedding &lt;=&gt; :q) <span class="kw">AS</span> r
+  <span class="kw">FROM</span> memory_current <span class="kw">WHERE</span> embedding <span class="kw">IS NOT NULL</span>
+  <span class="kw">ORDER BY</span> embedding &lt;=&gt; :q <span class="kw">LIMIT</span> 50),
+txt <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> id, <span class="fn">row_number</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> <span class="fn">ts_rank</span>(tsv, <span class="fn">plainto_tsquery</span>(:kw)) <span class="kw">DESC</span>) <span class="kw">AS</span> r
+  <span class="kw">FROM</span> memory_current <span class="kw">WHERE</span> tsv @@ <span class="fn">plainto_tsquery</span>(:kw) <span class="kw">LIMIT</span> 50)
+<span class="kw">SELECT</span> m.*, (1.0/(60+sem.r) + 1.0/(60+txt.r)) <span class="kw">AS</span> score
+<span class="kw">FROM</span> memory_current m
+<span class="kw">LEFT JOIN</span> sem <span class="kw">ON</span> sem.id = m.id
+<span class="kw">LEFT JOIN</span> txt <span class="kw">ON</span> txt.id = m.id
+<span class="kw">WHERE</span> sem.id <span class="kw">IS NOT NULL OR</span> txt.id <span class="kw">IS NOT NULL</span>
+<span class="kw">ORDER BY</span> score <span class="kw">DESC LIMIT</span> :k;</pre>
+      <p class="list">La query embebe <code>:q</code> con <strong>el modelo de ESTE nodo</strong> (consistencia interna por-nodo). Filtros estructurados (path, tags, fechas, source_client) se añaden con <code>WHERE</code> normal.</p>
+    </section>
+
+    <section id="mcp" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§10</span><span>MCP</span></div><h2>La otra interfaz, mismo núcleo <a class="anchor-link" href="#mcp">#</a></h2></div>
+      <p class="list">El núcleo no sabe si lo llama la web o un agente: ambos pasan por la <strong>misma API</strong> (FastAPI) que impone ADD-only. Herramientas MCP v1 (<a href="Paso7.html">Paso 7</a>): <code>memory.add</code>, <code>memory.search</code>, <code>memory.get</code>, <code>memory.supersede</code>, <code>memory.tombstone</code>, <code>relation.add</code>, <code>relation.list</code>, <code>system.status</code>. <strong>No hay editar/borrar destructivo</strong>: editar = versión + supersession; borrar = tombstone. La política vive en el núcleo, no en cada cliente.</p>
+    </section>
+
+    <section id="multimaster" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§11</span><span>listo multi-master</span></div><h2>Qué se sincroniza <a class="anchor-link" href="#multimaster">#</a></h2>
+      <p class="section__lede">Por el append puro, sincronizar es <strong>unión de filas</strong> en todas las tablas (mecanismo y conflictos: <a href="Paso8.html">Paso 8</a>).</p></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>tabla / dato</th><th>¿sync?</th><th>cómo</th></tr></thead><tbody>
+        <tr><td><span class="k">memory (sin embedding)</span></td><td class="t">sí</td><td>unión por id; filas inmutables</td></tr>
+        <tr><td><span class="k">supersession</span></td><td class="t">sí</td><td>unión por id; append puro</td></tr>
+        <tr><td><span class="k">tombstone</span></td><td class="t">sí</td><td>unión por id; idempotente</td></tr>
+        <tr><td><span class="k">relation</span></td><td class="t">sí</td><td>unión por id</td></tr>
+        <tr><td><span class="k">attachment (filas)</span></td><td class="t">sí</td><td>unión; binario por sha256 aparte</td></tr>
+        <tr><td><span class="k">memory.embedding</span></td><td class="t">no</td><td>por-nodo; cada nodo lo regenera</td></tr>
+        <tr><td><span class="k">memory.is_current</span></td><td class="t">no</td><td>caché derivada local; recomputada</td></tr>
+        <tr><td><span class="k">job</span></td><td class="t">no</td><td>cola local</td></tr>
+      </tbody></table></div>
+      <div class="callout callout--win" style="margin-top:24px"><span class="callout__tag">fin paso 6 (rev.)</span><div class="callout__body"><p>El esquema nace <strong>listo para multi-master</strong>: ADD-only append puro (supersession + tombstone como tablas-evento), <code>is_current</code> como caché local, embeddings por-nodo. Sincronizar es unión de filas, sin reconciliar mutaciones. Lo que NO decide: el código (DDL, migraciones, API), el detalle de extracción por tipo de archivo, y particionado (innecesario a escala personal). Siguiente: construir, empezando por el <a href="Paso7.html">Paso 7</a>.</p></div></div>
+    </section>
+
+    <footer class="footer"><span>naeth/research · paso 6 · esquema</span><span class="end">núcleo en papel · rev. 2026-06-24 _</span></footer>
+  </main>
+</div>
+<script>
+(function(){"use strict";
+const SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const html=document.documentElement,ti=document.getElementById('themeIcon'),tl=document.getElementById('themeLabel');
+function st(t){html.setAttribute('data-theme',t);ti.innerHTML=t==='dark'?SUN:MOON;tl.textContent=t==='dark'?'claro':'oscuro';try{localStorage.setItem('naeth-theme',t);}catch(e){}}
+(function(){let s=null;try{s=localStorage.getItem('naeth-theme');}catch(e){}st(s||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'));})();
+document.getElementById('themeToggle').addEventListener('click',()=>st(html.getAttribute('data-theme')==='dark'?'light':'dark'));
+document.addEventListener('keydown',(e)=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(e.key==='t'||e.key==='T')document.getElementById('themeToggle').click();});
+const bar=document.getElementById('progressBar');function up(){const h=document.documentElement,m=h.scrollHeight-h.clientHeight;bar.style.width=(m>0?(h.scrollTop/m)*100:0)+'%';}document.addEventListener('scroll',up,{passive:true});up();
+const links=Array.from(document.querySelectorAll('.toc a'));if('IntersectionObserver'in window){const io=new IntersectionObserver((es)=>{es.forEach(en=>{if(en.isIntersecting)links.forEach(a=>a.classList.toggle('is-active',a.getAttribute('href')==='#'+en.target.id));});},{rootMargin:'-30% 0px -60% 0px'});document.querySelectorAll('.section').forEach(s=>{if(s.id)io.observe(s);});}
+document.querySelectorAll('.anchor-link').forEach(a=>a.addEventListener('click',(e)=>{e.preventDefault();const h=a.getAttribute('href');if(navigator.clipboard)navigator.clipboard.writeText(location.origin+location.pathname+h);history.pushState(null,'',h);}));
+})();
+</script>
+</body>
+</html>

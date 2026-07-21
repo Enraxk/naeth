@@ -1,0 +1,2050 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>naeth/research · top-15 memoria persistente LLM · v1.0</title>
+<meta name="description" content="Investigación rigurosa de los 15 sistemas de memoria persistente para LLMs y agentes AI. Mayo 2026. Proyecto Naeth." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   DESIGN DNA — Terminal × Notion
+   ============================================================ */
+:root{
+  /* paper-light palette */
+  --bg:        oklch(98%  0.005 80);
+  --bg-elev:   oklch(100% 0 0);
+  --bg-code:   oklch(96%  0.008 80);
+  --bg-hl:     oklch(94%  0.012 80);
+  --bg-side:   oklch(95%  0.006 80);
+
+  --ink:       oklch(18% 0.012 60);
+  --ink-soft:  oklch(42% 0.012 60);
+  --ink-mute:  oklch(62% 0.010 60);
+  --ink-inv:   oklch(98% 0.005 80);
+
+  --rule:      oklch(88% 0.006 80);
+  --rule-strong: oklch(78% 0.008 80);
+
+  --acc:       oklch(48% 0.16 145);
+  --acc-soft:  oklch(94% 0.04 145);
+  --win:       oklch(48% 0.16 145);
+  --warn:      oklch(60% 0.17 70);
+  --warn-soft: oklch(95% 0.06 80);
+  --err:       oklch(52% 0.21 28);
+  --err-soft:  oklch(94% 0.05 28);
+  --info:      oklch(48% 0.18 245);
+  --info-soft: oklch(94% 0.05 245);
+  --gold:      oklch(68% 0.14 80);
+
+  --fs-base: clamp(14px, 0.95vw, 16px);
+  --fs-sm:   clamp(12px, 0.82vw, 14px);
+  --fs-xs:   clamp(11px, 0.72vw, 12px);
+  --fs-lg:   clamp(17px, 1.15vw, 20px);
+  --fs-xl:   clamp(22px, 1.6vw, 30px);
+  --fs-2xl:  clamp(28px, 2.2vw, 42px);
+  --fs-3xl:  clamp(40px, 3.6vw, 72px);
+  --fs-4xl:  clamp(56px, 5.5vw, 120px);
+
+  --sans: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --sidebar-w: 280px;
+  --content-max: 1180px;
+  --gutter: clamp(24px, 4vw, 96px);
+
+  --ease: cubic-bezier(.16,1,.3,1);
+}
+
+*,*::before,*::after{ box-sizing: border-box; }
+html,body{ margin:0; padding:0; }
+html{ scroll-behavior: smooth; }
+body{
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ transition: none !important; animation: none !important; }
+  html{ scroll-behavior: auto; }
+}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.app{
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+
+/* progress bar */
+.progress{
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  z-index: 100;
+}
+.progress__bar{
+  height: 100%;
+  width: 0%;
+  background: var(--acc);
+  transition: width .1s linear;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar{
+  position: sticky; top: 0;
+  height: 100vh;
+  background: var(--bg-side);
+  border-right: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  overflow-y: auto;
+  padding: 28px 22px;
+  display: flex; flex-direction: column;
+}
+.sidebar__brand{
+  font-weight: 700;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.sidebar__brand .prompt{ color: var(--acc); }
+.sidebar__sub{
+  color: var(--ink-mute);
+  font-size: var(--fs-xs);
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed var(--rule);
+}
+.sidebar__sub .blink{
+  animation: blink 1.1s steps(1) infinite;
+  color: var(--acc);
+}
+@keyframes blink{ 50%{ opacity: 0; } }
+
+.toc__title{
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.toc{ list-style: none; padding: 0; margin: 0 0 28px; }
+.toc li{ margin: 0; }
+.toc a{
+  display: block;
+  padding: 6px 10px 6px 14px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: background .15s, color .15s, border-color .15s;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+.toc a:hover{ background: var(--bg-hl); color: var(--ink); }
+.toc a.is-active{
+  color: var(--acc);
+  border-left-color: var(--acc);
+  background: var(--acc-soft);
+  font-weight: 500;
+}
+.toc a .n{ color: var(--ink-mute); margin-right: 6px; font-weight: 400; }
+.toc a.is-active .n{ color: var(--acc); }
+
+.sidebar__foot{
+  margin-top: auto;
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  padding-top: 16px;
+  border-top: 1px dashed var(--rule);
+  line-height: 1.7;
+}
+.sidebar__foot kbd{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--ink);
+}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main{
+  padding: 64px var(--gutter) 96px;
+  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ============================================================
+   HEADER / HERO
+   ============================================================ */
+.hero{ margin-bottom: 64px; }
+.hero__meta{
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); margin-bottom: 24px;
+  display: flex; gap: 12px; align-items: center;
+  text-transform: uppercase; letter-spacing: 1.5px;
+}
+.hero__meta::before{
+  content: ""; width: 8px; height: 8px; background: var(--acc);
+  border-radius: 1px; display: inline-block;
+}
+.hero h1{
+  font-family: var(--sans);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  margin: 0 0 16px;
+  max-width: 22ch;
+}
+.hero__sub{
+  color: var(--ink-soft);
+  font-size: var(--fs-lg);
+  max-width: 70ch;
+  line-height: 1.55;
+  margin: 0 0 36px;
+}
+.hero__sub strong{ color: var(--ink); font-weight: 600; }
+
+.cmdline{
+  background: var(--ink);
+  color: var(--ink-inv);
+  padding: 20px 24px;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  border-radius: 6px;
+  box-shadow: 0 1px 0 var(--rule), 0 12px 32px -16px color-mix(in oklch, var(--ink) 20%, transparent);
+  overflow-x: auto;
+}
+.cmdline .p{ color: var(--acc); user-select: none; }
+.cmdline .c{ color: oklch(78% 0.008 60); }
+.cmdline .o{ color: oklch(85% 0.04 80); }
+.cmdline .ok{ color: oklch(78% 0.18 145); font-weight: 600; }
+.cmdline .warn{ color: oklch(82% 0.16 80); font-weight: 600; }
+.cmdline .err{ color: oklch(75% 0.20 28); font-weight: 600; }
+.cmdline .dim{ color: oklch(60% 0.008 60); }
+.cmdline .blink{ animation: blink 1.1s steps(1) infinite; color: var(--acc);}
+
+/* ============================================================
+   SECTION
+   ============================================================ */
+.section{
+  margin: 96px 0;
+  scroll-margin-top: 32px;
+}
+.section__head{
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 18px;
+}
+.section__tag{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section__tag .hash{ color: var(--acc); }
+.section h2{
+  font-family: var(--sans);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 0;
+}
+.section h2 .mono{ font-family: var(--mono); color: var(--ink-mute); font-weight: 500;}
+.section__lede{
+  color: var(--ink-soft);
+  font-size: var(--fs-lg);
+  margin: 14px 0 0;
+  max-width: 72ch;
+}
+.section__lede strong{ color: var(--ink); font-weight: 600;}
+
+/* ============================================================
+   CALLOUTS
+   ============================================================ */
+.callout{
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 1px solid var(--rule);
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: var(--bg-elev);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  margin: 18px 0;
+}
+.callout__tag{
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  letter-spacing: 1.2px;
+  align-self: start;
+  padding-top: 2px;
+}
+.callout__body{ color: var(--ink-soft);}
+.callout__body strong{ color: var(--ink); font-weight: 600;}
+.callout--win{  border-left-color: var(--win);   background: color-mix(in oklch, var(--acc-soft) 50%, var(--bg-elev));}
+.callout--win  .callout__tag{ color: var(--win); }
+.callout--warn{ border-left-color: var(--warn);  background: color-mix(in oklch, var(--warn-soft) 50%, var(--bg-elev));}
+.callout--warn .callout__tag{ color: var(--warn);}
+.callout--err{  border-left-color: var(--err);   background: color-mix(in oklch, var(--err-soft) 50%, var(--bg-elev));}
+.callout--err  .callout__tag{ color: var(--err); }
+.callout--info{ border-left-color: var(--info);  background: color-mix(in oklch, var(--info-soft) 50%, var(--bg-elev));}
+.callout--info .callout__tag{ color: var(--info);}
+
+/* ============================================================
+   TL;DR CARDS
+   ============================================================ */
+.tldr{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+.tldr__card{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--acc);
+  padding: 24px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: transform .35s var(--ease), box-shadow .35s var(--ease);
+}
+.tldr__card:hover{ transform: translateY(-3px); box-shadow: 0 12px 24px -16px color-mix(in oklch, var(--ink) 24%, transparent);}
+.tldr__card--win{ border-top-color: var(--win); }
+.tldr__card--info{ border-top-color: var(--info); }
+.tldr__card--err{ border-top-color: var(--err); }
+.tldr__head{ display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-mute); letter-spacing: 1.2px;}
+.tldr__head .status{ font-weight: 700; }
+.tldr__head .status.ok{ color: var(--win); }
+.tldr__head .status.info{ color: var(--info); }
+.tldr__head .status.err{ color: var(--err); }
+.tldr__title{
+  font-size: var(--fs-xl); font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+}
+.tldr__title code{ font-family: var(--mono); background: var(--bg-code); padding: 2px 6px; border-radius: 3px; font-size: 0.85em;}
+.tldr__body{ color: var(--ink-soft); font-size: var(--fs-sm); line-height: 1.6;}
+.tldr__body strong{ color: var(--ink); font-weight: 600; }
+
+/* ============================================================
+   PODIUM — ascii bars
+   ============================================================ */
+.podium{ margin: 32px 0; }
+.podium__row{
+  display: grid;
+  grid-template-columns: 56px 1fr auto auto;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px dashed var(--rule);
+}
+.podium__row:last-child{ border-bottom: 0; }
+.podium__rank{ font-family: var(--mono); font-size: var(--fs-xl); font-weight: 700; color: var(--ink-mute);}
+.podium__rank--1{ color: var(--gold); }
+.podium__rank--2{ color: oklch(60% 0.020 250); }
+.podium__rank--3{ color: oklch(58% 0.10 50); }
+.podium__name{
+  font-family: var(--mono);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.podium__name .lic{ font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-mute); margin-left: 10px; font-weight: 400; letter-spacing: 0;}
+.podium__bar{
+  font-family: var(--mono);
+  font-size: var(--fs-lg);
+  color: var(--acc);
+  letter-spacing: -1px;
+  white-space: nowrap;
+}
+.podium__bar .empty{ color: var(--rule-strong); }
+.podium__score{
+  font-family: var(--mono);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink);
+  min-width: 70px; text-align: right;
+}
+.podium__score small{ color: var(--ink-mute); font-weight: 400;}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.tablewrap{
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow-x: auto;
+  background: var(--bg-elev);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+.tbl{ width: 100%; border-collapse: collapse; min-width: 1100px;}
+.tbl thead{ background: var(--ink); color: var(--ink-inv); position: sticky; top: 0;}
+.tbl th{
+  text-align: left;
+  padding: 12px 14px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.tbl th.r{ text-align: right; }
+.tbl th.c{ text-align: center; }
+.tbl tbody tr{ border-top: 1px solid var(--rule); transition: background .2s;}
+.tbl tbody tr:hover{ background: var(--bg-hl); }
+.tbl td{
+  padding: 11px 14px;
+  color: var(--ink-soft);
+  vertical-align: middle;
+  font-size: var(--fs-sm);
+}
+.tbl td.r{ text-align: right; }
+.tbl td.c{ text-align: center; }
+.tbl td.name{ color: var(--ink); font-weight: 600; }
+.tbl td.score{ color: var(--acc); font-weight: 700; }
+.tbl td.score--low{ color: var(--ink-mute); font-weight: 600;}
+
+.pill{
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px; font-weight: 700;
+  padding: 2px 7px; border-radius: 2px;
+  letter-spacing: 0.5px;
+  min-width: 64px; text-align: center;
+}
+.pill--ok{ background: var(--acc-soft); color: var(--win); border: 1px solid color-mix(in oklch, var(--win) 30%, transparent);}
+.pill--no{ background: var(--err-soft); color: var(--err); border: 1px solid color-mix(in oklch, var(--err) 30%, transparent);}
+.pill--mid{ background: var(--warn-soft); color: var(--warn); border: 1px solid color-mix(in oklch, var(--warn) 30%, transparent);}
+
+/* ============================================================
+   FICHA (system card)
+   ============================================================ */
+.ficha{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  margin: 28px 0;
+  overflow: hidden;
+  transition: box-shadow .3s, border-color .3s;
+}
+.ficha:hover{ box-shadow: 0 12px 28px -16px color-mix(in oklch, var(--ink) 20%, transparent); border-color: var(--rule-strong);}
+.ficha__head{
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 24px;
+  background: var(--bg-code);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+}
+.ficha__idx{ font-size: var(--fs-sm); color: var(--ink-mute); font-weight: 600;}
+.ficha__title{ display:flex; align-items:baseline; gap:14px; flex-wrap: wrap;}
+.ficha__title h3{
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.ficha__title .author{ font-size: var(--fs-sm); color: var(--ink-mute); font-weight: 400;}
+.ficha__score{ font-family: var(--mono); font-size: var(--fs-xl); font-weight: 700; color: var(--acc); white-space: nowrap;}
+.ficha__score small{ color: var(--ink-mute); font-size: var(--fs-sm); font-weight: 400;}
+.ficha__score--low{ color: var(--ink-mute);}
+.ficha__bar{
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  letter-spacing: -1px;
+  margin-right: 8px;
+}
+.ficha__bar .filled{ color: var(--acc); }
+.ficha__bar--low .filled{ color: var(--ink-mute); }
+.ficha__bar .empty{ color: var(--rule-strong); }
+
+.ficha__body{ padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+@media (max-width: 900px){ .ficha__body{ grid-template-columns: minmax(0, 1fr); } }
+
+.ficha__claim{
+  grid-column: 1 / -1;
+  font-size: var(--fs-base);
+  color: var(--ink);
+  line-height: 1.6;
+  padding: 14px 18px;
+  background: var(--bg-code);
+  border-left: 3px solid var(--acc);
+  border-radius: 0 4px 4px 0;
+}
+.ficha__claim strong{ font-weight: 600; }
+
+.specs{
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+.specs__h{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+.specs dl{
+  margin: 0;
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 6px 14px;
+  line-height: 1.55;
+}
+.specs dt{ color: var(--ink-mute); }
+.specs dd{ margin: 0; color: var(--ink-soft); word-break: break-word;}
+.specs dd code{
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.95em;
+  color: var(--ink);
+}
+.specs dd.ok{ color: var(--win); }
+.specs dd.no{ color: var(--err); }
+.specs dd.mid{ color: var(--warn); }
+
+.proscons{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  grid-column: 1 / -1;
+  margin-top: 6px;
+}
+@media (max-width: 720px){ .proscons{ grid-template-columns: minmax(0, 1fr); } }
+.pcblock{ min-width: 0; }
+.pcblock{
+  background: var(--bg-code);
+  padding: 16px 18px;
+  border-radius: 4px;
+  border: 1px solid var(--rule);
+}
+.pcblock--pros{ border-left: 3px solid var(--win); }
+.pcblock--cons{ border-left: 3px solid var(--err); }
+.pcblock h4{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+.pcblock--pros h4{ color: var(--win); }
+.pcblock--cons h4{ color: var(--err); }
+.pcblock ul{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.pcblock li{
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--ink-soft);
+  padding-left: 22px;
+  position: relative;
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+.pcblock li::before{
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  position: absolute;
+  left: 0;
+  top: 0;
+  line-height: inherit;
+}
+.pcblock--pros li::before{ content: "+"; color: var(--win); }
+.pcblock--cons li::before{ content: "−"; color: var(--err); }
+.pcblock li strong{ color: var(--ink); font-weight: 600; }
+.pcblock li code{ background: var(--bg-elev); padding: 1px 4px; border-radius: 3px; font-family: var(--mono); font-size: 0.92em; }
+
+.scoringbar{
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--rule);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center;
+}
+.scoringbar .label{ color: var(--ink-mute); letter-spacing: 1.5px; text-transform: uppercase;}
+.scoringbar .item{ color: var(--ink-soft);}
+.scoringbar .item b{ color: var(--ink); font-weight: 600;}
+
+/* ============================================================
+   FINDINGS
+   ============================================================ */
+.findings{ display: flex; flex-direction: column; margin: 24px 0; }
+.finding{
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 28px;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule);
+}
+.finding:last-child{ border-bottom: 1px solid var(--rule); }
+.finding__n{
+  font-family: var(--mono);
+  font-size: clamp(36px, 3vw, 56px);
+  font-weight: 700;
+  color: var(--acc);
+  line-height: 1;
+}
+.finding__title{
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+.finding__body{ color: var(--ink-soft); font-size: var(--fs-base); line-height: 1.65; }
+.finding__body strong{ color: var(--ink); font-weight: 600; }
+.finding__body code{ background: var(--bg-code); padding: 1px 5px; border-radius: 3px; font-family: var(--mono); font-size: 0.92em;}
+
+/* ============================================================
+   PLAN — phases
+   ============================================================ */
+.phases{ display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; margin: 28px 0;}
+@media (max-width: 1100px){ .phases{ grid-template-columns: 1fr; } }
+.phase{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.phase__head{
+  padding: 18px 22px;
+  background: var(--bg-code);
+  border-bottom: 1px solid var(--rule);
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono);
+}
+.phase__num{ font-weight: 700; color: var(--ink); font-size: var(--fs-base); letter-spacing: -0.01em;}
+.phase__num .acc{ color: var(--acc); }
+.phase__when{ font-size: var(--fs-xs); color: var(--ink-mute); letter-spacing: 1.5px; text-transform: uppercase;}
+.phase__body{ padding: 22px; flex: 1; display: flex; flex-direction: column; gap: 14px;}
+.phase__title{ font-family: var(--sans); font-size: var(--fs-lg); font-weight: 600; margin: 0; line-height: 1.2;}
+.phase ol{
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 10px;
+  counter-reset: ol;
+  min-width: 0;
+}
+.phase ol li{
+  counter-increment: ol;
+  padding-left: 34px;
+  position: relative;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--ink-soft);
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+.phase ol li::before{
+  content: counter(ol, decimal-leading-zero);
+  font-family: var(--mono);
+  color: var(--acc);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  position: absolute;
+  left: 0;
+  top: 2px;
+  line-height: inherit;
+}
+.phase ol li strong{ color: var(--ink); font-weight: 600; }
+.phase ol li code{ background: var(--bg-code); padding: 1px 4px; border-radius: 3px; font-family: var(--mono); font-size: 0.95em;}
+
+/* ============================================================
+   THRESHOLDS / DISCARDED
+   ============================================================ */
+.duo{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0;}
+@media (max-width: 900px){ .duo{ grid-template-columns: 1fr; } }
+
+/* ============================================================
+   CAVEATS LIST
+   ============================================================ */
+.caveats{ display: flex; flex-direction: column; gap: 16px; margin: 24px 0;}
+.caveat{
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 18px;
+  padding: 16px 0;
+  border-top: 1px dashed var(--rule);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+}
+.caveat:last-child{ border-bottom: 1px dashed var(--rule); }
+.caveat__h{ font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-mute); letter-spacing: 1.5px; text-transform: uppercase; padding-top: 3px;}
+.caveat__body{ color: var(--ink-soft);}
+.caveat__body strong{ color: var(--ink); font-weight: 600; }
+.caveat__body code{ background: var(--bg-code); padding: 1px 5px; border-radius: 3px; font-family: var(--mono); font-size: 0.92em; }
+
+.discarded{ list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 10px;}
+.discarded li{ font-size: var(--fs-sm); color: var(--ink-soft); padding-left: 18px; position: relative; line-height: 1.55;}
+.discarded li::before{ content: "✗"; color: var(--err); font-family: var(--mono); position: absolute; left: 0; top: 0; font-weight: 700;}
+.discarded li strong{ color: var(--ink); font-weight: 600; }
+
+/* ============================================================
+   FOOT
+   ============================================================ */
+footer.foot{
+  margin-top: 96px;
+  padding-top: 32px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1100px){
+  .app{ grid-template-columns: 1fr; }
+  .sidebar{ position: relative; height: auto; border-right: 0; border-bottom: 1px solid var(--rule); padding: 20px;}
+  .toc{ display: grid; grid-template-columns: repeat(2,1fr); gap: 0 16px;}
+  .sidebar__foot{ display: none; }
+  .tldr{ grid-template-columns: 1fr; }
+  .ficha__head{ grid-template-columns: 1fr; gap: 10px;}
+  .ficha__score{ justify-self: start; }
+}
+
+/* ============================================================
+   FOCUS
+   ============================================================ */
+:focus-visible{ outline: 2px solid var(--acc); outline-offset: 3px; }
+
+/* ============================================================
+   REVEAL
+   ============================================================ */
+.reveal{ opacity: 0; transform: translateY(20px); transition: opacity .8s var(--ease), transform .8s var(--ease);}
+.reveal.in{ opacity: 1; transform: none; }
+
+/* ============================================================
+   PRINT
+   ============================================================ */
+@media print{
+  .sidebar, .progress{ display: none; }
+  .app{ grid-template-columns: 1fr; }
+  .main{ padding: 0; }
+  body{ background: #fff; }
+  .ficha{ break-inside: avoid; }
+  .reveal{ opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><div class="progress__bar" id="progressBar"></div></div>
+
+<div class="app">
+
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="sidebar" aria-label="Tabla de contenidos">
+  <div class="sidebar__brand"><span class="prompt">$</span> naeth/research</div>
+  <div class="sidebar__sub">vol.01 · mayo 2026<span class="blink"> █</span></div>
+
+  <p class="toc__title">// outline</p>
+  <ul class="toc" id="toc">
+    <li><a href="#tldr"><span class="n">00</span> tl;dr</a></li>
+    <li><a href="#podium"><span class="n">01</span> podio · top 3</a></li>
+    <li><a href="#tabla"><span class="n">02</span> tabla comparativa</a></li>
+    <li><a href="#fichas"><span class="n">03</span> fichas · 15 sistemas</a></li>
+    <li><a href="#hallazgos"><span class="n">04</span> hallazgos transversales</a></li>
+    <li><a href="#plan"><span class="n">05</span> plan de acción</a></li>
+    <li><a href="#umbrales"><span class="n">06</span> umbrales y descartados</a></li>
+    <li><a href="#caveats"><span class="n">07</span> caveats</a></li>
+  </ul>
+
+  <div class="sidebar__foot">
+    <div>scroll ↓ · navega &nbsp;<kbd>↑</kbd> <kbd>↓</kbd></div>
+    <div style="margin-top:8px;">imprimible · <kbd>⌘P</kbd> · pdf-ready</div>
+  </div>
+</aside>
+
+<!-- ============================================================
+     MAIN
+     ============================================================ -->
+<main class="main">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero__meta">naeth/research · vol.01 · build 2026.05</div>
+    <h1>Top 15 sistemas de memoria persistente para LLMs y agentes AI</h1>
+    <p class="hero__sub">
+      Investigación rigurosa para el proyecto <strong>Naeth</strong>. Cobertura del estado del arte open-source y comercial en memoria persistente para <strong>claude.ai</strong>, <strong>Claude Code</strong> y la matriz <strong>MCP</strong>. Mayo 2026.
+    </p>
+
+    <pre class="cmdline" aria-label="Resumen ejecutivo en formato CLI"><span class="p">$</span> naeth scan --year 2026 --ecosystem mcp --rank top15
+<span class="c">[i] indexing 50+ projects, applying composite score (40pts)...</span>
+<span class="c">[i] criteria: performance(8) + claude-fit(10) + local-first(8) + maturity(6) + features(5) + cross-client(3)</span>
+<span class="ok">[OK]</span> winner       <span class="o">doobidoo/mcp-memory-service</span>   <span class="dim">36/40</span>   <span class="dim"># claude.ai + Code + local-first</span>
+<span class="ok">[OK]</span> benchmark    <span class="o">vectorize-io/hindsight</span>        <span class="dim">35/40</span>   <span class="dim"># 91.4% LongMemEval, MIT</span>
+<span class="warn">[!!]</span> marketspace  <span class="o">commercial OSS leaders</span>          <span class="dim">eroded</span>  <span class="dim"># mem0/zep/cipher/supermemory</span>
+<span class="err">[!!]</span> caution      <span class="o">MemPalace</span>                        <span class="dim">18/40</span>   <span class="dim"># benchmark inflado, drama crypto</span>
+<span class="ok">[done]</span> ready to read.<span class="blink"> █</span></pre>
+  </header>
+
+  <!-- ====================================================== -->
+  <!-- TL;DR -->
+  <!-- ====================================================== -->
+  <section class="section" id="tldr">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 00 / tl;dr</div>
+      <h2>Tres conclusiones que mueven la aguja <span class="mono">— por qué Naeth tiene sentido</span></h2>
+    </div>
+
+    <div class="tldr">
+      <article class="tldr__card tldr__card--win">
+        <div class="tldr__head"><span>ganador</span><span class="status ok">[OK]</span></div>
+        <h3 class="tldr__title"><code>doobidoo/mcp-memory-service</code></h3>
+        <p class="tldr__body">
+          Es el <strong>único proyecto del Top</strong> que combina los tres factores críticos: (1) compatibilidad explícita con <strong>claude.ai</strong> (Remote MCP via HTTPS) y con <strong>Claude Code</strong> (hooks + Code Execution API desde v8.19.0+), (2) local-first real con <strong>SQLite-vec</strong> por defecto y embeddings <strong>ONNX/sentence-transformers</strong> sin API keys, y (3) cobertura amplia (24 herramientas MCP, KG, consolidación autónoma, temporal queries, OAuth 2.1). Apache-2.0/MIT, releases semanales, 13+ clientes MCP.
+        </p>
+      </article>
+
+      <article class="tldr__card tldr__card--info">
+        <div class="tldr__head"><span>benchmark</span><span class="status info">[##]</span></div>
+        <h3 class="tldr__title">Hindsight (Vectorize) lidera</h3>
+        <p class="tldr__body">
+          Paper <em>"Hindsight is 20/20: Building Agent Memory that Retains, Recalls, and Reflects"</em> (arXiv:2512.12818, dic. 2025): <strong>91.4% LongMemEval</strong> con Gemini-3 Pro, <strong>83.6% con OSS-20B local</strong>. MIT, MCP server integrado, embedded Postgres, soporta Ollama. Pero el headline 91.4% requiere LLM frontera — no es el score del sistema de memoria aislado.
+        </p>
+      </article>
+
+      <article class="tldr__card tldr__card--err">
+        <div class="tldr__head"><span>alerta</span><span class="status err">[!!]</span></div>
+        <h3 class="tldr__title">El espacio comercial es minado</h3>
+        <p class="tldr__body">
+          Mem0 hizo <strong>sunset de OpenMemory</strong>, Zep Community Edition fue deprecada <strong>abril 2025</strong> (solo Graphiti queda OSS), Supermemory bloquea self-host detrás de contrato enterprise, y Cipher (campfirein) pasó a <strong>Elastic License 2.0</strong> y fue renombrado a ByteRover CLI. El hueco "memoria personal portable para chat clients" sigue abierto.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- PODIUM -->
+  <!-- ====================================================== -->
+  <section class="section" id="podium">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 01 / podio · top 3</div>
+      <h2>Ranking compuesto <span class="mono">— score / 40</span></h2>
+      <p class="section__lede">6 criterios: Performance (8) + Encaje Claude (10) + Local-first (8) + Madurez (6) + Features (5) + Cross-client (3). Cifras del podio derivadas del análisis detallado de cada ficha.</p>
+    </div>
+
+    <div class="podium">
+      <div class="podium__row">
+        <div class="podium__rank podium__rank--1">01</div>
+        <div class="podium__name">mcp-memory-service <span class="lic">doobidoo · Apache-2.0</span></div>
+        <div class="podium__bar"><span>█████████</span><span class="empty">░</span></div>
+        <div class="podium__score">36 <small>/40</small></div>
+      </div>
+      <div class="podium__row">
+        <div class="podium__rank podium__rank--2">02</div>
+        <div class="podium__name">Hindsight <span class="lic">vectorize-io · MIT</span></div>
+        <div class="podium__bar"><span>████████</span><span class="empty">░░</span></div>
+        <div class="podium__score">35 <small>/40</small></div>
+      </div>
+      <div class="podium__row">
+        <div class="podium__rank podium__rank--3">03</div>
+        <div class="podium__name">ogham-mcp <span class="lic">ogham-mcp · MIT</span></div>
+        <div class="podium__bar"><span>████████</span><span class="empty">░░</span></div>
+        <div class="podium__score">31 <small>/40</small></div>
+      </div>
+      <div class="podium__row">
+        <div class="podium__rank">04</div>
+        <div class="podium__name">Cognee <span class="lic">topoteretes · Apache-2.0</span></div>
+        <div class="podium__bar"><span>███████</span><span class="empty">░░░</span></div>
+        <div class="podium__score">30 <small>/40</small></div>
+      </div>
+      <div class="podium__row">
+        <div class="podium__rank">04</div>
+        <div class="podium__name">Basic Memory <span class="lic">basicmachines-co · AGPL-3.0</span></div>
+        <div class="podium__bar"><span>███████</span><span class="empty">░░░</span></div>
+        <div class="podium__score">30 <small>/40</small></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- TABLA -->
+  <!-- ====================================================== -->
+  <section class="section" id="tabla">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 02 / tabla comparativa</div>
+      <h2>Matriz comparativa <span class="mono">— 15 sistemas auditados</span></h2>
+      <p class="section__lede">Datos del audit completo. <code style="font-family:var(--mono);background:var(--bg-code);padding:1px 5px;border-radius:3px;">SÍ / PARCIAL / NO</code> miden compatibilidad declarada (no implícita).</p>
+    </div>
+
+    <div class="tablewrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th class="r">#</th>
+            <th>sistema</th>
+            <th>licencia</th>
+            <th class="c">claude.ai</th>
+            <th class="c">claude code</th>
+            <th class="c">local-first</th>
+            <th>storage</th>
+            <th>bench</th>
+            <th class="r">stars</th>
+            <th class="r">score</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="r">01</td><td class="name">mcp-memory-service</td><td>Apache-2.0</td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>SQLite-vec / Chroma / CF</td><td>86% R@5</td><td class="r">~6k</td><td class="r score">36/40</td></tr>
+          <tr><td class="r">02</td><td class="name">Hindsight</td><td>MIT</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>Postgres embebido (pg0)</td><td>91.4% LME</td><td class="r">~14k</td><td class="r score">35/40</td></tr>
+          <tr><td class="r">03</td><td class="name">ogham-mcp</td><td>MIT</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>Postgres + pgvector</td><td>97.2% R@10</td><td class="r">~30</td><td class="r score">31/40</td></tr>
+          <tr><td class="r">04</td><td class="name">Cognee</td><td>Apache-2.0</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td>Neo4j + Vector + SQL</td><td>n/a (KG-centric)</td><td class="r">~12k</td><td class="r score">30/40</td></tr>
+          <tr><td class="r">05</td><td class="name">Basic Memory</td><td>AGPL-3.0</td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>Markdown + SQLite</td><td>n/a</td><td class="r">~4.2k</td><td class="r score">30/40</td></tr>
+          <tr><td class="r">06</td><td class="name">Letta (MemGPT)</td><td>Apache-2.0</td><td class="c"><span class="pill pill--no">NO</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>PostgreSQL</td><td>83.2% (self)</td><td class="r">~17k</td><td class="r score score--low">27/40</td></tr>
+          <tr><td class="r">07</td><td class="name">Graphiti</td><td>Apache-2.0</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td>Neo4j / Falkor / Kuzu</td><td>71.2% LME</td><td class="r">~24k</td><td class="r score score--low">27/40</td></tr>
+          <tr><td class="r">08</td><td class="name">Memvid</td><td>MIT</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>Archivo .mv2 portable</td><td>LoCoMo (memvidbench)</td><td class="r">~10k</td><td class="r score score--low">26/40</td></tr>
+          <tr><td class="r">09</td><td class="name">Mem0 self-host</td><td>Apache-2.0</td><td class="c"><span class="pill pill--no">NO</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>Postgres + Neo4j</td><td>49% LME</td><td class="r">~38k</td><td class="r score score--low">25/40</td></tr>
+          <tr><td class="r">10</td><td class="name">EverOS / EverMemOS</td><td>Apache-2.0</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td>Configurable</td><td>83% LME-S (4.1)</td><td class="r">~3.6k</td><td class="r score score--low">24/40</td></tr>
+          <tr><td class="r">11</td><td class="name">ai-memory-mcp</td><td>Apache-2.0</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>SQLite + FTS5</td><td>97.8% R@5 (?)</td><td class="r">~2</td><td class="r score score--low">23/40</td></tr>
+          <tr><td class="r">12</td><td class="name">Anthropic Memory MCP</td><td>MIT</td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>JSONL local</td><td>n/a (sin embeddings)</td><td class="r">ref. oficial</td><td class="r score score--low">22/40</td></tr>
+          <tr><td class="r">13</td><td class="name">MARM-Systems</td><td>verificar</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>SQLite WAL</td><td>n/a</td><td class="r">~1.5k</td><td class="r score score--low">22/40</td></tr>
+          <tr><td class="r">14</td><td class="name">Memori (MemoriLabs)</td><td>verificar</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td>SQL multi-DB</td><td>LoCoMo 81.95%</td><td class="r">~14k</td><td class="r score score--low">19/40</td></tr>
+          <tr><td class="r">15</td><td class="name">MemPalace</td><td>MIT</td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--mid">PARC</span></td><td class="c"><span class="pill pill--ok">SÍ</span></td><td>ChromaDB + SQLite</td><td>96.6% R@5 (⚠ contradictorio)</td><td class="r">~19-42k (?)</td><td class="r score score--low">18/40</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- FICHAS -->
+  <!-- ====================================================== -->
+  <section class="section" id="fichas">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 03 / fichas · 15 sistemas</div>
+      <h2>Fichas detalladas <span class="mono">— una por sistema</span></h2>
+      <p class="section__lede">Cada ficha incluye repo, licencia, soporte de clientes, storage, embeddings, diferenciador clave, benchmarks publicados, estado de la comunidad, pros, cons y desglose del score compuesto.</p>
+    </div>
+
+    <!-- FICHA #01 -->
+    <article class="ficha" id="f01">
+      <header class="ficha__head">
+        <div class="ficha__idx">[01/15]</div>
+        <div class="ficha__title"><h3>mcp-memory-service</h3><span class="author">doobidoo · recomendado para Naeth</span></div>
+        <div class="ficha__score"><span class="ficha__bar"><span class="filled">█████████</span><span class="empty">░</span></span>36<small>/40</small></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> el único proyecto que mantiene compatibilidad explícita y testeada con la matriz completa de clientes MCP del ecosistema (incluido claude.ai Remote MCP), con backends conmutables, OAuth 2.1, dashboard web (puerto 8888), 24 herramientas MCP con annotations y consolidación autónoma.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>github.com/doobidoo/mcp-memory-service</code></dd>
+            <dt>licencia</dt><dd>Apache-2.0 <span style="color:var(--warn)">(README inconsistente)</span></dd>
+            <dt>self-host</dt><dd class="ok">SÍ · completo</dd>
+            <dt>claude.ai</dt><dd class="ok">SÍ · explícito en README</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · hooks + Code Execution v8.19.0+</dd>
+            <dt>storage</dt><dd>SQLite-vec / Chroma / Cloudflare / Milvus</dd>
+            <dt>embeddings</dt><dd>Local · sentence-transformers + ONNX</dd>
+            <dt>último release</dt><dd>v8.69.0 → v8.70.0 (ene 2026)</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// benchmarks · comunidad</p>
+          <dl>
+            <dt>LongMemEval</dt><dd>86.0% R@5 (session-mode, self-reported)</dd>
+            <dt>stars</dt><dd>~6k</dd>
+            <dt>cadencia</dt><dd>Releases semanales · roadmap explícito</dd>
+            <dt>clientes MCP</dt><dd>13+ (Claude.ai, Code, Desktop, VS Code, Cursor, Windsurf, JetBrains, Zed, Cody, Continue, Replit, Sourcegraph, Qodo, Raycast, Kilo, Amp)</dd>
+            <dt>otras specs</dt><dd>SHODH Unified Memory API v1.0.0</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Única opción que matchea <strong>claude.ai web + Claude Code + local-first</strong> sin compromisos.</li>
+              <li>Backends conmutables (SQLite-vec → Cloudflare/Chroma sin migrar datos).</li>
+              <li>Cumple spec <strong>SHODH UMAS v1.0.0</strong> (interop export/import).</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>LongMemEval depende del modo (turn vs session); sin benchmark independiente.</li>
+              <li>Documentación dispersa entre README / Wiki / CHANGELOG.</li>
+              <li>KG menos sofisticado que Graphiti (sin <code>valid_at/invalid_at</code>).</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="scoringbar">
+          <span class="label">score breakdown:</span>
+          <span class="item">perf <b>6/8</b></span>
+          <span class="item">claude <b>10/10</b></span>
+          <span class="item">local <b>8/8</b></span>
+          <span class="item">madurez <b>5/6</b></span>
+          <span class="item">features <b>4/5</b></span>
+          <span class="item">cross-client <b>3/3</b></span>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #02 -->
+    <article class="ficha" id="f02">
+      <header class="ficha__head">
+        <div class="ficha__idx">[02/15]</div>
+        <div class="ficha__title"><h3>Hindsight</h3><span class="author">vectorize-io · state-of-the-art benchmark</span></div>
+        <div class="ficha__score"><span class="ficha__bar"><span class="filled">████████</span><span class="empty">░░</span></span>35<small>/40</small></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> stack de cuatro estrategias de recuperación en paralelo (semantic + BM25 + graph traversal + temporal reasoning) con cross-encoder reranker. Único OSS que ha superado 90% en LongMemEval con código reproducible.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>vectorize-io/hindsight</code></dd>
+            <dt>licencia</dt><dd>MIT (Copyright 2025 Vectorize AI)</dd>
+            <dt>self-host</dt><dd class="ok">SÍ · Docker + embedded PG (pg0)</dd>
+            <dt>claude.ai</dt><dd class="mid">no documentado explícitamente</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · MCP <code>/mcp</code> + Skills + hooks</dd>
+            <dt>storage</dt><dd>PostgreSQL embebido o externo</dd>
+            <dt>embeddings/LLM</dt><dd>OpenAI · Anthropic · Gemini · Groq · <strong>Ollama</strong> (local)</dd>
+            <dt>último release</dt><dd>v0.6.2 (14 may 2026)</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// benchmarks (arXiv:2512.12818)</p>
+          <dl>
+            <dt>LME Gemini-3</dt><dd><strong>91.4%</strong> overall</dd>
+            <dt>LME OSS-120B</dt><dd>89.0%</dd>
+            <dt>LME OSS-20B</dt><dd>83.6% (local)</dd>
+            <dt>LME temporal</dt><dd>91.0% (vs Zep 62.4%, Supermemory 82.0%)</dd>
+            <dt>LME multi-session</dt><dd>87.2%</dd>
+            <dt>LoCoMo</dt><dd>89.61% (OSS-120B) · 85.67% (OSS-20B)</dd>
+            <dt>stars</dt><dd>~13.9k</dd>
+            <dt>replicación</dt><dd>Virginia Tech (Sanghani Center) + Andrew Neeser (Washington Post)</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Benchmark <strong>state-of-the-art reproducible</strong> (paper + repo de benchmarks separado).</li>
+              <li>Stack de retrieval no depende de LLM monstruoso (83.6% con 20B local).</li>
+              <li>Embedded Postgres → cero setup de DB.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>91.4% headline <strong>requiere Gemini-3 Pro</strong> — no es el score de la memoria aislada.</li>
+              <li>Sin compatibilidad explícita documentada con claude.ai Remote MCP.</li>
+              <li>Stack más pesado (4 retrievers + reranker) — sobreingeniería para chat personal.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="scoringbar">
+          <span class="label">score breakdown:</span>
+          <span class="item">perf <b>8/8</b></span>
+          <span class="item">claude <b>7/10</b></span>
+          <span class="item">local <b>8/8</b></span>
+          <span class="item">madurez <b>5/6</b></span>
+          <span class="item">features <b>5/5</b></span>
+          <span class="item">cross-client <b>2/3</b></span>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #03 -->
+    <article class="ficha" id="f03">
+      <header class="ficha__head">
+        <div class="ficha__idx">[03/15]</div>
+        <div class="ficha__title"><h3>ogham-mcp</h3><span class="author">ogham-mcp · simplicidad radical</span></div>
+        <div class="ficha__score"><span class="ficha__bar"><span class="filled">████████</span><span class="empty">░░</span></span>31<small>/40</small></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> 97.2% Recall@10 en LongMemEval con UNA sola query Postgres, sin reranking neural, sin grafo separado. <em>Convex Combination Fusion</em> (pgvector cosine + tsvector BM25). Plus features cognitivas: novelty detection, content signal scoring, automatic condensing.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>github.com/ogham-mcp/ogham-mcp</code></dd>
+            <dt>licencia</dt><dd>MIT</dd>
+            <dt>self-host</dt><dd class="ok">SÍ</dd>
+            <dt>claude.ai</dt><dd class="mid">SSE pero no probado en chat web</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · <code>ogham hooks install</code> · masking automático</dd>
+            <dt>storage</dt><dd>Postgres + pgvector (Supabase / Neon / local)</dd>
+            <dt>embeddings</dt><dd>OpenAI default · Ollama local</dd>
+            <dt>último release</dt><dd>0.6.1 (mar 2026)</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// benchmarks</p>
+          <dl>
+            <dt>LME R@10</dt><dd><strong>97.2%</strong> (retrieval only)</dd>
+            <dt>LME E2E QA</dt><dd>91.8% (gpt-5.4-mini + rubric)</dd>
+            <dt>AMB harness</dt><dd>85.8% (Vectorize stricter judge)</dd>
+            <dt>BEAM 100K</dt><dd>nugget 0.554 (ICLR 2026) · R@10 0.737</dd>
+            <dt>stars</dt><dd>~30 (proyecto nuevo)</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Arquitectura <strong>radicalmente simple</strong>: una query SQL contra Postgres+tsvector resuelve el 97.2%.</li>
+              <li>Hooks Claude Code auto-configurados con masking de secretos (API keys, JWTs, tokens).</li>
+              <li>Append-only audit log alineado con <strong>OTEL GenAI Semantic Conventions</strong> (GDPR art. 15 friendly).</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Requiere Postgres + pgvector — no "single-file" como SQLite-vec.</li>
+              <li>Proyecto muy joven, ~30 stars; sin replicación independiente.</li>
+              <li>Sin soporte explícito de claude.ai web.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="scoringbar">
+          <span class="label">score breakdown:</span>
+          <span class="item">perf <b>8/8</b></span>
+          <span class="item">claude <b>6/10</b></span>
+          <span class="item">local <b>7/8</b></span>
+          <span class="item">madurez <b>3/6</b></span>
+          <span class="item">features <b>4/5</b></span>
+          <span class="item">cross-client <b>3/3</b></span>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #04 -->
+    <article class="ficha" id="f04">
+      <header class="ficha__head">
+        <div class="ficha__idx">[04/15]</div>
+        <div class="ficha__title"><h3>Cognee</h3><span class="author">topoteretes · ECL pipeline + KG</span></div>
+        <div class="ficha__score"><span class="ficha__bar"><span class="filled">███████</span><span class="empty">░░░</span></span>30<small>/40</small></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> ECL (Extract, Cognify, Load) pipeline auto-genera ontologías y knowledge graph. Sistema mejora con feedback loops y soporta multimodal (texto, imágenes, audio). Adoptado por <strong>Bayer y Univ. of Wyoming</strong>.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>topoteretes/cognee</code></dd>
+            <dt>licencia</dt><dd>Apache-2.0</dd>
+            <dt>self-host</dt><dd class="ok">SÍ · 1-click Docker</dd>
+            <dt>claude.ai</dt><dd class="mid">vía MCP server</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · <strong>plugin oficial</strong> con hook lifecycle completo</dd>
+            <dt>storage</dt><dd>Neo4j/Falkor/Kuzu + Redis/Qdrant/Weaviate/Lance + SQL</dd>
+            <dt>embeddings</dt><dd>API u Ollama local</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// hooks · adopción</p>
+          <dl>
+            <dt>Claude hooks</dt><dd><code>SessionStart</code> · <code>PostToolUse</code> · <code>UserPromptSubmit</code> · <code>PreCompact</code> · <code>SessionEnd</code></dd>
+            <dt>OAuth</dt><dd>Handshake antes del primer comando</dd>
+            <dt>connectors</dt><dd>30+ (Notion, GDrive, GitHub, etc.)</dd>
+            <dt>certificación</dt><dd>GitHub Secure Open Source Program (graduado)</dd>
+            <dt>stars</dt><dd>~12k</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Plugin Claude Code production-grade con hook lifecycle completo.</li>
+              <li>30+ connectors si quieres ingestar más allá del chat.</li>
+              <li>Graduado del <strong>GitHub Secure OSS Program</strong> (firma de seguridad real).</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Poly-store implica más infra que SQLite-vec/memvid.</li>
+              <li>Sin cifras LongMemEval publicadas — difícil de comparar.</li>
+              <li>Plugin requiere <code>LLM_API_KEY</code> por defecto (Ollama opcional).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #05 -->
+    <article class="ficha" id="f05">
+      <header class="ficha__head">
+        <div class="ficha__idx">[05/15]</div>
+        <div class="ficha__title"><h3>Letta (ex-MemGPT)</h3><span class="author">letta-ai · memory hierarchy OS-inspired</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">██████</span><span class="empty">░░░░</span></span><span class="ficha__score--low">27<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> memory hierarchy OS-inspired (Core / Recall / Archival) basada en el paper MemGPT. Agentes son <strong>entidades persistentes con tools</strong>, no solo memoria. Agent File <code>.af</code> serializa agentes completos.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>letta-ai/letta</code></dd>
+            <dt>licencia</dt><dd>Apache-2.0</dd>
+            <dt>self-host</dt><dd class="ok">SÍ · Docker recomendado</dd>
+            <dt>claude.ai</dt><dd class="no">NO nativo (REST API, no MCP)</dd>
+            <dt>claude code</dt><dd class="mid">Letta Code propio</dd>
+            <dt>storage</dt><dd>PostgreSQL</dd>
+            <dt>embeddings</dt><dd>API configurable (OpenAI default)</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// adopción</p>
+          <dl>
+            <dt>LongMemEval</dt><dd>83.2% self-reported (GPT-4)</dd>
+            <dt>stars</dt><dd>~17k</dd>
+            <dt>integraciones</dt><dd>Composio · LangChain · CrewAI · Agent File <code>.af</code></dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Arquitectura de memoria <strong>más madura conceptualmente</strong> (paper MemGPT).</li>
+              <li>Whitebox, model-agnostic, agente entero versionable.</li>
+              <li>Ecosistema enterprise-grade.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Lock-in arquitectural fuerte: adoptarlo = adoptar todo el runtime.</li>
+              <li>Sin MCP server nativo — desencaje con la matriz Claude.</li>
+              <li>Sin cifras LongMemEval replicadas independientemente.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #06 -->
+    <article class="ficha" id="f06">
+      <header class="ficha__head">
+        <div class="ficha__idx">[06/15]</div>
+        <div class="ficha__title"><h3>Graphiti</h3><span class="author">getzep · temporal knowledge graph</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">██████</span><span class="empty">░░░░</span></span><span class="ficha__score--low">27<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> temporal knowledge graph con <code>valid_at</code>/<code>invalid_at</code> timestamps en cada nodo y arista. <strong>Único proyecto que responde correctamente "qué creía el agente el martes pasado".</strong> Hybrid search: semantic + BM25 + graph traversal.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>getzep/graphiti</code></dd>
+            <dt>licencia</dt><dd>Apache-2.0</dd>
+            <dt>self-host</dt><dd class="ok">SÍ · requiere Neo4j/Falkor/Kuzu</dd>
+            <dt>claude.ai</dt><dd class="mid">vía MCP server propio</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · MCP server documentado</dd>
+            <dt>storage</dt><dd>Neo4j (default) · FalkorDB · KuzuDB</dd>
+            <dt>embeddings</dt><dd>API (OpenAI default)</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// benchmarks</p>
+          <dl>
+            <dt>LongMemEval</dt><dd><strong>71.2%</strong> overall (GPT-4o) · 63.8% temporal sub-task</dd>
+            <dt>latencia</dt><dd>2.6s (vs 29s baseline full-context)</dd>
+            <dt>paper</dt><dd>Rasmussen et al., arXiv:2501.13956</dd>
+            <dt>stars</dt><dd>~24k · 77.8k PyPI downloads/week</dd>
+            <dt>nota crítica</dt><dd class="mid">Zep CE deprecada abril 2025 · Graphiti es lo único OSS de Zep</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Razonamiento temporal real, <strong>único en este aspecto</strong>.</li>
+              <li>Paper publicado con resultados reproducibles (arXiv:2501.13956).</li>
+              <li>Sin paywall del feature de grafo (a diferencia de Mem0 Pro $249/mo).</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Requiere DB de grafos (Neo4j/Falkor/Kuzu) — no "drop a binary".</li>
+              <li>Zep Community Edition deprecada · suite gestionada absorbe desarrollo.</li>
+              <li>Setup pesado para usuario individual.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #07 -->
+    <article class="ficha" id="f07">
+      <header class="ficha__head">
+        <div class="ficha__idx">[07/15]</div>
+        <div class="ficha__title"><h3>Mem0 self-hosted</h3><span class="author">mem0ai · mayor comunidad, MCP roto</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">██████</span><span class="empty">░░░░</span></span><span class="ficha__score--low">25<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> mayor ecosistema y comunidad (~38k stars, 5500+ forks). Vector-first con grafo opcional. SDK más maduro multi-lenguaje (Python + JS). <strong>Pero el camino MCP local está oficialmente roto post-sunset de OpenMemory.</strong></p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>mem0ai/mem0</code></dd>
+            <dt>licencia</dt><dd>Apache-2.0 (OSS) + SaaS comercial</dd>
+            <dt>self-host</dt><dd class="ok">SÍ · docker-compose full-stack</dd>
+            <dt>claude.ai</dt><dd class="no">NO · OpenMemory MCP sunset</dd>
+            <dt>claude code</dt><dd class="mid">tensakulabs/mem0-mcp third-party</dd>
+            <dt>storage</dt><dd>Postgres + pgvector + Neo4j (default) o Qdrant</dd>
+            <dt>embeddings</dt><dd>OpenAI default · Ollama opcional</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// benchmarks · adopción</p>
+          <dl>
+            <dt>LongMemEval</dt><dd><strong>49.0%</strong> (paper, GPT-4o) — peor del Top en temporal</dd>
+            <dt>LoCoMo</dt><dd>~62% self-reported</dd>
+            <dt>stars</dt><dd>~38k (el más alto del Top)</dd>
+            <dt>pricing cloud</dt><dd>$19/mo (50K mem) · $249/mo Pro (con grafo)</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Comunidad masiva · integraciones oficiales (LangChain/CrewAI/AutoGen/Strands).</li>
+              <li>Self-host completo, sin gating de features en OSS.</li>
+              <li>SDKs multi-lenguaje sólidos.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li><strong>Sunset OpenMemory</strong> = camino "memoria local via MCP" roto oficialmente.</li>
+              <li>49% LongMemEval es flojo vs Zep/Hindsight/EverOS.</li>
+              <li>Grafo en cloud detrás de paywall de $249/mo.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #08 -->
+    <article class="ficha" id="f08">
+      <header class="ficha__head">
+        <div class="ficha__idx">[08/15]</div>
+        <div class="ficha__title"><h3>Basic Memory</h3><span class="author">basicmachines-co · markdown como verdad</span></div>
+        <div class="ficha__score"><span class="ficha__bar"><span class="filled">███████</span><span class="empty">░░░</span></span>30<small>/40</small></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> los datos son <strong>archivos Markdown legibles por humanos</strong> en disco, no DB opaca. Knowledge graph emerge de wikilinks <code>[[...]]</code> y observations semánticas. FastMCP 3.0 + tool annotations (<code>readOnly/destructive/idempotent/openWorld</code>).</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>basicmachines-co/basic-memory</code></dd>
+            <dt>licencia</dt><dd>AGPL-3.0 <span style="color:var(--warn)">(verificar)</span></dd>
+            <dt>self-host</dt><dd class="ok">SÍ</dd>
+            <dt>claude.ai</dt><dd class="ok">SÍ vía MCP</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · MCP nativo · 14+ tools</dd>
+            <dt>storage</dt><dd><strong>Markdown files + SQLite index</strong> (compatible Obsidian)</dd>
+            <dt>embeddings</dt><dd>Local · semantic search sobre Markdown</dd>
+            <dt>cloud</dt><dd>Basic Memory Cloud $14.25–19/mo</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// adopción</p>
+          <dl>
+            <dt>stars</dt><dd>~4.2k</dd>
+            <dt>clientes</dt><dd>Claude Desktop, Codex, Cursor, ChatGPT (Custom GPTs), VS Code</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li><strong>Soberanía de datos extrema</strong>: tus memorias son <code>.md</code> editables con Obsidian / VS Code / vim.</li>
+              <li>Tool annotations bien diseñadas — agentes no rompen cosas.</li>
+              <li>Bi-direccional: humano y LLM escriben al mismo archivo.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Sin benchmarks publicados.</li>
+              <li>AGPL puede ser problemático si Naeth se monetiza como SaaS.</li>
+              <li>Búsqueda semántica sobre Markdown es menos potente que vector DB dedicado.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #09 -->
+    <article class="ficha" id="f09">
+      <header class="ficha__head">
+        <div class="ficha__idx">[09/15]</div>
+        <div class="ficha__title"><h3>Anthropic Memory MCP</h3><span class="author">modelcontextprotocol/servers · referencia oficial</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">█████</span><span class="empty">░░░░░</span></span><span class="ficha__score--low">22<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> la implementación oficial mínima. Knowledge graph (Entity / Relation / Observation), simple, auditable, perfecto para personalización con prompts custom (claude.ai Projects). Útil como baseline/referencia para Naeth, no como destino final.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>modelcontextprotocol/servers/memory</code></dd>
+            <dt>licencia</dt><dd>MIT</dd>
+            <dt>self-host</dt><dd class="ok">SÍ (código de referencia)</dd>
+            <dt>claude.ai</dt><dd class="ok">SÍ (server de referencia oficial)</dd>
+            <dt>claude code</dt><dd class="ok">SÍ</dd>
+            <dt>storage</dt><dd>JSONL local (<code>memory.jsonl</code>)</dd>
+            <dt>embeddings</dt><dd class="no">NINGUNO · sin búsqueda semántica</dd>
+            <dt>stars</dt><dd>parte de modelcontextprotocol/servers (~70k)</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Referencia oficial; siempre compatible con la última spec MCP.</li>
+              <li>JSONL legible/inspeccionable; cero magia.</li>
+              <li>Cero dependencias pesadas.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Sin búsqueda semántica → escala mal pasados unos cientos de memorias.</li>
+              <li>Sin temporal queries, sin decay, sin consolidación.</li>
+              <li>Es una <em>demo</em>, no un sistema de producción.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #10 -->
+    <article class="ficha" id="f10">
+      <header class="ficha__head">
+        <div class="ficha__idx">[10/15]</div>
+        <div class="ficha__title"><h3>ai-memory-mcp</h3><span class="author">alphaonedev · Rust + TOON format</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">█████</span><span class="empty">░░░░░</span></span><span class="ficha__score--low">23<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> escrito en <strong>Rust</strong>, zero token cost hasta recall explícito (no carga toda la memoria en cada turno). Formato TOON (Token-Oriented Object Notation, 79% más compacto que JSON). 3 tiers (short/mid/long-term) con auto-promoción.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>alphaonedev/ai-memory-mcp</code></dd>
+            <dt>licencia</dt><dd>Apache-2.0 (Copyright 2026 AlphaOne LLC)</dd>
+            <dt>self-host</dt><dd class="ok">SÍ</dd>
+            <dt>storage</dt><dd>SQLite + FTS5 (sin vectores default)</dd>
+            <dt>embeddings</dt><dd>No por defecto · vector opcional</dd>
+            <dt>distribución</dt><dd>PPA Ubuntu · COPR Fedora · Homebrew · <code>irm</code> Windows</dd>
+            <dt>stars</dt><dd>~2 (muy nuevo)</dd>
+            <dt>LongMemEval</dt><dd class="mid">97.8% R@5 self-reported (<strong>sin replicar</strong> · tratar como marketing)</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Rust → binarios sin dependencias, instalación trivial.</li>
+              <li>Distribución multi-plataforma robusta.</li>
+              <li>Diseño consciente del coste de tokens.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Muy nuevo, ~2 stars; sin comunidad real aún.</li>
+              <li>97.8% R@5 sin replicación → poco creíble.</li>
+              <li>FTS5 default sin vectores limita recall semántico.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #11 -->
+    <article class="ficha" id="f11">
+      <header class="ficha__head">
+        <div class="ficha__idx">[11/15]</div>
+        <div class="ficha__title"><h3>MARM-Systems</h3><span class="author">Lyellr88 · triple transport</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">█████</span><span class="empty">░░░░░</span></span><span class="ficha__score--low">22<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> 19 MCP tools, compliance MCP 1MB, event-driven automation, IP-based rate limiting + usage analytics, Docker con health monitoring. <strong>WebSocket support</strong> además de HTTP/STDIO.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>Lyellr88/MARM-Systems</code></dd>
+            <dt>licencia</dt><dd class="mid">No explícita en snippets — auditar</dd>
+            <dt>self-host</dt><dd class="ok">SÍ</dd>
+            <dt>claude.ai</dt><dd class="mid">PARCIAL · HTTP MCP con OAuth local</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · MCP HTTP</dd>
+            <dt>storage</dt><dd>SQLite WAL + connection pooling custom</dd>
+            <dt>embeddings</dt><dd>Local · <code>all-MiniLM-L6-v2</code></dd>
+            <dt>transport</dt><dd>STDIO + HTTP + <strong>WebSocket</strong></dd>
+            <dt>stars</dt><dd>~1.5k</dd>
+            <dt>nota</dt><dd class="mid">Maintenance pausada Q4 2025 (anunciado), retoma Q1-Q2 2026</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Triple transport (STDIO + HTTP + WebSocket).</li>
+              <li>Suite de tests diagnósticos profesionales (security/perf/integration/MCP size/WebSocket).</li>
+              <li>Auto-classification de contenido (decisión, código, configuración).</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Sin benchmarks publicados.</li>
+              <li>Maintenance pausada Q4 2025.</li>
+              <li>Licencia no clara en snippets — auditar.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #12 -->
+    <article class="ficha" id="f12">
+      <header class="ficha__head">
+        <div class="ficha__idx">[12/15]</div>
+        <div class="ficha__title"><h3>Memvid</h3><span class="author">memvid · single-file portable</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">██████</span><span class="empty">░░░░</span></span><span class="ficha__score--low">26<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> la memoria es <strong>UN único archivo <code>.mv2</code></strong> que puedes <code>git commit</code>, <code>scp</code>, compartir. Portabilidad extrema. Soporte multi-modal (texto + audio vía Whisper). Rust core con operaciones sub-ms.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>memvid/memvid</code> + <code>memvid/claude-brain</code></dd>
+            <dt>licencia</dt><dd>MIT (core Rust)</dd>
+            <dt>self-host</dt><dd class="ok">SÍ · single <code>.mv2</code> file</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · <code>memvid/claude-brain</code></dd>
+            <dt>storage</dt><dd><strong>Archivo único <code>.mv2</code></strong> (texto-en-video → Rust ahora)</dd>
+            <dt>embeddings</dt><dd>Local ONNX · BGE-small/base · Nomic v1.5 · Whisper</dd>
+            <dt>benchmark</dt><dd>LoCoMo via <code>memvidbench</code> (10 × ~26K tokens, LLM-as-Judge)</dd>
+            <dt>stars</dt><dd>~10k</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li><strong>Portabilidad sin igual</strong> — el archivo <code>.mv2</code> es la memoria.</li>
+              <li>Rust core con operaciones sub-ms, 10-100× faster que Python original.</li>
+              <li>ONNX embeddings 100% locales sin API keys.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Single-file no escala a equipos/multi-user.</li>
+              <li>Sin temporal reasoning ni KG estructurado.</li>
+              <li>Cambió de paradigma (Python → Rust) — guías obsoletas en circulación.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #13 -->
+    <article class="ficha" id="f13">
+      <header class="ficha__head">
+        <div class="ficha__idx">[13/15]</div>
+        <div class="ficha__title"><h3>Memori (MemoriLabs)</h3><span class="author">MemoriLabs · SQL-native (con asterisco)</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">████</span><span class="empty">░░░░░░</span></span><span class="ficha__score--low">19<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> "SQL-native" memory; estructura en tablas SQL relacionales (no vector primero); claim de eficiencia de tokens <strong>20× mejor</strong> que full-context. <strong>Pero requiere <code>MEMORI_API_KEY</code> para Advanced Augmentation</strong> → viola criterio "cero API keys obligatorias".</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>MemoriLabs/Memori</code> + <code>MemoriLabs/memori-mcp</code></dd>
+            <dt>licencia</dt><dd class="mid">No explícita — auditar</dd>
+            <dt>self-host</dt><dd class="mid"><strong>PARCIAL</strong> · SDK sí, Advanced requiere API key</dd>
+            <dt>claude.ai</dt><dd class="mid">vía <code>memori-mcp</code> (requiere <code>X-Memori-API-Key</code>)</dd>
+            <dt>storage</dt><dd>SQL: PostgreSQL · MySQL · MongoDB · SQLite · BYODB</dd>
+            <dt>embeddings</dt><dd>API (LLM-dependent: OpenAI/Anthropic/Google)</dd>
+            <dt>benchmarks</dt><dd>LoCoMo 81.95% (~1,294 tokens/query · 4.97% del coste full-context)</dd>
+            <dt>stars</dt><dd>~13-14k (milestone abril 2026)</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>SQL-native facilita auditoría y debugging.</li>
+              <li>BYODB → tus datos en tu DB.</li>
+              <li>LoCoMo 81.95% con uso muy bajo de tokens — eficiencia real.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li><strong>Requiere <code>MEMORI_API_KEY</code></strong> para Advanced → descalifica para Naeth.</li>
+              <li>Sin LongMemEval publicado, solo LoCoMo.</li>
+              <li>Cifras LoCoMo no replicadas independientemente.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #14 -->
+    <article class="ficha" id="f14">
+      <header class="ficha__head">
+        <div class="ficha__idx">[14/15]</div>
+        <div class="ficha__title"><h3>MemPalace</h3><span class="author">MemPalace · ⚠️ caso de estudio</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">████</span><span class="empty">░░░░░░</span></span><span class="ficha__score--low">18<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>⚠ NO USAR COMO BASE TÉCNICA · usar como caso de estudio.</strong> Estructura "palace" inspirada en Method of Loci (wings/rooms/halls/drawers). El código de la estructura <strong>NO interviene en la métrica headline</strong>. El 96.6% es esencialmente el score de ChromaDB+all-MiniLM-L6-v2.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>MemPalace/mempalace</code></dd>
+            <dt>licencia</dt><dd>MIT</dd>
+            <dt>self-host</dt><dd class="ok">SÍ</dd>
+            <dt>storage</dt><dd>ChromaDB + SQLite</dd>
+            <dt>embeddings</dt><dd>Local · <code>all-MiniLM-L6-v2</code> (Chroma default)</dd>
+            <dt>claim LME</dt><dd>96.6% raw · 100% hybrid (con Claude Haiku pagado)</dd>
+            <dt>stars</dt><dd>~19-42k <span style="color:var(--err)">(audit sugiere compras)</span></dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// realidad técnica</p>
+          <dl>
+            <dt>Issue #39</dt><dd>raw 96.6% reproduce <strong>sin tocar palace/wings/rooms code paths</strong></dd>
+            <dt>Verificación</dt><dd>M2 Ultra — "es un benchmark de all-MiniLM-L6-v2, no de palace"</dd>
+            <dt>AAAK compression</dt><dd>lossy para retrieval (-12.4pp → 84.2%)</dd>
+            <dt>Drama no-técnico</dt><dd>Kotaku: token MemPalace pump-and-dump · cuenta "aya-thekeeper" deleted post-launch · Sigman owner Libre (Bitcoin lending)</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Caso de estudio educativo sobre cómo <strong>NO publicar benchmarks</strong>.</li>
+              <li>El modo raw confirma que ChromaDB+MiniLM es una baseline más fuerte de lo esperado.</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li><strong>Marketing inflado</strong>: el headline atribuye al palace un score que es de ChromaDB stock.</li>
+              <li>Drama no-técnico documentado (Kotaku, audits).</li>
+              <li>AAAK "lossless" es lossy para retrieval.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- FICHA #15 -->
+    <article class="ficha" id="f15">
+      <header class="ficha__head">
+        <div class="ficha__idx">[15/15]</div>
+        <div class="ficha__title"><h3>EverOS / EverMemOS</h3><span class="author">EverMind-AI · Memory Sparse Attention</span></div>
+        <div class="ficha__score"><span class="ficha__bar ficha__bar--low"><span class="filled">█████</span><span class="empty">░░░░░</span></span><span class="ficha__score--low">24<small>/40</small></span></div>
+      </header>
+      <div class="ficha__body">
+        <p class="ficha__claim"><strong>Diferenciador clave:</strong> self-organizing memory OS con HyperMem (Memory Sparse Attention research) y EverCore. <strong>83% LME-S / 93% LoCoMo</strong> según preprints — pero todos los benchmarks usan GPT-4.1-mini y no son del sistema aislado.</p>
+
+        <div class="specs">
+          <p class="specs__h">// stack</p>
+          <dl>
+            <dt>repo</dt><dd><code>EverMind-AI/EverOS</code> + <code>EverMemOS</code> (eval code)</dd>
+            <dt>licencia</dt><dd>Apache-2.0</dd>
+            <dt>self-host</dt><dd class="ok">SÍ</dd>
+            <dt>claude code</dt><dd class="ok">SÍ · <code>evermem-claude-code</code> plugin</dd>
+            <dt>storage</dt><dd>Configurable</dd>
+            <dt>embeddings</dt><dd>API (GPT-4.1-mini en benchmarks)</dd>
+            <dt>stars</dt><dd>~3.6k</dd>
+          </dl>
+        </div>
+
+        <div class="specs">
+          <p class="specs__h">// benchmarks (preprints)</p>
+          <dl>
+            <dt>LongMemEval-S</dt><dd><strong>83.00%</strong> (arXiv:2601.02163, ene 2026)</dd>
+            <dt>LoCoMo</dt><dd><strong>93.05%</strong></dd>
+            <dt>HaluMem</dt><dd>90.04%</dd>
+            <dt>HyperMem LoCoMo</dt><dd>92.73% (arXiv:2604.08256 separado)</dd>
+            <dt>peer review</dt><dd class="mid">sin venue acceptance verificable</dd>
+          </dl>
+        </div>
+
+        <div class="proscons">
+          <div class="pcblock pcblock--pros">
+            <h4>PROS</h4>
+            <ul>
+              <li>Mejor combinación de LoCoMo + LongMemEval con OSS Apache-2.0.</li>
+              <li>Plugin Claude Code oficial.</li>
+              <li>Multi-benchmark presence (HaluMem, EvoAgentBench, EverMemBench).</li>
+            </ul>
+          </div>
+          <div class="pcblock pcblock--cons">
+            <h4>CONS</h4>
+            <ul>
+              <li>Todos los bench usan <strong>GPT-4.1-mini</strong> — no es score del sistema aislado.</li>
+              <li>arXiv preprint sin venue acceptance — claims marketing-grade.</li>
+              <li>Ecosistema fragmentado (EverOS / EverMemOS / EverCore / HyperMem / EverMe-CLI).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </article>
+
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- HALLAZGOS -->
+  <!-- ====================================================== -->
+  <section class="section" id="hallazgos">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 04 / hallazgos transversales</div>
+      <h2>Cinco patrones del ecosistema <span class="mono">— aplicables a Naeth</span></h2>
+    </div>
+
+    <div class="findings">
+      <article class="finding">
+        <div class="finding__n">01</div>
+        <div>
+          <h3 class="finding__title">LongMemEval está siendo manipulado o mal-reportado</h3>
+          <p class="finding__body">Casi nadie publica el modo (R@5 vs R@10 vs E2E QA), el LLM lector, ni la configuración (oráculo de sesiones vs corpus completo). El paper original (Wu et al., ICLR 2025, <code>arXiv:2410.10813</code>) define el benchmark como QA end-to-end; las cifras altas (&gt;90%) tienden a ser retrieval-only sobre haystacks pequeños. <strong>Tratar toda cifra &gt; 85% como "claim del proyecto" hasta replicación independiente.</strong></p>
+        </div>
+      </article>
+      <article class="finding">
+        <div class="finding__n">02</div>
+        <div>
+          <h3 class="finding__title">Solo 2 declaran soporte explícito de claude.ai Remote MCP</h3>
+          <p class="finding__body"><code>doobidoo/mcp-memory-service</code> (lo lista textualmente en su README junto a ChatGPT Developer Mode) y <code>Anthropic Memory MCP</code> oficial (porque claude.ai lo soporta nativamente). El resto soporta sólo Claude Code/Desktop vía stdio o HTTP local.</p>
+        </div>
+      </article>
+      <article class="finding">
+        <div class="finding__n">03</div>
+        <div>
+          <h3 class="finding__title">El vendor lock-in del espacio comercial es mayor de lo que parece</h3>
+          <p class="finding__body">OpenMemory (mem0) fue sunset; Zep Community Edition deprecada abril 2025; Supermemory requiere enterprise agreement; Cipher (Byterover) pasó a Elastic License 2.0 y fue renombrado a ByteRover CLI. <strong>El hueco "memoria personal portable para chat clients" sigue abierto.</strong></p>
+        </div>
+      </article>
+      <article class="finding">
+        <div class="finding__n">04</div>
+        <div>
+          <h3 class="finding__title">MemPalace amerita inclusión con asterisco grande</h3>
+          <p class="finding__body">19-42k stars cuestionados (audits independientes). El 96.6% R@5 es esencialmente el score de ChromaDB+<code>all-MiniLM-L6-v2</code> sin que el código palace intervenga (verificado en Issue #39, reproducción en M2 Ultra). El 100% hybrid requiere Claude Haiku pagado. <strong>No usar como base técnica; sí como caso de estudio de cómo NO comunicar benchmarks.</strong></p>
+        </div>
+      </article>
+      <article class="finding">
+        <div class="finding__n">05</div>
+        <div>
+          <h3 class="finding__title">El verdadero state-of-the-art académico es Hindsight + EverMemOS</h3>
+          <p class="finding__body">Ambos con preprints reproducibles. Hindsight tiene la mejor combinación de <strong>benchmark + licencia MIT + integración Claude Code + soporte local</strong> (Ollama + embedded Postgres). EverMemOS reporta 83% LME-S / 93% LoCoMo pero sin venue peer-reviewed.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- PLAN -->
+  <!-- ====================================================== -->
+  <section class="section" id="plan">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 05 / plan de acción</div>
+      <h2>Cómo arrancar Naeth <span class="mono">— en tres fases</span></h2>
+    </div>
+
+    <div class="phases">
+      <article class="phase">
+        <header class="phase__head">
+          <span class="phase__num"><span class="acc">▶</span> fase 0</span>
+          <span class="phase__when">esta semana</span>
+        </header>
+        <div class="phase__body">
+          <h3 class="phase__title">Validar la tesis del gap</h3>
+          <ol>
+            <li><strong>Forkear</strong> <code>doobidoo/mcp-memory-service</code> y verificar claude.ai (web) vía Remote MCP HTTPS.</li>
+            <li>Verificar hooks de Claude Code consolidan memorias entre sesiones.</li>
+            <li>Verificar SQLite-vec funciona <strong>sin Cloudflare credentials</strong>.</li>
+            <li>Auditar la licencia exacta (README muestra Apache-2.0 y MIT).</li>
+            <li>Probar el plugin Claude Code de Cognee como contra-ejemplo.</li>
+          </ol>
+        </div>
+      </article>
+
+      <article class="phase">
+        <header class="phase__head">
+          <span class="phase__num"><span class="acc">▶▶</span> fase 1</span>
+          <span class="phase__when">primer mes</span>
+        </header>
+        <div class="phase__body">
+          <h3 class="phase__title">MVP de Naeth</h3>
+          <ol>
+            <li><strong>Base:</strong> fork de <code>mcp-memory-service</code>. Mantener compatibilidad con la spec <strong>SHODH Unified Memory API v1.0.0</strong>.</li>
+            <li><strong>Personal-first prompt template</strong> — equivalente a "User Identification → Memory Retrieval" del Anthropic Memory MCP, optimizado para Claude.ai Projects.</li>
+            <li><strong>Cross-client identity</strong> — una sola "yo" entre claude.ai web, Claude Code y Cursor; entity resolution por defecto.</li>
+            <li>Audit log estilo Ogham alineado con OTEL GenAI Semantic Conventions.</li>
+            <li>Embeddings 100% locales desde día 1 (ONNX, sin caída a API). Replicar patrón <code>:quality-cpu</code> Docker image.</li>
+          </ol>
+        </div>
+      </article>
+
+      <article class="phase">
+        <header class="phase__head">
+          <span class="phase__num"><span class="acc">▶▶▶</span> fase 2</span>
+          <span class="phase__when">3-6 meses</span>
+        </header>
+        <div class="phase__body">
+          <h3 class="phase__title">Publicación honesta</h3>
+          <ol>
+            <li><strong>Benchmark independiente y honesto:</strong> replicar LongMemEval R@5/R@10/E2E QA con config estándar (LongMemEval-S 500 questions, gpt-4o-mini reader, recall_any@5).</li>
+            <li><strong>NO publicar cifras &gt; 90%</strong> sin replicación cruzada por un tercero.</li>
+            <li>Paper/blog técnico: el gap es "memoria personal portable para chat clients", <strong>no "mejor accuracy en benchmark X"</strong>. La narrativa MemPalace/EverMind muestra que el ángulo sano es soberanía + UX.</li>
+            <li>Spec abierta: extender SHODH UMAS v1.0.0 con <code>client_id</code> y <code>user_intent</code>.</li>
+            <li>Reviewers propuestos: <code>doobidoo</code>, <code>basicmachines-co</code>, <code>ogham-mcp</code>.</li>
+          </ol>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- UMBRALES / DESCARTADOS -->
+  <!-- ====================================================== -->
+  <section class="section" id="umbrales">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 06 / umbrales y descartados</div>
+      <h2>Qué cambiaría la recomendación <span class="mono">— y qué quedó fuera</span></h2>
+    </div>
+
+    <div class="duo">
+      <div class="callout callout--info">
+        <span class="callout__tag">[CHANGE]</span>
+        <div class="callout__body">
+          <strong>Umbrales que mueven la aguja:</strong>
+          <ul style="margin:8px 0 0; padding-left:18px;">
+            <li>Hindsight publica soporte oficial claude.ai Remote MCP HTTPS → <strong>pasa a #1</strong>.</li>
+            <li>Mem0 lanza nuevo OpenMemory MCP oficial post-sunset → re-evaluar (comunidad 38k).</li>
+            <li>EverMemOS arXiv pasa a peer-review (ICLR/NeurIPS) → considerar HyperMem para v2.</li>
+            <li>MemPalace publica benchmark con palace architecture realmente activa → revisar.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout callout--err">
+        <span class="callout__tag">[DROPPED]</span>
+        <div class="callout__body">
+          <strong>Sistemas descartados explícitamente:</strong>
+          <ul class="discarded">
+            <li><strong>Supermemory</strong> — self-host requiere enterprise agreement.</li>
+            <li><strong>Cipher / ByteRover CLI</strong> — Elastic License 2.0 (source-available, no OSI).</li>
+            <li><strong>Mastra</strong> — framework TS, no sistema de memoria.</li>
+            <li><strong>LangMem</strong> — acoplado a LangGraph Store, sin MCP nativo.</li>
+            <li><strong>OMEGA Memory</strong> — Smithery hosted; sin self-host verificable.</li>
+            <li><strong>Cloudflare Agent Memory</strong> — enterprise-only.</li>
+            <li><strong>MemoryPlugin</strong> — comercial puro.</li>
+            <li><strong>MS Kernel Memory / Semantic Kernel</strong> — Azure-céntrico.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- CAVEATS -->
+  <!-- ====================================================== -->
+  <section class="section" id="caveats">
+    <div class="section__head">
+      <div class="section__tag"><span class="hash">#</span> 07 / caveats</div>
+      <h2>Lo que hay que leer con escepticismo</h2>
+    </div>
+
+    <div class="caveats">
+      <div class="caveat">
+        <div class="caveat__h">// benchmarks</div>
+        <div class="caveat__body">Casi ninguna cifra &gt; 85% en este espacio está replicada independientemente. El paper LongMemEval original (Wu et al., ICLR 2025, <code>arXiv:2410.10813</code>) define el benchmark como QA end-to-end (retrieval + LLM + judge), pero proyectos reportan a menudo retrieval-only R@5/R@10 sin clarificarlo. <strong>Hindsight</strong> (replicado por Virginia Tech's Sanghani Center y Andrew Neeser / Washington Post) y <strong>Graphiti</strong> (paper arXiv:2501.13956) son las excepciones más sólidas. <strong>MemPalace</strong> es el ejemplo paradigmático de manipulación.</div>
+      </div>
+
+      <div class="caveat">
+        <div class="caveat__h">// licencias</div>
+        <div class="caveat__body">Verificar manualmente: <code>mcp-memory-service</code> (Apache vs MIT inconsistencia README), <code>Basic Memory</code> (probable AGPL → fricción para SaaS derivativo), <code>MARM-Systems</code> (no explícita), <code>Memori</code> (no explícita). Antes de derivar código, leer el archivo <code>LICENSE</code> del repo.</div>
+      </div>
+
+      <div class="caveat">
+        <div class="caveat__h">// ecosistema</div>
+        <div class="caveat__body">La capa de memoria persistente para LLMs está en transición agresiva. OpenMemory (mem0) sunset, Zep CE deprecada (abril 2025), Cipher → Elastic License 2.0 → ByteRover CLI (abril 2026), MemPalace en controversia. <strong>Cualquier ranking debe re-validarse cada 2-3 meses.</strong></div>
+      </div>
+
+      <div class="caveat">
+        <div class="caveat__h">// vendor memory</div>
+        <div class="caveat__body">Anthropic ha lanzado la Memory Tool nativa en claude.ai/Claude Code. Esto es complementario (vendor lock-in implícito) pero el usuario lo descartó correctamente. <strong>Naeth debe interoperar con la memoria nativa, no competir</strong> — import/export y sync bidireccional con el <code>memory.jsonl</code> del Anthropic Memory MCP.</div>
+      </div>
+
+      <div class="caveat">
+        <div class="caveat__h">// stars github</div>
+        <div class="caveat__body">Las cifras de stars no son fiables como métrica de calidad post-MemPalace. Priorizar: frecuencia de commits, contributors únicos, releases en los últimos 90 días, issues respondidos con turnaround &lt; 7 días.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOT -->
+  <footer class="foot">
+    <div>$ naeth/research · vol.01 · build 2026.05 · próx. revisión: ago 2026</div>
+    <div>auditados: 15 · descartados: 8 · ganador: doobidoo/mcp-memory-service</div>
+  </footer>
+
+</main>
+</div>
+
+<script>
+(function(){
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ----- progress bar -----
+  const pb = document.getElementById('progressBar');
+  let raf;
+  function updProgress(){
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = Math.min(100, (window.scrollY / max) * 100);
+    pb.style.width = pct + '%';
+    raf = null;
+  }
+  window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(updProgress); }, { passive: true });
+  updProgress();
+
+  // ----- scrollspy -----
+  const tocLinks = document.querySelectorAll('#toc a');
+  const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting){
+        const id = '#' + e.target.id;
+        tocLinks.forEach(l => l.classList.toggle('is-active', l.getAttribute('href') === id));
+      }
+    });
+  }, { rootMargin: '-30% 0px -55% 0px', threshold: 0 });
+  sections.forEach(s => spy.observe(s));
+
+  // ----- reveal animations -----
+  if (!reduced){
+    const items = document.querySelectorAll('.ficha, .tldr__card, .finding, .phase, .caveat, .callout');
+    items.forEach(el => el.classList.add('reveal'));
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting){
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    items.forEach(el => io.observe(el));
+  }
+
+  // ----- keyboard nav between sections -----
+  function currentSectionIdx(){
+    let best = 0, bestDist = Infinity;
+    sections.forEach((s, i) => {
+      const r = s.getBoundingClientRect();
+      const dist = Math.abs(r.top - 60);
+      if (dist < bestDist){ bestDist = dist; best = i; }
+    });
+    return best;
+  }
+  function goTo(idx){
+    idx = Math.max(0, Math.min(sections.length-1, idx));
+    sections[idx].scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'ArrowDown' && e.altKey){ e.preventDefault(); goTo(currentSectionIdx()+1); }
+    if (e.key === 'ArrowUp' && e.altKey){ e.preventDefault(); goTo(currentSectionIdx()-1); }
+    if (e.key === 'Home'){ e.preventDefault(); goTo(0); }
+    if (e.key === 'End'){ e.preventDefault(); goTo(sections.length-1); }
+  });
+
+  // ----- smooth-scroll toc -----
+  tocLinks.forEach(a => {
+    a.addEventListener('click', (e) => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target){
+        e.preventDefault();
+        target.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

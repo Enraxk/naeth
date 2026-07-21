@@ -1,0 +1,1600 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>naeth/research · paso 2 · tres arquitecturas en papel</title>
+<meta name="description" content="Paso 2 del proyecto Naeth: tres arquitecturas de composición (federación lateral, pipeline en cascada, spec con adaptadores) evaluadas contra las 12 preguntas abiertas del Paso 1. Mayo 2026." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   DESIGN DNA — Terminal × Notion · Lab Edition
+   ============================================================ */
+:root{
+  --bg:        oklch(98%  0.005 80);
+  --bg-elev:   oklch(100% 0 0);
+  --bg-code:   oklch(96%  0.008 80);
+  --bg-hl:     oklch(94%  0.012 80);
+  --bg-side:   oklch(95%  0.006 80);
+
+  --ink:       oklch(18% 0.012 60);
+  --ink-soft:  oklch(42% 0.012 60);
+  --ink-mute:  oklch(62% 0.010 60);
+  --ink-inv:   oklch(98% 0.005 80);
+
+  --rule:      oklch(88% 0.006 80);
+  --rule-strong: oklch(78% 0.008 80);
+
+  --acc:       oklch(48% 0.16 145);
+  --acc-soft:  oklch(94% 0.04 145);
+  --win:       oklch(48% 0.16 145);
+  --warn:      oklch(60% 0.17 70);
+  --warn-soft: oklch(95% 0.06 80);
+  --err:       oklch(52% 0.21 28);
+  --err-soft:  oklch(94% 0.05 28);
+  --info:      oklch(48% 0.18 245);
+  --info-soft: oklch(94% 0.05 245);
+  --gold:      oklch(68% 0.14 80);
+
+  /* lab edition */
+  --lab-grid:    oklch(88% 0.006 80);
+  --lab-port:    oklch(52% 0.05 250);
+  --lab-conflict:oklch(52% 0.21 28);
+
+  --fs-base: clamp(14px, 0.95vw, 16px);
+  --fs-sm:   clamp(12px, 0.82vw, 14px);
+  --fs-xs:   clamp(11px, 0.72vw, 12px);
+  --fs-lg:   clamp(17px, 1.15vw, 20px);
+  --fs-xl:   clamp(22px, 1.6vw, 30px);
+  --fs-2xl:  clamp(28px, 2.2vw, 42px);
+  --fs-3xl:  clamp(40px, 3.6vw, 72px);
+  --fs-4xl:  clamp(56px, 5.5vw, 120px);
+
+  --sans: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --sidebar-w: 280px;
+  --content-max: 1180px;
+  --gutter: clamp(24px, 4vw, 96px);
+
+  --ease: cubic-bezier(.16,1,.3,1);
+}
+
+[data-theme="dark"]{
+  --bg:        oklch(14%  0.008 80);
+  --bg-elev:   oklch(18%  0.010 80);
+  --bg-code:   oklch(22%  0.012 80);
+  --bg-hl:     oklch(24%  0.014 80);
+  --bg-side:   oklch(16%  0.008 80);
+  --ink:       oklch(94%  0.005 80);
+  --ink-soft:  oklch(72%  0.006 80);
+  --ink-mute:  oklch(54%  0.008 80);
+  --ink-inv:   oklch(14%  0.008 80);
+  --rule:      oklch(28%  0.010 80);
+  --rule-strong: oklch(40% 0.012 80);
+  --acc:       oklch(72%  0.18 145);
+  --acc-soft:  oklch(28%  0.06 145);
+  --warn:      oklch(78%  0.17 70);
+  --warn-soft: oklch(28%  0.08 80);
+  --err:       oklch(72%  0.20 28);
+  --err-soft:  oklch(28%  0.10 28);
+  --info:      oklch(72%  0.18 245);
+  --info-soft: oklch(28%  0.10 245);
+  --gold:      oklch(78%  0.14 80);
+  --lab-grid:  oklch(28%  0.010 80);
+  --lab-port:  oklch(72%  0.08 250);
+}
+
+*,*::before,*::after{ box-sizing: border-box; }
+html,body{ margin:0; padding:0; }
+html{ scroll-behavior: smooth; }
+body{
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color .2s ease, color .2s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ transition: none !important; animation: none !important; }
+  html{ scroll-behavior: auto; }
+}
+
+::selection{ background: var(--acc-soft); color: var(--ink); }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.app{
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+
+.progress{
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 2px; background: transparent;
+  z-index: 100;
+}
+.progress__bar{
+  height: 100%; width: 0%;
+  background: var(--acc);
+  transition: width .1s linear;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar{
+  position: sticky; top: 0;
+  height: 100vh;
+  background: var(--bg-side);
+  border-right: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  overflow-y: auto;
+  padding: 28px 22px;
+  display: flex; flex-direction: column;
+}
+.sidebar__brand{
+  font-weight: 700;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.sidebar__brand .prompt{ color: var(--acc); }
+.sidebar__sub{
+  color: var(--ink-mute);
+  font-size: var(--fs-xs);
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--rule);
+}
+.sidebar__sub .blink{
+  animation: blink 1.1s steps(1) infinite;
+  color: var(--acc);
+}
+@keyframes blink{ 50%{ opacity: 0; } }
+
+.theme-row{
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--rule);
+}
+.theme-row__label{
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+.theme-toggle{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.theme-toggle:hover{ background: var(--bg-hl); border-color: var(--rule-strong); }
+.theme-toggle:focus-visible{ outline: 2px solid var(--acc); outline-offset: 2px; }
+.theme-toggle .icon{ display: inline-block; width: 12px; }
+
+.toc__title{
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.toc{ list-style: none; padding: 0; margin: 0 0 22px; }
+.toc li{ margin: 0; }
+.toc a{
+  display: block;
+  padding: 6px 10px 6px 14px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: background .15s, color .15s, border-color .15s;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+.toc a:hover{ background: var(--bg-hl); color: var(--ink); }
+.toc a:focus-visible{ outline: 2px solid var(--acc); outline-offset: -2px; }
+.toc a.is-active{
+  color: var(--acc);
+  border-left-color: var(--acc);
+  background: var(--acc-soft);
+  font-weight: 500;
+}
+.toc a .n{ color: var(--ink-mute); margin-right: 6px; font-weight: 400; }
+.toc a.is-active .n{ color: var(--acc); }
+
+.toc--sub{ margin: 4px 0 8px; padding-left: 18px; border-left: 1px dashed var(--rule); }
+.toc--sub a{
+  padding: 4px 10px 4px 12px;
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+}
+.toc--sub a.is-active{
+  color: var(--acc);
+  background: transparent;
+  border-left-color: var(--acc);
+  font-weight: 500;
+}
+
+.sidebar__foot{
+  margin-top: auto;
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  padding-top: 16px;
+  border-top: 1px dashed var(--rule);
+  line-height: 1.7;
+}
+.sidebar__foot kbd{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--ink);
+}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+.main{
+  padding: 64px var(--gutter) 96px;
+  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.hero{ margin-bottom: 64px; }
+.hero__meta{
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); margin-bottom: 24px;
+  display: flex; gap: 12px; align-items: center;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  flex-wrap: wrap;
+}
+.hero__meta::before{
+  content: ""; width: 8px; height: 8px; background: var(--acc);
+  border-radius: 1px; display: inline-block;
+}
+.hero__meta .sep{ color: var(--rule-strong); }
+.hero h1{
+  font-family: var(--sans);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  margin: 0 0 16px;
+  max-width: 22ch;
+}
+.hero__sub{
+  color: var(--ink-soft);
+  font-size: var(--fs-lg);
+  max-width: 70ch;
+  line-height: 1.55;
+  margin: 0 0 36px;
+}
+.hero__sub strong{ color: var(--ink); font-weight: 600; }
+
+.cmdline{
+  background: var(--ink);
+  color: var(--ink-inv);
+  padding: 20px 24px;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  border-radius: 6px;
+  box-shadow: 0 1px 0 var(--rule), 0 12px 32px -16px color-mix(in oklch, var(--ink) 20%, transparent);
+  overflow-x: auto;
+}
+.cmdline .p{ color: var(--acc); user-select: none; }
+.cmdline .c{ color: oklch(78% 0.008 60); }
+.cmdline .o{ color: oklch(85% 0.04 80); }
+.cmdline .ok{ color: oklch(78% 0.18 145); font-weight: 600; }
+.cmdline .warn{ color: oklch(82% 0.16 80); font-weight: 600; }
+.cmdline .err{ color: oklch(75% 0.20 28); font-weight: 600; }
+.cmdline .info{ color: oklch(75% 0.16 245); font-weight: 600; }
+.cmdline .dim{ color: oklch(60% 0.008 60); }
+.cmdline .blink{ animation: blink 1.1s steps(1) infinite; color: var(--acc); }
+
+/* ============================================================
+   SECTION
+   ============================================================ */
+.section{
+  margin: 96px 0;
+  scroll-margin-top: 32px;
+}
+.section__head{
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 18px;
+}
+.section__tag{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section__tag .hash{ color: var(--acc); }
+.section h2{
+  font-family: var(--sans);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 0;
+  display: flex; align-items: center; gap: 14px;
+}
+.section h2 .mono{ font-family: var(--mono); color: var(--ink-mute); font-weight: 500; }
+.section__lede{
+  color: var(--ink-soft);
+  font-size: var(--fs-lg);
+  margin: 14px 0 0;
+  max-width: 72ch;
+}
+.section__lede strong{ color: var(--ink); font-weight: 600; }
+
+/* anchor link */
+.anchor-link{
+  opacity: 0;
+  font-family: var(--mono);
+  color: var(--ink-mute);
+  text-decoration: none;
+  font-size: 0.65em;
+  margin-left: 8px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  transition: opacity .15s, background .15s, color .15s;
+}
+h2:hover .anchor-link,
+h3:hover .anchor-link,
+h4:hover .anchor-link,
+.anchor-link:focus-visible{ opacity: 1; }
+.anchor-link:hover{ background: var(--bg-hl); color: var(--acc); }
+.anchor-link:focus-visible{ outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* ============================================================
+   CALLOUTS
+   ============================================================ */
+.callout{
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 1px solid var(--rule);
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: var(--bg-elev);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  margin: 18px 0;
+}
+.callout__tag{
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  letter-spacing: 1.2px;
+  align-self: start;
+  padding-top: 2px;
+}
+.callout__body{ color: var(--ink-soft); }
+.callout__body p{ margin: 0 0 8px; }
+.callout__body p:last-child{ margin-bottom: 0; }
+.callout__body strong{ color: var(--ink); font-weight: 600; }
+.callout__body code{ font-family: var(--mono); background: var(--bg-code); padding: 1px 5px; border-radius: 3px; font-size: 0.88em; }
+.callout--win{  border-left-color: var(--win);   background: color-mix(in oklch, var(--acc-soft) 50%, var(--bg-elev)); }
+.callout--win  .callout__tag{ color: var(--win); }
+.callout--warn{ border-left-color: var(--warn);  background: color-mix(in oklch, var(--warn-soft) 50%, var(--bg-elev)); }
+.callout--warn .callout__tag{ color: var(--warn); }
+.callout--err{  border-left-color: var(--err);   background: color-mix(in oklch, var(--err-soft) 50%, var(--bg-elev)); }
+.callout--err  .callout__tag{ color: var(--err); }
+.callout--info{ border-left-color: var(--info);  background: color-mix(in oklch, var(--info-soft) 50%, var(--bg-elev)); }
+.callout--info .callout__tag{ color: var(--info); }
+
+/* ============================================================
+   TL;DR CARDS
+   ============================================================ */
+.tldr{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+@media (max-width: 900px){ .tldr{ grid-template-columns: 1fr; } }
+.tldr__card{
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--acc);
+  padding: 24px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: transform .35s var(--ease), box-shadow .35s var(--ease);
+}
+.tldr__card:hover{ transform: translateY(-3px); box-shadow: 0 12px 24px -16px color-mix(in oklch, var(--ink) 24%, transparent); }
+.tldr__card--win{ border-top-color: var(--win); }
+.tldr__card--info{ border-top-color: var(--info); }
+.tldr__card--err{ border-top-color: var(--err); }
+.tldr__head{
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); letter-spacing: 1.2px;
+}
+.tldr__head .status{ font-weight: 700; }
+.tldr__head .status.ok{ color: var(--win); }
+.tldr__head .status.info{ color: var(--info); }
+.tldr__head .status.err{ color: var(--err); }
+.tldr__title{
+  font-size: var(--fs-xl); font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.2; margin: 0;
+}
+.tldr__title code{ font-family: var(--mono); background: var(--bg-code); padding: 2px 6px; border-radius: 3px; font-size: 0.85em; }
+.tldr__body{ color: var(--ink-soft); font-size: var(--fs-sm); line-height: 1.6; }
+.tldr__body strong{ color: var(--ink); font-weight: 600; }
+.tldr__body code{ font-family: var(--mono); background: var(--bg-code); padding: 1px 5px; border-radius: 3px; font-size: 0.85em; }
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.tbl-wrap{
+  margin: 18px 0 28px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow-x: auto;
+  background: var(--bg-elev);
+}
+.tbl{
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  min-width: 720px;
+}
+.tbl th, .tbl td{
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  line-height: 1.5;
+}
+.tbl thead th{
+  background: var(--bg-side);
+  font-weight: 700;
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  position: sticky; top: 0;
+  border-bottom: 2px solid var(--rule-strong);
+}
+.tbl tbody tr:hover{ background: color-mix(in oklch, var(--bg-hl) 50%, transparent); }
+.tbl tbody tr:last-child td{ border-bottom: 0; }
+.tbl td .row-name{ font-weight: 700; color: var(--ink); }
+.tbl td .row-sub{ color: var(--ink-mute); font-size: 0.9em; display: block; margin-top: 2px; }
+.tbl td.ok{ color: var(--acc); }
+.tbl td.warn{ color: var(--warn); }
+.tbl td.err{ color: var(--err); }
+.tbl td.no{ color: var(--ink-mute); }
+.tbl td .yes{ color: var(--acc); font-weight: 600; }
+.tbl td .no-i{ color: var(--ink-mute); font-weight: 600; }
+.tbl td .partial{ color: var(--warn); font-weight: 600; }
+.tbl code{ font-family: var(--mono); background: var(--bg-code); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+
+/* tabla binaria / matriz de evaluación: cells centradas con icono */
+.tbl--binary td:not(:first-child){ text-align: center; font-size: var(--fs-base); }
+.tbl--binary td:not(:first-child) .marker{
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.tbl--binary .m-ok{ background: var(--acc-soft); color: var(--acc); }
+.tbl--binary .m-no{ background: var(--err-soft); color: var(--err); }
+.tbl--binary .m-partial{ background: var(--warn-soft); color: var(--warn); }
+.tbl--binary .m-na{ background: repeating-linear-gradient(45deg, var(--bg-elev), var(--bg-elev) 3px, var(--bg-hl) 3px, var(--bg-hl) 6px); color: var(--ink-mute); }
+.tbl--binary td .q{ display:block; font-size: var(--fs-xs); color: var(--ink-mute); margin-top:2px; }
+
+/* ============================================================
+   FICHA (arquitectura)
+   ============================================================ */
+.ficha{
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  padding: 28px 32px;
+  margin: 32px 0;
+  position: relative;
+}
+.ficha--win{ border-left: 4px solid var(--win); }
+.ficha__head{
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: start;
+  padding-bottom: 18px;
+  border-bottom: 1px dashed var(--rule);
+  margin-bottom: 24px;
+}
+.ficha__title{
+  font-family: var(--mono);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.ficha__title .num{ color: var(--acc); font-weight: 700; margin-right: 10px; }
+.ficha__title .org{ color: var(--ink-mute); font-weight: 400; font-size: 0.7em; margin-left: 8px; }
+.ficha__badges{
+  display: flex; gap: 6px; flex-wrap: wrap;
+  justify-content: flex-end;
+  font-family: var(--mono); font-size: var(--fs-xs);
+}
+.badge{
+  padding: 3px 8px; border-radius: 3px;
+  background: var(--bg-hl);
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.badge--license{ color: var(--info); border-color: color-mix(in oklch, var(--info) 30%, var(--rule)); }
+.badge--stars{ color: var(--gold); border-color: color-mix(in oklch, var(--gold) 30%, var(--rule)); }
+.badge--ver{ color: var(--acc); border-color: color-mix(in oklch, var(--acc) 30%, var(--rule)); }
+.badge--warn{ color: var(--warn); border-color: color-mix(in oklch, var(--warn) 30%, var(--rule)); }
+
+.ficha__strip{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  background: var(--bg-hl);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+.ficha__strip dt{
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.ficha__strip dd{
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+.ficha__strip dd .neg{ color: var(--ink-mute); font-weight: 400; }
+
+.ficha h4{
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 28px 0 10px;
+  color: var(--ink);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 8px;
+}
+.ficha h4 .h4-num{
+  font-family: var(--mono);
+  color: var(--ink-mute);
+  font-size: 0.7em;
+  font-weight: 500;
+}
+
+.ficha p{ margin: 10px 0; color: var(--ink-soft); }
+.ficha p strong{ color: var(--ink); font-weight: 600; }
+.ficha code{
+  font-family: var(--mono);
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+
+/* diagrama ASCII (blueprint terminal) */
+.diagram{
+  background: var(--ink);
+  color: var(--ink-inv);
+  font-family: var(--mono);
+  font-size: clamp(10px, 0.78vw, 13px);
+  line-height: 1.45;
+  padding: 22px 24px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 14px 0 6px;
+  white-space: pre;
+}
+.diagram .hl{ color: oklch(78% 0.18 145); font-weight: 600; }
+.diagram .dim{ color: oklch(62% 0.008 60); }
+.diagram .warn{ color: oklch(82% 0.16 80); }
+
+/* ============================================================
+   FINDINGS — pros vs contras
+   ============================================================ */
+.findings{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin: 24px 0;
+}
+@media (max-width: 900px){ .findings{ grid-template-columns: 1fr; } }
+.findings__col{
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 20px 22px;
+}
+.findings__col--repeated{
+  background: color-mix(in oklch, var(--acc-soft) 25%, var(--bg-elev));
+  border-color: color-mix(in oklch, var(--acc) 25%, var(--rule));
+}
+.findings__col--gaps{
+  background: color-mix(in oklch, var(--warn-soft) 25%, var(--bg-elev));
+  border-color: color-mix(in oklch, var(--warn) 25%, var(--rule));
+}
+.findings__title{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 0 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed currentColor;
+}
+.findings__col--repeated .findings__title{ color: var(--acc); }
+.findings__col--gaps .findings__title{ color: var(--warn); }
+.findings__list{
+  list-style: none;
+  padding: 0; margin: 0;
+}
+.findings__list li{
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  padding: 10px 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  border-bottom: 1px dashed var(--rule);
+  color: var(--ink-soft);
+}
+.findings__list li:last-child{ border-bottom: 0; }
+.findings__list .icon{
+  font-family: var(--mono); font-weight: 700;
+  font-size: var(--fs-base);
+}
+.findings__col--repeated .icon{ color: var(--acc); }
+.findings__col--gaps .icon{ color: var(--warn); }
+.findings__list strong{ color: var(--ink); font-weight: 600; }
+.findings__list code{
+  font-family: var(--mono);
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+
+/* ============================================================
+   CHECKLIST INTERACTIVO (mediciones del spike)
+   ============================================================ */
+.checklist{
+  display: flex; flex-direction: column;
+  gap: 10px;
+  margin: 24px 0;
+}
+.check{
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: var(--bg-elev);
+  align-items: start;
+  transition: border-color .15s, background .15s;
+  cursor: pointer;
+}
+.check:hover{ background: var(--bg-hl); }
+.check:focus-within{ outline: 2px solid var(--acc); outline-offset: 2px; }
+.check input{
+  width: 18px; height: 18px;
+  margin-top: 3px;
+  accent-color: var(--acc);
+  cursor: pointer;
+}
+.check__body{ display: block; }
+.check__head{
+  display: flex; gap: 10px; align-items: baseline;
+  margin-bottom: 4px;
+}
+.check__num{
+  font-family: var(--mono); font-size: var(--fs-xs);
+  color: var(--ink-mute); font-weight: 600;
+  letter-spacing: 1px;
+}
+.check__title{
+  font-family: var(--sans);
+  font-weight: 600;
+  color: var(--ink);
+  font-size: var(--fs-base);
+}
+.check__desc{
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.check__desc code{
+  font-family: var(--mono);
+  background: var(--bg-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.88em;
+}
+.check.is-prio{
+  border-color: var(--acc);
+  background: color-mix(in oklch, var(--acc-soft) 30%, var(--bg-elev));
+}
+.check.is-prio .check__num{ color: var(--acc); }
+
+.check__count{
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  text-align: right;
+  margin-top: 8px;
+  letter-spacing: 1px;
+}
+.check__count strong{ color: var(--acc); font-weight: 700; }
+
+/* ============================================================
+   STEPPER (arco del proyecto)
+   ============================================================ */
+.stepper{
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin: 24px 0 8px;
+  font-family: var(--mono); font-size: var(--fs-xs);
+}
+.stepper__node{
+  flex: 1 1 160px;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 12px 14px;
+  background: var(--bg-elev);
+}
+.stepper__node .st{ display:block; color: var(--ink-mute); letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+.stepper__node .ti{ color: var(--ink); font-weight: 600; }
+.stepper__node--done{ border-color: color-mix(in oklch, var(--acc) 35%, var(--rule)); }
+.stepper__node--done .st{ color: var(--acc); }
+.stepper__node--now{ border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc); background: var(--acc-soft); }
+.stepper__node--now .st{ color: var(--acc); }
+.stepper__node--next{ border-style: dashed; }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.footer{
+  margin-top: 96px;
+  padding-top: 32px;
+  border-top: 1px dashed var(--rule);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-mute);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.footer .end{ color: var(--acc); }
+
+/* ============================================================
+   TOAST + TOOLTIP
+   ============================================================ */
+.toast{
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--ink);
+  color: var(--ink-inv);
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .15s ease, transform .15s ease;
+  z-index: 95;
+  pointer-events: none;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.4);
+}
+.toast.is-visible{ opacity: 1; transform: translateY(0); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1024px){
+  .app{ grid-template-columns: 1fr; }
+  .sidebar{
+    position: relative; height: auto;
+    border-right: 0; border-bottom: 1px solid var(--rule);
+    padding: 18px 22px;
+  }
+  .main{ padding: 32px var(--gutter) 64px; }
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+.text-mono{ font-family: var(--mono); }
+.text-mute{ color: var(--ink-mute); }
+.text-acc{ color: var(--acc); }
+.warn-mark{ color: var(--warn); font-family: var(--mono); font-size: 0.88em; }
+.kbd{
+  font-family: var(--mono);
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.85em;
+  color: var(--ink);
+}
+</style>
+</head>
+
+<body>
+
+<div class="progress" aria-hidden="true"><div class="progress__bar" id="progressBar"></div></div>
+
+<div class="app">
+
+  <!-- ============================================================
+       SIDEBAR
+       ============================================================ -->
+  <aside class="sidebar" aria-label="Tabla de contenidos">
+    <div class="sidebar__brand"><span class="prompt">$ </span>naeth/research</div>
+    <div class="sidebar__sub">paso 02 · arquitecturas en papel<span class="blink"> _</span></div>
+
+    <div class="theme-row">
+      <span class="theme-row__label">tema</span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+        <span class="icon" id="themeIcon">☾</span> <span id="themeLabel">dark</span>
+      </button>
+    </div>
+
+    <h3 class="toc__title">Secciones</h3>
+    <nav>
+      <ul class="toc" id="toc">
+        <li><a href="#tldr"><span class="n">00</span>tl;dr · decisión</a></li>
+        <li>
+          <a href="#arqs"><span class="n">01</span>las tres arquitecturas</a>
+          <ul class="toc toc--sub">
+            <li><a href="#arq-a">A · federación lateral</a></li>
+            <li><a href="#arq-b">B · pipeline en cascada</a></li>
+            <li><a href="#arq-c">C · spec con adaptadores</a></li>
+          </ul>
+        </li>
+        <li><a href="#eval"><span class="n">02</span>evaluación · 12 preguntas</a></li>
+        <li><a href="#decision"><span class="n">03</span>decisión · spike</a></li>
+        <li><a href="#paso3"><span class="n">04</span>preguntas paso 3</a></li>
+        <li><a href="#anti-doc"><span class="n">05</span>lo que NO está aquí</a></li>
+      </ul>
+    </nav>
+
+    <div class="sidebar__foot">
+      <div>shortcut: <kbd>t</kbd> tema</div>
+      <div style="margin-top:8px">v1.0 · 2026-05-29</div>
+    </div>
+  </aside>
+
+  <!-- ============================================================
+       MAIN
+       ============================================================ -->
+  <main class="main">
+
+    <!-- HERO -->
+    <header class="hero">
+      <div class="hero__meta">
+        <span>2026-05-29</span>
+        <span class="sep">·</span>
+        <span>paso 2 de 4</span>
+        <span class="sep">·</span>
+        <span>diseño en papel</span>
+        <span class="sep">·</span>
+        <span>3 arquitecturas</span>
+      </div>
+      <h1>Tres arquitecturas en papel</h1>
+      <p class="hero__sub">
+        El Paso 1 dejó 5 sistemas mapeados y 12 preguntas sin respuesta. El Paso 2 no escribe código:
+        dibuja <strong>tres formas de componerlos</strong> —federación lateral, pipeline en cascada y
+        spec con adaptadores—, las somete a esas 12 preguntas y decide <strong>cuál validar primero con
+        un spike</strong>. Dónde vive la verdad y quién paga el coste: esa es toda la pregunta.
+      </p>
+
+      <pre class="cmdline" aria-hidden="true">
+<span class="p">$</span> <span class="o">paso2</span> --design=3 --eval-against=paso1.preguntas --no-code --pick-spike
+<span class="dim">›</span> arquitectura A · federación lateral   <span class="dim">router scatter-gather sobre pares</span>
+<span class="dim">›</span> arquitectura B · pipeline en cascada  <span class="dim">hot tier síncrono + enrichment async</span>
+<span class="dim">›</span> arquitectura C · spec + adaptadores   <span class="dim">UMAS v2 + driver ABC conmutable</span>
+
+<span class="dim">›</span> evaluando contra 12 preguntas abiertas <span class="ok">[ok]</span>
+<span class="ok">[pick]</span> spike = espina dorsal de B · subconjunto mínimo (no los 5)
+<span class="warn">[warn]</span> pregunta 1 (latencia &lt;2s) = la única que invalida todo si falla
+<span class="info">[next]</span> paso3-spike.md · medir p50/p95, tamaño MCP, fallo, desfase<span class="blink"> _</span>
+</pre>
+    </header>
+
+    <!-- ============================================================
+         §00 TL;DR + DECISIÓN
+         ============================================================ -->
+    <section id="tldr" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§00</span><span>tl;dr · decisión</span></div>
+        <h2>Tres topologías, una apuesta <a class="anchor-link" href="#tldr" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Cada arquitectura responde distinto a <strong>dónde vive la verdad</strong> y <strong>quién paga
+          el coste</strong>. Ninguna pura gana en abstracto; la que <strong>de-riesga primero lo que no
+          sabemos</strong> es B.
+        </p>
+      </div>
+
+      <div class="tldr">
+        <article class="tldr__card tldr__card--err">
+          <header class="tldr__head"><span>A · federación lateral</span><span class="status err">[router]</span></header>
+          <h3 class="tldr__title">Naeth = scatter-gather</h3>
+          <p class="tldr__body">
+            Backends como pares; escritura <code>fan-out</code>, lectura en paralelo con merge + RRF. Máxima
+            cobertura, pero <strong>agrava casi todas las preguntas duras</strong>: latencia = el más lento,
+            N embeddings, consistencia de escritura sin reconciliador, identidad cross-system a cargo de Naeth.
+          </p>
+        </article>
+
+        <article class="tldr__card tldr__card--win">
+          <header class="tldr__head"><span>B · pipeline en cascada</span><span class="status ok">[spike]</span></header>
+          <h3 class="tldr__title">Hot tier + enrichment async</h3>
+          <p class="tldr__body">
+            <strong>Hot tier síncrono</strong> (Basic Memory, Markdown soberano) sirve el recall rápido; un
+            <strong>enrichment async</strong> añade grafo/temporal por detrás vía bus propio de Naeth. Acota la
+            latencia (pregunta 1) y fija un <strong>source of truth único</strong> (preguntas 4 y 8).
+          </p>
+        </article>
+
+        <article class="tldr__card tldr__card--info">
+          <header class="tldr__head"><span>C · spec + adaptadores</span><span class="status info">[después]</span></header>
+          <h3 class="tldr__title">UMAS v2 + driver ABC</h3>
+          <p class="tldr__body">
+            Naeth define el contrato de memoria; cada backend vive tras un adaptador conmutable. Da
+            <strong>portabilidad real</strong> y roundtrip lossless (el hueco que nadie cubre), pero a costa de
+            la mayor ingeniería y del riesgo de <strong>aplanar el valor</strong> de los backends ricos.
+          </p>
+        </article>
+      </div>
+
+      <div class="callout callout--win">
+        <span class="callout__tag">decisión</span>
+        <div class="callout__body">
+          <p><strong>Spikear primero la espina dorsal de B con el subconjunto mínimo, no los 5 sistemas.</strong>
+          Naeth como 1 MCP proxy → Basic Memory como hot tier (AGPL aislada por la frontera "solo leo/escribo
+          sus <code>.md</code>") → <strong>un</strong> enrichment async (Graphiti-Kuzu para temporal, o Cognee para KG;
+          no ambos). El destino probable es un <strong>híbrido B+C</strong>, con A como modo de lectura opcional.</p>
+        </div>
+      </div>
+
+      <div class="callout callout--warn">
+        <span class="callout__tag">por qué</span>
+        <div class="callout__body">
+          <p>La <strong>pregunta 1</strong> (¿latencia &lt;2s al componer memoria?) es la única que el Paso 1
+          marcó como "solo medible en spike", y las tres arquitecturas dependen de su respuesta. B la pone en
+          el centro del spike sin contaminar la medición con un backend LLM-heavy en el camino crítico (eso
+          haría A), y sin gastar antes la ingeniería del contrato UMAS v2 (eso es C, que se diseña <em>después</em>
+          de confirmar viabilidad).</p>
+        </div>
+      </div>
+
+      <div class="stepper" aria-label="Arco del proyecto Naeth">
+        <div class="stepper__node stepper__node--done"><span class="st">paso 0 · hecho</span><span class="ti">Ranking Top 15</span></div>
+        <div class="stepper__node stepper__node--done"><span class="st">paso 1 · hecho</span><span class="ti">Mapeo de interfaces</span></div>
+        <div class="stepper__node stepper__node--now"><span class="st">paso 2 · este</span><span class="ti">Arquitecturas en papel</span></div>
+        <div class="stepper__node stepper__node--next"><span class="st">paso 3 · siguiente</span><span class="ti">Spike de la arquitectura B</span></div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §01 LAS TRES ARQUITECTURAS
+         ============================================================ -->
+    <section id="arqs" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§01</span><span>las tres arquitecturas</span></div>
+        <h2>Mismo esquema, tres topologías <a class="anchor-link" href="#arqs" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Cada ficha: concepto · diagrama · dónde vive la verdad · flujos de escritura y lectura ·
+          <strong>pros y contras</strong>. Sin implementación: el papel acota, el spike confirma.
+        </p>
+      </div>
+
+      <!-- ===== ARQ A ===== -->
+      <article class="ficha" id="arq-a">
+        <header class="ficha__head">
+          <h3 class="ficha__title"><span class="num">A</span>Federación lateral<span class="org">router scatter-gather</span>
+            <a class="anchor-link" href="#arq-a" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--warn">cobertura máxima</span>
+            <span class="badge">sin storage propio</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>naeth es</dt><dd>router puro</dd></div>
+          <div><dt>store-of-record</dt><dd><span class="neg">distribuido</span></dd></div>
+          <div><dt>coste dominante</dt><dd>latencia + N embeddings</dd></div>
+          <div><dt>riesgo</dt><dd>consistencia + p95</dd></div>
+        </dl>
+
+        <p>Naeth es un <em>router</em> sin storage propio. Los backends son pares; cada uno es dueño de su
+        porción. La escritura hace <code>fan-out</code>; la lectura hace <code>scatter-gather</code> en paralelo y
+        Naeth fusiona con RRF (idea robable de Hindsight) y trunca. Un solo MCP server proxy evita exponer las
+        91 tools.</p>
+
+        <pre class="diagram">                          <span class="hl">┌──────────────────────────────┐</span>
+   claude.ai  ──MCP──▶    <span class="hl">│            NAETH             │</span>
+   Claude Code ─MCP──▶    <span class="hl">│  (1 MCP server proxy)        │</span>
+                          <span class="hl">│  write fan-out / read merge  │</span>
+                          <span class="hl">└───┬───────┬───────┬───────┬──┘</span>
+                   write+read │       │       │       │
+                 ┌───────────┘   ┌───┘   ┌───┘   ┌───┘
+                 ▼               ▼       ▼       ▼
+             MM-S            Hindsight  Cognee  Basic Memory  <span class="dim">(Graphiti…)</span>
+          <span class="dim">(rápido)         (TEMPR)    (KG)    (Markdown)</span></pre>
+
+        <div class="findings">
+          <div class="findings__col findings__col--repeated">
+            <h4 class="findings__title" style="border:0;margin:0 0 8px;padding:0">▲ pros</h4>
+            <ul class="findings__list">
+              <li><span class="icon">+</span><span>Aprovecha lo mejor de cada backend <strong>a la vez</strong> sin tener que elegir.</span></li>
+              <li><span class="icon">+</span><span>Degradación <em>graceful</em> natural: cae un backend, hay resultado parcial (pregunta 3).</span></li>
+              <li><span class="icon">+</span><span>Sin lock-in; cada backend reemplazable en caliente.</span></li>
+            </ul>
+          </div>
+          <div class="findings__col findings__col--gaps">
+            <h4 class="findings__title" style="border:0;margin:0 0 8px;padding:0">▼ contras</h4>
+            <ul class="findings__list">
+              <li><span class="icon">!</span><span><strong>Latencia = el más lento + el reranker</strong> (pregunta 1). Un LLM-heavy en lectura dispara el p95.</span></li>
+              <li><span class="icon">!</span><span>Escritura sin reconciliador: <code>fan-out</code> falla en 1 de N → estado parcial (pregunta 4).</span></li>
+              <li><span class="icon">!</span><span><strong>N embeddings + N facturas LLM</strong> por escritura (preguntas 5 y 10).</span></li>
+              <li><span class="icon">!</span><span>Identidad cross-system y respuesta &gt;1MB MCP quedan a cargo de Naeth (preguntas 6 y 2).</span></li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== ARQ B ===== -->
+      <article class="ficha ficha--win" id="arq-b">
+        <header class="ficha__head">
+          <h3 class="ficha__title"><span class="num">B</span>Pipeline en cascada<span class="org">hot tier → enrichment</span>
+            <a class="anchor-link" href="#arq-b" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--ver">recomendada para spike</span>
+            <span class="badge badge--license">SSOT claro</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>naeth es</dt><dd>hot tier + bus async</dd></div>
+          <div><dt>store-of-record</dt><dd>hot tier (Markdown)</dd></div>
+          <div><dt>coste dominante</dt><dd>op. del bus propio</dd></div>
+          <div><dt>riesgo</dt><dd>desfase del enrichment</dd></div>
+        </dl>
+
+        <p>Los backends se ordenan por <strong>velocidad y coste</strong>, no como pares. Un <em>hot tier</em>
+        síncrono y LLM-light absorbe la escritura y sirve el recall rápido. Un <em>enrichment tier</em>
+        LLM-heavy consume del hot tier <strong>en segundo plano</strong> y añade grafo/temporal/consolidación.
+        Naeth corre el bus que los conecta, porque ningún backend emite eventos (hueco 4.2.1 del Paso 1).</p>
+
+        <pre class="diagram">                      <span class="hl">┌───────────────────────────────────────┐</span>
+  claude.ai ─MCP─▶    <span class="hl">│                 NAETH                 │</span>
+  Claude Code─MCP▶    <span class="hl">│  1 MCP proxy · write síncrono al hot  │</span>
+                      <span class="hl">└───┬─────────────────────────────▲─────┘</span>
+            write+recall │                             │ <span class="dim">recall escalado</span>
+                         ▼                             │ <span class="dim">(si hot no basta)</span>
+                 <span class="hl">┌───────────────┐</span>                     │
+                 <span class="hl">│  HOT TIER     │</span> ── source of truth ─┘
+                 <span class="hl">│  Basic Memory │</span>   <span class="dim">(Markdown en disco, soberano)</span>
+                 <span class="hl">│  o MM-S       │</span>
+                 <span class="hl">└──────┬────────┘</span>
+                        │ <span class="warn">event bus de Naeth (async, propio)</span>
+                        ▼
+                 <span class="hl">┌───────────────────────────────┐</span>
+                 <span class="hl">│  ENRICHMENT TIER (async)       │</span>
+                 <span class="hl">│  Graphiti (temporal)  ó        │</span>  <span class="dim">← uno, no ambos (Q9)</span>
+                 <span class="hl">│  Cognee (KG)          ó        │</span>
+                 <span class="hl">│  Hindsight (TEMPR)             │</span>
+                 <span class="hl">└───────────────────────────────┘</span>
+                 <span class="dim">proyección/índice derivado, regenerable</span></pre>
+
+        <p><strong>La verdad es el hot tier.</strong> Recomendación de papel: Basic Memory, cuyo storage <em>es</em>
+        Markdown en disco (el "mejor ciudadano" del Paso 1) → legible, versionable, regenerable. El enrichment es
+        proyección derivada: si se corrompe o el upstream pivota, se reconstruye releyendo los <code>.md</code>.
+        <span class="warn-mark">⚠</span> La AGPL de Basic Memory no se propaga si Naeth solo lee/escribe sus
+        archivos sin enlazar su código en runtime — mantener esa frontera es decisión de diseño.</p>
+
+        <div class="findings">
+          <div class="findings__col findings__col--repeated">
+            <h4 class="findings__title" style="border:0;margin:0 0 8px;padding:0">▲ pros</h4>
+            <ul class="findings__list">
+              <li><span class="icon">+</span><span><strong>Latencia de recall acotada</strong>: el camino crítico no toca LLM-heavy (pregunta 1).</span></li>
+              <li><span class="icon">+</span><span><strong>Source of truth único</strong>: partial write tolerable, sin saga ni rollback (preguntas 4 y 8).</span></li>
+              <li><span class="icon">+</span><span>FIFO controlable en un único punto de entrada (pregunta 12).</span></li>
+              <li><span class="icon">+</span><span>El <strong>event bus</strong> que obliga a construir es necesario en las tres arquitecturas → inversión reutilizable.</span></li>
+              <li><span class="icon">+</span><span>Coste LLM y embeddings sobre <strong>un</strong> backend, diferidos fuera del camino crítico (preguntas 5 y 10).</span></li>
+            </ul>
+          </div>
+          <div class="findings__col findings__col--gaps">
+            <h4 class="findings__title" style="border:0;margin:0 0 8px;padding:0">▼ contras</h4>
+            <ul class="findings__list">
+              <li><span class="icon">!</span><span>El enrichment va por detrás (eventual): un recall que necesite el grafo recién escrito puede no encontrarlo aún. <span class="warn-mark">⚠ a validar en spike</span>.</span></li>
+              <li><span class="icon">!</span><span>Naeth debe <strong>construir y operar</strong> el bus + worker.</span></li>
+              <li><span class="icon">!</span><span>Reprocesar al enrichment reintroduce coste LLM y embeddings (diferido y acotado a un backend).</span></li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- ===== ARQ C ===== -->
+      <article class="ficha" id="arq-c">
+        <header class="ficha__head">
+          <h3 class="ficha__title"><span class="num">C</span>Spec con adaptadores<span class="org">UMAS v2 + driver ABC</span>
+            <a class="anchor-link" href="#arq-c" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges">
+            <span class="badge badge--license">portabilidad real</span>
+            <span class="badge badge--warn">mayor ingeniería</span>
+          </div>
+        </header>
+
+        <dl class="ficha__strip">
+          <div><dt>naeth es</dt><dd>dueña del contrato</dd></div>
+          <div><dt>store-of-record</dt><dd>Naeth (C2) / adapter (C1)</dd></div>
+          <div><dt>coste dominante</dt><dd>spec + N adaptadores</dd></div>
+          <div><dt>riesgo</dt><dd>aplanar valor de backends</dd></div>
+        </dl>
+
+        <p>Naeth define un <strong>contrato de memoria</strong> canónico (UMAS v2: triplet
+        <code>entity/predicate/value</code> + metadata temporal + identidad de cliente) y cada backend vive tras
+        un <strong>adaptador</strong> que implementa una ABC tipo <code>MemoryStorage</code> (idea robable de MM-S;
+        el patrón <code>factory.py</code> ya existe upstream). UMAS v2 puede ser el <strong>roundtrip lossless</strong>
+        que ningún sistema ofrece hoy (hueco 4.2.4).</p>
+
+        <pre class="diagram">   claude.ai ─MCP─▶ <span class="hl">┌─────────────────────────────────────────┐</span>
+   Claude Code─MCP▶ <span class="hl">│                 NAETH                   │</span>
+                    <span class="hl">│  UMAS v2 (contrato canónico de memoria) │</span>
+                    <span class="hl">│  + storage canónico propio (opcional)   │</span>
+                    <span class="hl">└──┬──────────┬──────────┬──────────┬─────┘</span>
+                       │ adapter  │ adapter  │ adapter  │ adapter
+                       ▼          ▼          ▼          ▼
+                     MM-S     Basic Mem.   Cognee    Graphiti
+            <span class="dim">(cada adaptador traduce UMAS v2 ⇄ modelo nativo del backend)</span></pre>
+
+        <p><strong>C1 · un backend activo conmutable</strong> (como MM-S <code>factory.py</code>): eliges uno; Naeth
+        te da portabilidad para cambiar sin perder datos. <strong>C2 · storage canónico propio + write-through</strong>:
+        Naeth posee la verdad y resuelve el embedding canónico (pregunta 5) computándolo una vez sobre su store.</p>
+
+        <div class="findings">
+          <div class="findings__col findings__col--repeated">
+            <h4 class="findings__title" style="border:0;margin:0 0 8px;padding:0">▲ pros</h4>
+            <ul class="findings__list">
+              <li><span class="icon">+</span><span><strong>Portabilidad real</strong>: cambiar de backend sin perder datos (mitiga pivotadas comerciales y bus factor 1).</span></li>
+              <li><span class="icon">+</span><span>Contrato de memoria explícito y versionado (pregunta 7); roundtrip lossless (hueco 4.2.4).</span></li>
+              <li><span class="icon">+</span><span>1 MCP server limpio (pregunta 11); embedding canónico resuelto en C2 (pregunta 5).</span></li>
+            </ul>
+          </div>
+          <div class="findings__col findings__col--gaps">
+            <h4 class="findings__title" style="border:0;margin:0 0 8px;padding:0">▼ contras</h4>
+            <ul class="findings__list">
+              <li><span class="icon">!</span><span>Definir y mantener UMAS v2 + N adaptadores persiguiendo upstreams que releasan cada 3 días a semanal.</span></li>
+              <li><span class="icon">!</span><span><strong>Los backends ricos resisten ser drivers</strong>: reducir Graphiti a <code>put/get</code> tira su bi-temporalidad; el mínimo común aplana el valor.</span></li>
+              <li><span class="icon">!</span><span>Escribir embeddings canónicos a los backends exige <strong>bypassear sus APIs</strong> — frágil ante cada release. <span class="warn-mark">⚠ a validar</span>.</span></li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ============================================================
+         §02 EVALUACIÓN CONTRA 12 PREGUNTAS
+         ============================================================ -->
+    <section id="eval" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§02</span><span>evaluación · 12 preguntas</span></div>
+        <h2>Las tres contra las 12 preguntas del Paso 1 <a class="anchor-link" href="#eval" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          <span class="text-acc text-mono">✓</span> la arquitectura la responde bien ·
+          <span class="warn-mark">~</span> la deja parcialmente abierta o depende de spike ·
+          <span class="text-mono" style="color:var(--err)">✗</span> la agrava.
+        </p>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="tbl tbl--binary" id="tblEval">
+          <thead>
+            <tr>
+              <th>pregunta abierta (Paso 1 §5)</th>
+              <th>A · federación</th>
+              <th>B · cascada</th>
+              <th>C · spec+adapt.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>1 · Latencia compuesta p50/p95<span class="q">&lt;2s para chat client</span></td><td><span class="marker m-no" title="máx de los lentos">✗</span></td><td><span class="marker m-ok" title="hot tier acota">✓</span></td><td><span class="marker m-partial" title="depende sub-variante">~</span></td></tr>
+            <tr><td>2 · Tamaño respuesta MCP (1MB)</td><td><span class="marker m-no" title="suma de N JSON">✗</span></td><td><span class="marker m-ok" title="una fuente primaria">✓</span></td><td><span class="marker m-ok" title="formato canónico">✓</span></td></tr>
+            <tr><td>3 · Fallo de un backend</td><td><span class="marker m-ok" title="parcial natural">✓</span></td><td><span class="marker m-ok" title="enrichment opcional">✓</span></td><td><span class="marker m-partial" title="C1 sin red; C2 sí">~</span></td></tr>
+            <tr><td>4 · SSOT vs eventual</td><td><span class="marker m-no" title="sin reconciliador">✗</span></td><td><span class="marker m-ok" title="hot = verdad">✓</span></td><td><span class="marker m-ok" title="canónico = verdad">✓</span></td></tr>
+            <tr><td>5 · Embedding canónico</td><td><span class="marker m-no" title="N duplicados">✗</span></td><td><span class="marker m-partial" title="1 diferido">~</span></td><td><span class="marker m-ok" title="C2 lo posee (si bypass)">✓</span></td></tr>
+            <tr><td>6 · Identidad cross-system</td><td><span class="marker m-no" title="todo a Naeth">✗</span></td><td><span class="marker m-partial" title="1 enrichment, menos superficie">~</span></td><td><span class="marker m-ok" title="UMAS v2 la define">✓</span></td></tr>
+            <tr><td>7 · Contrato de "memoria"</td><td><span class="marker m-partial" title="mínimo común implícito">~</span></td><td><span class="marker m-partial" title="el del hot tier">~</span></td><td><span class="marker m-ok" title="explícito, es el punto">✓</span></td></tr>
+            <tr><td>8 · ¿Router o storage propio?</td><td><span class="marker m-partial" title="router puro">router</span></td><td><span class="marker m-ok" title="hot tier propio">✓</span></td><td><span class="marker m-ok" title="C2 storage / C1 router">✓</span></td></tr>
+            <tr><td>9 · Solapamiento Cognee/Graphiti</td><td><span class="marker m-no" title="invita a usar ambos">✗</span></td><td><span class="marker m-ok" title="obliga a elegir uno">✓</span></td><td><span class="marker m-partial" title="adaptador por cada uno">~</span></td></tr>
+            <tr><td>10 · Gestión LLM provider</td><td><span class="marker m-no" title="N facturas">✗</span></td><td><span class="marker m-ok" title="1, el enrichment">✓</span></td><td><span class="marker m-partial" title="una por adaptador activo">~</span></td></tr>
+            <tr><td>11 · 1 MCP proxy vs N servers</td><td><span class="marker m-ok" title="proxy">✓</span></td><td><span class="marker m-ok" title="proxy">✓</span></td><td><span class="marker m-ok" title="proxy">✓</span></td></tr>
+            <tr><td>12 · Orden de escrituras (FIFO)</td><td><span class="marker m-no" title="N destinos sin orden">✗</span></td><td><span class="marker m-ok" title="1 punto de entrada">✓</span></td><td><span class="marker m-ok" title="1 punto de entrada">✓</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout--info">
+        <span class="callout__tag">lectura</span>
+        <div class="callout__body">
+          <p><strong>A</strong> maximiza cobertura pero agrava casi todas las preguntas duras (latencia,
+          consistencia, coste, identidad). <strong>C</strong> resuelve contrato y portabilidad a cambio del
+          mayor coste de ingeniería y del riesgo de aplanar el valor de los backends ricos. <strong>B</strong>
+          acumula los verdes en las preguntas críticas o "solo medibles en spike" (1, 4, 8, 12) y deja las suyas
+          abiertas donde el fallo no es catastrófico (el enrichment es derivado regenerable).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §03 DECISIÓN · SPIKE
+         ============================================================ -->
+    <section id="decision" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§03</span><span>decisión · spike</span></div>
+        <h2>Qué validar primero, y por qué <a class="anchor-link" href="#decision" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          No se construye la arquitectura final en el spike. Se valida <strong>la suposición que, si es falsa,
+          invalida todo lo demás</strong>: la pregunta 1.
+        </p>
+      </div>
+
+      <article class="ficha ficha--win">
+        <header class="ficha__head">
+          <h3 class="ficha__title"><span class="num">▶</span>Spike: espina dorsal de B
+            <a class="anchor-link" href="#decision" aria-label="copiar enlace">#</a>
+          </h3>
+          <div class="ficha__badges"><span class="badge badge--ver">subconjunto mínimo</span></div>
+        </header>
+        <ul style="color:var(--ink-soft); padding-left:22px; margin:4px 0 8px; line-height:1.7;">
+          <li><strong>Naeth</strong> como <strong>1 MCP server proxy</strong> (cierra la pregunta 11).</li>
+          <li><strong>Hot tier = Basic Memory</strong> (Markdown como source of truth soberano; AGPL aislada por la frontera "solo leo/escribo sus <code>.md</code>"). Escritura síncrona.</li>
+          <li><strong>Event bus propio mínimo</strong> de Naeth (el hueco 4.2.1; necesario en A, B y C).</li>
+          <li><strong>Enrichment = exactamente uno</strong>, async: <strong>Graphiti con Kuzu embebido</strong> (la opción menos invasiva para uso personal) si se valida temporal, o <strong>Cognee</strong> si lo prioritario es KG. No ambos (pregunta 9).</li>
+        </ul>
+      </article>
+
+      <h3 style="font-family:var(--sans); font-size: var(--fs-xl); margin: 40px 0 6px; letter-spacing:-0.02em;">
+        Qué mide el spike <a class="anchor-link" href="#decision" aria-label="copiar enlace">#</a>
+      </h3>
+      <p style="color:var(--ink-soft); margin:0 0 8px; max-width:72ch;">
+        Cada medición cierra una pregunta. Marca las que priorices para el Paso 3.
+      </p>
+
+      <div class="checklist" id="spikeChecks">
+        <label class="check" data-id="s1">
+          <input type="checkbox" />
+          <span class="check__body">
+            <span class="check__head"><span class="check__num">M1</span><span class="check__title">p50/p95 de recall</span></span>
+            <span class="check__desc">Solo-hot-tier y con escalado al enrichment. Cierra la <strong>pregunta 1</strong> (latencia &lt;2s).</span>
+          </span>
+        </label>
+        <label class="check" data-id="s2">
+          <input type="checkbox" />
+          <span class="check__body">
+            <span class="check__head"><span class="check__num">M2</span><span class="check__title">Tamaño de la respuesta MCP</span></span>
+            <span class="check__desc">En consultas realistas, ¿se acerca al límite de 1MB? Cierra la <strong>pregunta 2</strong>.</span>
+          </span>
+        </label>
+        <label class="check" data-id="s3">
+          <input type="checkbox" />
+          <span class="check__body">
+            <span class="check__head"><span class="check__num">M3</span><span class="check__title">Caída del enrichment tier</span></span>
+            <span class="check__desc">¿El recall hot sigue respondiendo? Cierra la <strong>pregunta 3</strong> (degradación graceful).</span>
+          </span>
+        </label>
+        <label class="check" data-id="s4">
+          <input type="checkbox" />
+          <span class="check__body">
+            <span class="check__head"><span class="check__num">M4</span><span class="check__title">Desfase del enrichment async</span></span>
+            <span class="check__desc">Tras una escritura, ¿cuándo aparece el grafo/temporal? Decide si el modelo eventual de B es tolerable.</span>
+          </span>
+        </label>
+        <label class="check" data-id="s5">
+          <input type="checkbox" />
+          <span class="check__body">
+            <span class="check__head"><span class="check__num">M5</span><span class="check__title">Coste de una escritura enriquecida</span></span>
+            <span class="check__desc">Llamadas LLM y embeddings, ya acotados a un backend. Cierra las <strong>preguntas 5 y 10</strong>.</span>
+          </span>
+        </label>
+      </div>
+      <div class="check__count" id="spikeCount"></div>
+
+      <div class="callout callout--warn">
+        <span class="callout__tag">no A, no C</span>
+        <div class="callout__body">
+          <p><strong>No A</strong>: pondría un backend LLM-heavy en el camino crítico de lectura desde el minuto
+          cero, contaminando la medición de latencia con el peor caso antes de saber si el caso bueno es aceptable.
+          <strong>No C</strong>: su mayor coste es definir UMAS v2 y los adaptadores; gastarlo antes de saber si
+          componer es viable es invertir en el contrato de algo que quizá no compense. C se diseña <em>después</em>,
+          y el hot tier de B puede adoptar UMAS v2 más tarde — <strong>B y C son componibles, no excluyentes</strong>.</p>
+        </div>
+      </div>
+
+      <div class="callout callout--win">
+        <span class="callout__tag">destino</span>
+        <div class="callout__body">
+          <p>Si el spike sale bien: B-mínima → añadir UMAS v2 al hot tier (empieza C sobre B) → considerar
+          federación lateral (A) solo para <em>lecturas</em> sobre backends ya poblados, nunca para escrituras.
+          El destino probable es un <strong>híbrido B+C</strong> con A como modo de lectura opcional, no una de las
+          tres puras.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §04 PREGUNTAS PARA EL PASO 3
+         ============================================================ -->
+    <section id="paso3" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§04</span><span>preguntas paso 3</span></div>
+        <h2>Lo que el diseño en papel destapa <a class="anchor-link" href="#paso3" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          Más allá de las 12 del Paso 1, estas decisiones solo las cierra el spike.
+        </p>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr><th style="width:42px">#</th><th>pregunta nueva</th><th>antesala de</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="ok">1</td><td>¿El event bus es in-process (cola en SQLite/fichero) o un broker real (Redis Streams)? Para local-first quizá baste lo primero.</td><td>infraestructura del bus</td></tr>
+            <tr><td class="ok">2</td><td>¿El watcher de Basic Memory aguanta que Naeth escriba los <code>.md</code> por debajo, con escrituras concurrentes de humano en Obsidian (last-write-wins, sin locks)?</td><td>integridad del hot tier</td></tr>
+            <tr><td class="ok">3</td><td>¿Graphiti-Kuzu o Cognee como primer enrichment? Depende de si el caso de uso pesa más en <em>temporal</em> o en <em>KG</em>.</td><td>elección de enrichment</td></tr>
+            <tr><td class="ok">4</td><td>¿Cuál es el formato de evento del bus? Conviene que ya hable el contrato canónico aunque el hot tier no lo exija.</td><td>UMAS v2</td></tr>
+            <tr><td class="ok">5</td><td>Identidad de cliente (<code>claude.ai</code> vs <code>claude-code</code> vs humano-Obsidian) como dimensión de primera clase desde el evento.</td><td>hueco 4.2.6</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         §05 LO QUE NO ESTÁ AQUÍ
+         ============================================================ -->
+    <section id="anti-doc" class="section">
+      <div class="section__head">
+        <div class="section__tag"><span class="hash">§05</span><span>lo que NO está aquí</span></div>
+        <h2>Fronteras del documento (intencional) <a class="anchor-link" href="#anti-doc" aria-label="copiar enlace">#</a></h2>
+        <p class="section__lede">
+          La disciplina de fases del proyecto exige declarar lo que este paso deliberadamente no hace.
+        </p>
+      </div>
+
+      <ul style="color:var(--ink-soft); padding-left:22px; line-height:1.8; max-width:74ch;">
+        <li>Pseudocódigo o implementación del proxy, el bus o los adaptadores <span class="text-mute">— Paso 3+</span>.</li>
+        <li>Benchmarks o cifras de latencia/coste <span class="text-mute">— se generan en el spike, Paso 3+</span>.</li>
+        <li>Elección irreversible de backends <span class="text-mute">— el spike confirma; el papel solo acota</span>.</li>
+        <li>Re-análisis de integrabilidad o re-ranking <span class="text-mute">— Pasos 0 y 1</span>.</li>
+        <li>Diseño detallado de UMAS v2 <span class="text-mute">— se aborda si el spike valida la composición</span>.</li>
+      </ul>
+
+      <div class="callout callout--info" style="margin-top:28px">
+        <span class="callout__tag">fin paso 2</span>
+        <div class="callout__body">
+          <p>Próximo paso: <strong>spike de la espina dorsal de la Arquitectura B</strong> (Naeth proxy MCP +
+          Basic Memory hot tier + 1 enrichment async), instrumentado para medir latencia (p50/p95), tamaño de
+          respuesta MCP, degradación ante fallo y desfase del enrichment. Objetivo: cerrar la pregunta 1 y decidir
+          el híbrido B+C definitivo.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <span>naeth/research · paso 2 de 4 · arquitecturas en papel</span>
+      <span class="end">fin del paso 02 · 2026-05-29 _</span>
+    </footer>
+
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ============================================================
+  // THEME TOGGLE
+  // ============================================================
+  const themeToggle = document.getElementById('themeToggle');
+  const themeIcon = document.getElementById('themeIcon');
+  const themeLabel = document.getElementById('themeLabel');
+  const html = document.documentElement;
+
+  function setTheme(theme){
+    html.setAttribute('data-theme', theme);
+    if(theme === 'dark'){
+      themeIcon.textContent = '☀';
+      themeLabel.textContent = 'light';
+    } else {
+      themeIcon.textContent = '☾';
+      themeLabel.textContent = 'dark';
+    }
+    try { localStorage.setItem('naeth-theme', theme); } catch(e){}
+  }
+
+  function initTheme(){
+    let saved = null;
+    try { saved = localStorage.getItem('naeth-theme'); } catch(e){}
+    if(saved){ setTheme(saved); return; }
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setTheme(prefersDark ? 'dark' : 'light');
+  }
+  initTheme();
+
+  themeToggle.addEventListener('click', () => {
+    const cur = html.getAttribute('data-theme');
+    setTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+
+  // shortcut: t
+  document.addEventListener('keydown', (e) => {
+    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if(e.key === 't' || e.key === 'T'){
+      themeToggle.click();
+    }
+  });
+
+  // ============================================================
+  // PROGRESS BAR
+  // ============================================================
+  const bar = document.getElementById('progressBar');
+  function updateProgress(){
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    const pct = max > 0 ? (h.scrollTop / max) * 100 : 0;
+    bar.style.width = pct + '%';
+  }
+  document.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  // ============================================================
+  // TOC ACTIVE SECTION
+  // ============================================================
+  const sections = Array.from(document.querySelectorAll('.section, .ficha'));
+  const tocLinks = Array.from(document.querySelectorAll('.toc a'));
+
+  function setActive(id){
+    tocLinks.forEach(a => {
+      const href = a.getAttribute('href');
+      a.classList.toggle('is-active', href === '#' + id);
+    });
+  }
+
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){ setActive(entry.target.id); }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+    sections.forEach(s => { if(s.id) io.observe(s); });
+  }
+
+  // ============================================================
+  // SPIKE CHECKLIST (localStorage)
+  // ============================================================
+  const CHECK_KEY = 'naeth-paso2-spike';
+  function loadCheck(){
+    try { return JSON.parse(localStorage.getItem(CHECK_KEY) || '[]'); } catch(e){ return []; }
+  }
+  function saveCheck(arr){
+    try { localStorage.setItem(CHECK_KEY, JSON.stringify(arr)); } catch(e){}
+  }
+  let checks = loadCheck();
+  const checkCount = document.getElementById('spikeCount');
+
+  function updateCount(){
+    if(!checkCount) return;
+    const n = checks.length;
+    checkCount.innerHTML = '<strong>' + n + '</strong> / 5 mediciones priorizadas para el Paso 3';
+  }
+
+  document.querySelectorAll('#spikeChecks .check').forEach(lbl => {
+    const id = lbl.getAttribute('data-id');
+    const input = lbl.querySelector('input');
+    if(checks.includes(id)){
+      input.checked = true;
+      lbl.classList.add('is-prio');
+    }
+    input.addEventListener('change', () => {
+      if(input.checked){
+        if(!checks.includes(id)) checks.push(id);
+        lbl.classList.add('is-prio');
+      } else {
+        checks = checks.filter(x => x !== id);
+        lbl.classList.remove('is-prio');
+      }
+      saveCheck(checks);
+      updateCount();
+    });
+  });
+  updateCount();
+
+  // ============================================================
+  // COPY-LINK on headings (anchor links)
+  // ============================================================
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg){
+    if(!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1800);
+  }
+
+  document.querySelectorAll('.anchor-link').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = a.getAttribute('href');
+      const url = location.origin + location.pathname + href;
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(() => {
+          showToast('enlace copiado · ' + href);
+          history.pushState(null, '', href);
+        }).catch(() => {
+          showToast('no se pudo copiar');
+        });
+      } else {
+        history.pushState(null, '', href);
+        showToast('navegado · ' + href);
+      }
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>

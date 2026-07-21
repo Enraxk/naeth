@@ -1,0 +1,130 @@
+# Naeth v1 · Pila base (Paso 7, Fase 1): db + api + worker.
+# MCP/OAuth NO estan aqui todavia (Fases 2-3). Todo escucha solo en loopback.
+#
+# Almacenamiento (decidido 2026-06-24):
+#   - pgdata  -> volumen Docker nombrado (gestionado/ext4 sobre la disk image en F:),
+#               NO bind-mount NTFS (Postgres rinde mal sobre el FS montado de Windows).
+#   - assets  -> bind-mount a E:\naeth\assets (NTFS vale para servir blobs).
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    shm_size: 8gb                 # build paralelo de HNSW usa /dev/shm (Paso 6 §8); 64MB por defecto -> DiskFull enganoso
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-naeth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-naeth}
+      POSTGRES_DB: ${POSTGRES_DB:-naeth}
+      EMBED_DIM: ${EMBED_DIM:-384}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/schema/schema.sql:ro
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"   # solo loopback, para inspeccion
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-naeth} -d ${POSTGRES_DB:-naeth}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      # Fase 4 (CENIT): DSN al Postgres del NUCLEO (modules-db); schema memory via search_path del rol.
+      NAETH_DSN: postgresql://cenit:${CENIT_DB_PASSWORD:?falta CENIT_DB_PASSWORD (usa up.ps1)}@modules-db:5432/cenit
+      EMBED_MODEL: ${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      EMBED_DIM: ${EMBED_DIM:-384}
+      BEARER_TOKEN: ${BEARER_TOKEN:-}
+      # Fase 4: auth via IdP central (Pocket-ID) con OIDCProxy; Naeth ya no es su propio AS.
+      OAUTH_ENABLED: "1"
+      OAUTH_PROVIDER: oidc
+      OAUTH_BASE_URL: https://memory.enraxk.dev
+      OIDC_CONFIG_URL: https://id.enraxk.dev/.well-known/openid-configuration
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?falta OIDC_CLIENT_ID (usa up.ps1)}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?falta OIDC_CLIENT_SECRET (usa up.ps1)}
+      # Paso 10: warn = guarda aunque el agente no declare modelo; strict = lo rechaza
+      # (instructivo). Activar strict SOLO cuando los clientes hayan recargado el schema
+      # de las tools (agent_model), o no podran escribir hasta reconectar.
+      AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}
+    volumes:
+      - ./app:/srv/app                            # banco Fase 1: iterar sin rebuild
+      - ${ASSETS_PATH:-E:/naeth/assets}:/assets   # bind-mount a E: (NTFS vale para blobs)
+      - fastembed_cache:/root/.cache/fastembed   # comparte el modelo con el worker (no re-descargar)
+    ports:
+      - "127.0.0.1:${API_PORT:-8800}:8000"   # visor + API, solo loopback
+    networks: [default, cenit-net]           # cenit-net: alcanzar modules-db del nucleo
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    command: python -m app.worker
+    environment:
+      NAETH_DSN: postgresql://cenit:${CENIT_DB_PASSWORD:?falta CENIT_DB_PASSWORD (usa up.ps1)}@modules-db:5432/cenit
+      EMBED_MODEL: ${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      EMBED_DIM: ${EMBED_DIM:-384}
+    volumes:
+      - ./app:/srv/app                            # banco Fase 1: iterar sin rebuild
+      - ${ASSETS_PATH:-E:/naeth/assets}:/assets
+      - fastembed_cache:/root/.cache/fastembed   # no re-descargar el modelo en cada arranque
+    networks: [default, cenit-net]
+    restart: unless-stopped
+
+  # Visor + /api del modulo memory en su PROPIO puerto (mini-proyecto de seguridad, jul-2026).
+  # OAUTH_ENABLED=0 -> este proceso NO exige el OAuth de /mcp. Nunca queda desnudo en internet:
+  #   - por naeth-visor.enraxk.dev entra tras forward-auth SSO (oauth2-proxy -> Pocket-ID);
+  #   - por 127.0.0.1:8801 es loopback (zona de confianza) = el /mcp local de Claude Code.
+  # Misma imagen/codigo/DB que api; solo cambia el puerto y que aqui /mcp va sin auth.
+  viewer:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      NAETH_DSN: postgresql://cenit:${CENIT_DB_PASSWORD:?falta CENIT_DB_PASSWORD (usa up.ps1)}@modules-db:5432/cenit
+      EMBED_MODEL: ${EMBED_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
+      EMBED_DIM: ${EMBED_DIM:-384}
+      OAUTH_ENABLED: "0"        # SSO por oauth2-proxy delante (publico) + loopback local
+      AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}   # Paso 10 (ver nota en api)
+    volumes:
+      - ./app:/srv/app
+      - ${ASSETS_PATH:-E:/naeth/assets}:/assets
+      - fastembed_cache:/root/.cache/fastembed
+    ports:
+      - "127.0.0.1:8801:8000"   # visor + /api + /mcp(sin auth) en loopback
+    networks: [default, cenit-net]
+    restart: unless-stopped
+
+  # Tests (Paso 6/7, core del grafo). No arranca en `up` normal: profile "test".
+  # Correr:  docker compose --profile test run --rm test
+  test:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    profiles: ["test"]
+    command: sh -c "pip install -q -r app/requirements-dev.txt && python -m pytest app/tests -v"
+    working_dir: /srv
+    environment:
+      TEST_DB_HOST: db
+      SCHEMA_PATH: /srv/db/schema.sql
+      EMBED_DIM: ${EMBED_DIM:-384}
+    volumes:
+      - ./app:/srv/app
+      - ./db:/srv/db:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  default:
+  cenit-net:
+    external: true      # red del nucleo CENIT (modules-db, pocket-id, caddy)
+
+volumes:
+  pgdata:
+  fastembed_cache:

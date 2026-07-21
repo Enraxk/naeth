@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>naeth/research · paso 3 · spike (plan)</title>
+<meta name="description" content="Paso 3 del proyecto Naeth: plan del spike de la Arquitectura B reconfigurada a LLM-light. Mayo 2026." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:oklch(98% 0.005 80);--bg-elev:oklch(100% 0 0);--bg-code:oklch(96% 0.008 80);--bg-hl:oklch(94% 0.012 80);--bg-side:oklch(95% 0.006 80);--ink:oklch(18% 0.012 60);--ink-soft:oklch(42% 0.012 60);--ink-mute:oklch(62% 0.010 60);--ink-inv:oklch(98% 0.005 80);--rule:oklch(88% 0.006 80);--rule-strong:oklch(78% 0.008 80);--acc:oklch(48% 0.16 145);--acc-soft:oklch(94% 0.04 145);--win:oklch(48% 0.16 145);--warn:oklch(60% 0.17 70);--warn-soft:oklch(95% 0.06 80);--err:oklch(52% 0.21 28);--err-soft:oklch(94% 0.05 28);--info:oklch(48% 0.18 245);--info-soft:oklch(94% 0.05 245);--gold:oklch(68% 0.14 80);--fs-base:clamp(14px,0.95vw,16px);--fs-sm:clamp(12px,0.82vw,14px);--fs-xs:clamp(11px,0.72vw,12px);--fs-lg:clamp(17px,1.15vw,20px);--fs-xl:clamp(22px,1.6vw,30px);--fs-2xl:clamp(28px,2.2vw,42px);--fs-3xl:clamp(40px,3.6vw,72px);--sans:"Inter",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace;--sidebar-w:280px;--content-max:1180px;--gutter:clamp(24px,4vw,96px);--ease:cubic-bezier(.16,1,.3,1);}
+[data-theme="dark"]{--bg:oklch(14% 0.008 80);--bg-elev:oklch(18% 0.010 80);--bg-code:oklch(22% 0.012 80);--bg-hl:oklch(24% 0.014 80);--bg-side:oklch(16% 0.008 80);--ink:oklch(94% 0.005 80);--ink-soft:oklch(72% 0.006 80);--ink-mute:oklch(54% 0.008 80);--ink-inv:oklch(14% 0.008 80);--rule:oklch(28% 0.010 80);--rule-strong:oklch(40% 0.012 80);--acc:oklch(72% 0.18 145);--acc-soft:oklch(28% 0.06 145);--warn:oklch(78% 0.17 70);--warn-soft:oklch(28% 0.08 80);--err:oklch(72% 0.20 28);--err-soft:oklch(28% 0.10 28);--info:oklch(72% 0.18 245);--info-soft:oklch(28% 0.10 245);--gold:oklch(78% 0.14 80);}
+*,*::before,*::after{box-sizing:border-box;}html,body{margin:0;padding:0;}html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:var(--fs-base);line-height:1.6;-webkit-font-smoothing:antialiased;transition:background-color .2s,color .2s;}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;}html{scroll-behavior:auto;}}
+::selection{background:var(--acc-soft);color:var(--ink);}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh;}
+.progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:100;}.progress__bar{height:100%;width:0%;background:var(--acc);transition:width .1s linear;}
+.sidebar{position:sticky;top:0;height:100vh;background:var(--bg-side);border-right:1px solid var(--rule);font-family:var(--mono);font-size:var(--fs-sm);overflow-y:auto;padding:28px 22px;display:flex;flex-direction:column;}
+.sidebar__brand{font-weight:700;letter-spacing:-.02em;margin-bottom:4px;}.sidebar__brand .prompt{color:var(--acc);}
+.sidebar__sub{color:var(--ink-mute);font-size:var(--fs-xs);margin-bottom:22px;padding-bottom:16px;border-bottom:1px dashed var(--rule);}.sidebar__sub .blink{animation:blink 1.1s steps(1) infinite;color:var(--acc);}
+@keyframes blink{50%{opacity:0;}}
+.theme-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:1px dashed var(--rule);}
+.theme-row__label{font-size:var(--fs-xs);color:var(--ink-mute);text-transform:uppercase;letter-spacing:1.2px;}
+.theme-toggle{background:var(--bg-elev);border:1px solid var(--rule);border-radius:4px;padding:4px 8px;font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s,border-color .15s;}
+.theme-toggle:hover{background:var(--bg-hl);border-color:var(--rule-strong);}.theme-toggle:focus-visible{outline:2px solid var(--acc);outline-offset:2px;}.theme-toggle svg{width:13px;height:13px;}
+.toc__title{font-size:var(--fs-xs);color:var(--ink-mute);text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px;font-weight:600;}
+.toc{list-style:none;padding:0;margin:0 0 22px;}.toc a{display:block;padding:6px 10px 6px 14px;color:var(--ink-soft);text-decoration:none;border-left:2px solid transparent;transition:background .15s,color .15s,border-color .15s;font-size:var(--fs-sm);line-height:1.4;}
+.toc a:hover{background:var(--bg-hl);color:var(--ink);}.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:-2px;}.toc a.is-active{color:var(--acc);border-left-color:var(--acc);background:var(--acc-soft);font-weight:500;}
+.toc a .n{color:var(--ink-mute);margin-right:6px;}.toc a.is-active .n{color:var(--acc);}
+.sidebar__foot{margin-top:auto;font-size:var(--fs-xs);color:var(--ink-mute);padding-top:16px;border-top:1px dashed var(--rule);line-height:1.7;}
+.sidebar__foot kbd{background:var(--bg-elev);border:1px solid var(--rule);padding:1px 5px;border-radius:3px;font-family:inherit;font-size:10px;color:var(--ink);}
+.main{padding:64px var(--gutter) 96px;max-width:calc(var(--content-max) + 2 * var(--gutter));margin:0 auto;width:100%;}
+.hero{margin-bottom:64px;}.hero__meta{font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-mute);margin-bottom:24px;display:flex;gap:12px;align-items:center;text-transform:uppercase;letter-spacing:1.5px;flex-wrap:wrap;}
+.hero__meta::before{content:"";width:8px;height:8px;background:var(--acc);border-radius:1px;display:inline-block;}.hero__meta .sep{color:var(--rule-strong);}
+.hero h1{font-size:var(--fs-3xl);font-weight:700;line-height:1.05;letter-spacing:-.035em;margin:0 0 16px;max-width:24ch;}
+.hero__sub{color:var(--ink-soft);font-size:var(--fs-lg);max-width:70ch;line-height:1.55;margin:0 0 36px;}.hero__sub strong{color:var(--ink);font-weight:600;}
+.cmdline{background:var(--ink);color:var(--ink-inv);padding:20px 24px;font-family:var(--mono);font-size:var(--fs-sm);line-height:1.7;border-radius:6px;box-shadow:0 1px 0 var(--rule),0 12px 32px -16px color-mix(in oklch,var(--ink) 20%,transparent);overflow-x:auto;}
+.cmdline .p{color:var(--acc);}.cmdline .ok{color:oklch(78% 0.18 145);font-weight:600;}.cmdline .warn{color:oklch(82% 0.16 80);font-weight:600;}.cmdline .info{color:oklch(75% 0.16 245);font-weight:600;}.cmdline .dim{color:oklch(60% 0.008 60);}.cmdline .blink{animation:blink 1.1s steps(1) infinite;color:var(--acc);}
+.section{margin:96px 0;scroll-margin-top:32px;}
+.section__head{margin-bottom:32px;border-bottom:1px solid var(--rule);padding-bottom:18px;}
+.section__tag{font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-mute);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}.section__tag .hash{color:var(--acc);}
+.section h2{font-size:var(--fs-2xl);font-weight:700;line-height:1.1;letter-spacing:-.025em;margin:0;}
+.section__lede{color:var(--ink-soft);font-size:var(--fs-lg);margin:14px 0 0;max-width:72ch;}.section__lede strong{color:var(--ink);font-weight:600;}
+.anchor-link{opacity:0;font-family:var(--mono);color:var(--ink-mute);text-decoration:none;font-size:.65em;margin-left:8px;padding:2px 5px;border-radius:3px;transition:opacity .15s;}
+h2:hover .anchor-link,.anchor-link:focus-visible{opacity:1;}.anchor-link:hover{background:var(--bg-hl);color:var(--acc);}
+.callout{display:grid;grid-template-columns:auto 1fr;gap:14px;padding:16px 20px;border:1px solid var(--rule);border-left-width:4px;border-radius:4px;background:var(--bg-elev);font-size:var(--fs-base);line-height:1.6;margin:18px 0;}
+.callout__tag{font-family:var(--mono);font-weight:700;font-size:var(--fs-xs);letter-spacing:1.2px;align-self:start;padding-top:2px;}
+.callout__body{color:var(--ink-soft);}.callout__body p{margin:0 0 8px;}.callout__body p:last-child{margin-bottom:0;}.callout__body strong{color:var(--ink);font-weight:600;}.callout__body code{font-family:var(--mono);background:var(--bg-code);padding:1px 5px;border-radius:3px;font-size:.88em;}
+.callout--win{border-left-color:var(--win);background:color-mix(in oklch,var(--acc-soft) 50%,var(--bg-elev));}.callout--win .callout__tag{color:var(--win);}
+.callout--warn{border-left-color:var(--warn);background:color-mix(in oklch,var(--warn-soft) 50%,var(--bg-elev));}.callout--warn .callout__tag{color:var(--warn);}
+.callout--info{border-left-color:var(--info);background:color-mix(in oklch,var(--info-soft) 50%,var(--bg-elev));}.callout--info .callout__tag{color:var(--info);}
+.tbl-wrap{margin:18px 0 28px;border:1px solid var(--rule);border-radius:6px;overflow-x:auto;background:var(--bg-elev);}
+.tbl{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:var(--fs-sm);min-width:680px;}
+.tbl th,.tbl td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top;line-height:1.5;}
+.tbl thead th{background:var(--bg-side);font-weight:700;color:var(--ink);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid var(--rule-strong);}
+.tbl tbody tr:hover{background:color-mix(in oklch,var(--bg-hl) 50%,transparent);}.tbl tbody tr:last-child td{border-bottom:0;}
+.tbl td .row-name{font-weight:700;color:var(--ink);}.tbl code{font-family:var(--mono);background:var(--bg-code);padding:1px 5px;border-radius:3px;font-size:.9em;}.tbl td.ok{color:var(--acc);}.tbl td.err{color:var(--err);}
+.diagram{background:var(--ink);color:var(--ink-inv);font-family:var(--mono);font-size:clamp(10px,0.78vw,13px);line-height:1.45;padding:22px 24px;border-radius:6px;overflow-x:auto;margin:14px 0 6px;white-space:pre;}
+.diagram .hl{color:oklch(78% 0.18 145);font-weight:600;}.diagram .dim{color:oklch(62% 0.008 60);}
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}@media(max-width:820px){.cards{grid-template-columns:1fr;}}
+.dcard{border:1px solid var(--rule);border-left-width:4px;border-left-color:var(--acc);border-radius:6px;background:var(--bg-elev);padding:16px 20px;}
+.dcard h4{margin:0 0 6px;font-family:var(--mono);font-size:var(--fs-sm);color:var(--ink);}.dcard p{margin:0;color:var(--ink-soft);font-size:var(--fs-sm);line-height:1.55;}
+.dcard code{font-family:var(--mono);background:var(--bg-code);padding:1px 5px;border-radius:3px;font-size:.88em;}
+.footer{margin-top:96px;padding-top:32px;border-top:1px dashed var(--rule);font-family:var(--mono);font-size:var(--fs-xs);color:var(--ink-mute);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;}.footer .end{color:var(--acc);}
+.warn-mark{color:var(--warn);font-family:var(--mono);font-size:.88em;}
+@media(max-width:1024px){.app{grid-template-columns:1fr;}.sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--rule);padding:18px 22px;}.main{padding:32px var(--gutter) 64px;}}
+</style>
+</head>
+<body>
+<div class="progress" aria-hidden="true"><div class="progress__bar" id="progressBar"></div></div>
+<div class="app">
+  <aside class="sidebar" aria-label="Tabla de contenidos">
+    <div class="sidebar__brand"><span class="prompt">$ </span>naeth/research</div>
+    <div class="sidebar__sub">paso 03 · spike (plan)<span class="blink"> _</span></div>
+    <div class="theme-row"><span class="theme-row__label">tema</span><button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema"><span id="themeIcon"></span> <span id="themeLabel">oscuro</span></button></div>
+    <h3 class="toc__title">Secciones</h3>
+    <nav><ul class="toc" id="toc">
+      <li><a href="#dec"><span class="n">00</span>reconfiguración</a></li>
+      <li><a href="#arq"><span class="n">01</span>arquitectura</a></li>
+      <li><a href="#comp"><span class="n">02</span>componentes</a></li>
+      <li><a href="#fases"><span class="n">03</span>fases</a></li>
+      <li><a href="#mide"><span class="n">04</span>qué se mide</a></li>
+      <li><a href="#nocubre"><span class="n">05</span>lo que no cubre</a></li>
+    </ul></nav>
+    <div class="sidebar__foot"><div>resultados → <span class="text-acc">Paso3-resultados.html</span></div><div style="margin-top:8px">v1.0 · 2026-05-29</div></div>
+  </aside>
+  <main class="main">
+    <header class="hero">
+      <div class="hero__meta"><span>2026-05-29</span><span class="sep">·</span><span>paso 3 de 5</span><span class="sep">·</span><span>spike ejecutable</span><span class="sep">·</span><span>LLM-light</span></div>
+      <h1>Spike de la Arquitectura B</h1>
+      <p class="hero__sub">Validar empíricamente la composición decidida en el Paso 2, <strong>reconfigurada a LLM-light</strong> tras la restricción de hardware del VPS. Subconjunto mínimo, medir y cerrar la pregunta 1 (latencia). Banco de pruebas en <strong>Windows</strong>; deploy real al <strong>VPS Ubuntu</strong>.</p>
+      <pre class="cmdline" aria-hidden="true">
+<span class="p">$</span> paso3 --spike=B --llm=none --measure
+<span class="dim">›</span> hot tier ......... basic-memory (markdown soberano + fastembed)
+<span class="dim">›</span> enrichment ....... mcp-memory-service (sin LLM, embeddings locales)
+<span class="dim">›</span> bus .............. sqlite in-process (cola FIFO)
+<span class="warn">[warn]</span> VPS 1660 4GB → sin LLM local de calidad → se cae Graphiti
+<span class="ok">[ok]</span> naeth queda 100% LLM-light · cero coste · todo CPU
+<span class="info">[next]</span> medir M1..M5 → Paso3-resultados<span class="blink"> _</span>
+</pre>
+    </header>
+
+    <section id="dec" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§00</span><span>reconfiguración</span></div><h2>Decisiones que ajustan el Paso 2 <a class="anchor-link" href="#dec">#</a></h2>
+      <p class="section__lede">El Paso 2 eligió la espina dorsal de B con Graphiti+Kuzu como enrichment. Cuatro decisiones de sesión lo reconfiguran.</p></div>
+      <div class="cards">
+        <div class="dcard"><h4>1 · Hardware del VPS</h4><p>GTX 1660 (4 GB VRAM), Ryzen 5 5500, 64 GB RAM. 4 GB descartan LLM local de calidad (solo un 3-4B Q4, extracción pobre).</p></div>
+        <div class="dcard"><h4>2 · Sin dependencia de LLM</h4><p>Temporal ligero local-puro. Se cae <strong>Graphiti</strong> (LLM-heavy en escritura). Naeth queda LLM-light: cero LLM, cero API, cero coste.</p></div>
+        <div class="dcard"><h4>3 · La composición se mantiene</h4><p>Cambia el inquilino del enrichment: <code>mcp-memory-service</code> (LLM-light) aporta hybrid RRF, dedup semántico y parser NL temporal, con embeddings locales.</p></div>
+        <div class="dcard"><h4>4 · Forma = B · cascada</h4><p>Source of truth único = los <code>.md</code> de Basic Memory; mcp-memory-service es índice derivado regenerable.</p></div>
+      </div>
+      <div class="callout callout--info"><span class="callout__tag">nota</span><div class="callout__body"><p>Al ser ahora dos sistemas LLM-light locales, la Arquitectura A (federación) vuelve a ser competitiva (sus contras en el Paso 2 venían del coste LLM-heavy). El spike mide B; los datos permitirán decidir si A merece otra prueba.</p></div></div>
+    </section>
+
+    <section id="arq" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§01</span><span>arquitectura del spike</span></div><h2>Cascada hot → enrichment <a class="anchor-link" href="#arq">#</a></h2></div>
+      <pre class="diagram">                      <span class="hl">┌───────────────────────────────────────┐</span>
+   harness  ─────────▶<span class="hl">│              NAETH (proxy)            │</span>
+   <span class="dim">(simula cliente</span>    <span class="hl">│  write síncrono → hot · recall        │</span>
+   <span class="dim"> MCP claude.ai)</span>     <span class="hl">└───┬─────────────────────────────▲─────┘</span>
+              write+recall │                             │ <span class="dim">recall escalado</span>
+                           ▼                             │
+                   <span class="hl">┌───────────────┐</span>                     │
+                   <span class="hl">│  HOT TIER     │</span> ── source of truth ─┘
+                   <span class="hl">│  Basic Memory │</span>   .md + frontmatter (temporal)
+                   <span class="hl">└──────┬────────┘</span>   búsqueda híbrida local (fastembed)
+                          │ <span class="dim">event bus SQLite (cola, async)</span>
+                          ▼
+                   <span class="hl">┌──────────────────────────────┐</span>
+                   <span class="hl">│  ENRICHMENT (async, sin LLM)  │</span>
+                   <span class="hl">│  mcp-memory-service           │</span>
+                   <span class="hl">│  hybrid RRF · dedup · NL temp │</span>
+                   <span class="hl">└──────────────────────────────┘</span></pre>
+      <div class="callout callout--info"><span class="callout__tag">método</span><div class="callout__body"><p>El <strong>proxy</strong> se implementa como harness Python in-process: no hace falta el transporte MCP real para medir la latencia de <em>composición</em>. El overhead MCP se anota aparte, pendiente del montaje en el VPS.</p></div></div>
+    </section>
+
+    <section id="comp" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§02</span><span>componentes</span></div><h2>Piezas y entorno <a class="anchor-link" href="#comp">#</a></h2></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>pieza</th><th>qué</th><th>notas de entorno</th></tr></thead><tbody>
+        <tr><td><span class="row-name">Python</span></td><td>3.12 vía <code>uv</code> (Basic Memory exige ≥3.12)</td><td><code>uv python install 3.12</code></td></tr>
+        <tr><td><span class="row-name">Basic Memory</span></td><td>hot tier · Markdown + SQLite + fastembed</td><td><code>uv tool install basic-memory</code></td></tr>
+        <tr><td><span class="row-name">mcp-memory-service</span></td><td>enrichment · SQLite-vec + ONNX</td><td><code>:quality-cpu</code> (sin PyTorch) si es posible</td></tr>
+        <tr><td><span class="row-name">Event bus</span></td><td>tabla SQLite como cola FIFO + worker</td><td>sin broker externo (local-first)</td></tr>
+        <tr><td><span class="row-name">Embeddings</span></td><td>locales: fastembed / sentence-transformers-ONNX</td><td>descarga de modelos la 1ª vez</td></tr>
+      </tbody></table></div>
+      <div class="callout callout--warn"><span class="callout__tag">windows / ubuntu</span><div class="callout__body"><p>En Windows pueden aparecer fricciones con deps nativas (<code>sqlite-vec</code>, <code>onnxruntime</code>). Lo que no monte limpio se documenta y se difiere al VPS Ubuntu, donde son de primera clase.</p></div></div>
+    </section>
+
+    <section id="fases" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§03</span><span>fases de ejecución</span></div><h2>Cuatro fases <a class="anchor-link" href="#fases">#</a></h2></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>fase</th><th>qué</th></tr></thead><tbody>
+        <tr><td class="ok">Fase 0 · setup</td><td>entorno <code>uv</code> + Python 3.12; instalar y verificar arranque de ambos backends</td></tr>
+        <tr><td class="ok">Fase 1 · hot solo</td><td>poblar Basic Memory con corpus sintético; medir recall p50/p95, tamaño, temporal</td></tr>
+        <tr><td class="ok">Fase 2 · bus + enrich</td><td>cola SQLite + worker; medir desfase y recall escalado hot→MM-S</td></tr>
+        <tr><td class="ok">Fase 3 · resiliencia</td><td>matar el enrichment y confirmar que el recall hot sigue (degradación graceful)</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="mide" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§04</span><span>qué se mide</span></div><h2>Métricas y criterios <a class="anchor-link" href="#mide">#</a></h2></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>métrica</th><th>qué cierra</th><th>éxito</th><th>fracaso</th></tr></thead><tbody>
+        <tr><td class="ok">M1 recall solo-hot</td><td>pregunta 1 (latencia)</td><td>p95 &lt; 2 s</td><td class="err">p95 ≥ 2 s</td></tr>
+        <tr><td class="ok">M1b recall escalado</td><td>pregunta 1</td><td>p95 &lt; 2 s</td><td class="err">p95 ≥ 2 s</td></tr>
+        <tr><td class="ok">M2 tamaño respuesta</td><td>pregunta 2 (1 MB)</td><td>&lt; 256 KB</td><td class="err">se acerca a 1 MB</td></tr>
+        <tr><td class="ok">M3 caída del enrichment</td><td>pregunta 3 (graceful)</td><td>recall hot sigue</td><td class="err">recall falla</td></tr>
+        <tr><td class="ok">M4 desfase enrichment</td><td>tolerancia eventual</td><td>aparece en pocos s</td><td class="err">minutos / no aparece</td></tr>
+        <tr><td class="ok">M5 coste LLM</td><td>preguntas 5, 10</td><td><strong>N/A — sin LLM</strong></td><td>—</td></tr>
+      </tbody></table></div>
+      <div class="callout callout--win"><span class="callout__tag">dividendo</span><div class="callout__body"><p>M5 cerrada por diseño: sin LLM, no hay coste de inferencia ni facturas; los embeddings son locales. Es el dividendo de la decisión LLM-light.</p></div></div>
+    </section>
+
+    <section id="nocubre" class="section">
+      <div class="section__head"><div class="section__tag"><span class="hash">§05</span><span>lo que no cubre</span></div><h2>Fronteras (intencional) <a class="anchor-link" href="#nocubre">#</a></h2></div>
+      <ul style="color:var(--ink-soft);padding-left:22px;line-height:1.8;max-width:74ch;">
+        <li>Transporte MCP real (claude.ai / Claude Code conectados) — se mide composición, no transporte.</li>
+        <li>UMAS v2 / contrato canónico — es Paso 4+, si la composición se valida.</li>
+        <li>Concurrencia humano-Obsidian + Naeth sobre los mismos <code>.md</code> — se valida en el VPS con uso real.</li>
+        <li>Bi-temporalidad de entidades — descartada con Graphiti; el temporal aquí es por frontmatter + parser NL, sin grafo.</li>
+      </ul>
+      <div class="callout callout--info" style="margin-top:24px"><span class="callout__tag">resultados</span><div class="callout__body"><p>Las mediciones reales de este spike están en <strong>Paso3-resultados.html</strong> — incluido el hallazgo de que el techo no es el recall sino el ingest de embeddings en CPU.</p></div></div>
+    </section>
+
+    <footer class="footer"><span>naeth/research · paso 3 de 5 · spike (plan)</span><span class="end">inicio del paso 03 · 2026-05-29 _</span></footer>
+  </main>
+</div>
+<script>
+(function(){"use strict";
+const SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const html=document.documentElement,ti=document.getElementById('themeIcon'),tl=document.getElementById('themeLabel');
+function st(t){html.setAttribute('data-theme',t);ti.innerHTML=t==='dark'?SUN:MOON;tl.textContent=t==='dark'?'claro':'oscuro';try{localStorage.setItem('naeth-theme',t);}catch(e){}}
+(function(){let s=null;try{s=localStorage.getItem('naeth-theme');}catch(e){}st(s||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'));})();
+document.getElementById('themeToggle').addEventListener('click',()=>st(html.getAttribute('data-theme')==='dark'?'light':'dark'));
+document.addEventListener('keydown',(e)=>{if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;if(e.key==='t'||e.key==='T')document.getElementById('themeToggle').click();});
+const bar=document.getElementById('progressBar');function up(){const h=document.documentElement,m=h.scrollHeight-h.clientHeight;bar.style.width=(m>0?(h.scrollTop/m)*100:0)+'%';}document.addEventListener('scroll',up,{passive:true});up();
+const links=Array.from(document.querySelectorAll('.toc a'));if('IntersectionObserver'in window){const io=new IntersectionObserver((es)=>{es.forEach(en=>{if(en.isIntersecting)links.forEach(a=>a.classList.toggle('is-active',a.getAttribute('href')==='#'+en.target.id));});},{rootMargin:'-30% 0px -60% 0px'});document.querySelectorAll('.section').forEach(s=>{if(s.id)io.observe(s);});}
+document.querySelectorAll('.anchor-link').forEach(a=>a.addEventListener('click',(e)=>{e.preventDefault();const h=a.getAttribute('href');if(navigator.clipboard)navigator.clipboard.writeText(location.origin+location.pathname+h);history.pushState(null,'',h);}));
+})();
+</script>
+</body>
+</html>

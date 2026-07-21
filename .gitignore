@@ -1,0 +1,40 @@
+# --- Naeth ---
+
+# Env / credenciales. El .env real lleva POSTGRES_PASSWORD y lo inyecta up.ps1 desde SOPS.
+.env
+.env.*
+!.env.example
+
+# Credenciales del tunel cloudflared (el .json vive en ~/.cloudflared, nunca aqui).
+*.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!.vscode/extensions.json
+
+# Datos y artefactos de ejecucion (los posee el nodo, no el repo).
+naeth/db/pgdata/
+assets/
+fastembed_cache/
+*.dump
+*.sql.gz
+
+# Front del visor: se construye, no se versiona.
+naeth/web/node_modules/
+naeth/web/dist/
+naeth/web/dist-ssr/
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
