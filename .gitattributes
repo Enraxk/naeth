@@ -1,0 +1,5 @@
+# Los .html de pasos/ son renders GENERADOS de sus .md gemelos, no codigo fuente.
+# Sin esta marca GitHub clasificaba el repo como HTML 79.7%: 17 ficheros generados
+# que pesan 660 KB, el 91% de todo el HTML, escondiendo que el codigo real es
+# Python (77 KB), Svelte (64 KB) y TypeScript (26 KB).
+pasos/*.html linguist-generated=true

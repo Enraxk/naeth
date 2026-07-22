@@ -4,7 +4,9 @@ Portable, append-only memory for AI agents, exposed over the Model Context Proto
 
 It runs in production on a single node and is used every day from Claude Code and claude.ai. Same memory, same graph, whichever client is asking.
 
-![Overview of naeth: clients, the path of one query through hybrid retrieval, the data model and the append-only versioning](docs/img/naeth-overview.png)
+[![Overview of naeth: clients, the path of one query through hybrid retrieval, the data model and the append-only versioning](docs/img/naeth-overview.png)](docs/img/naeth-overview.png)
+
+<sub>Clients, the path of one query, the data model and the versioning. Click to open it at full size.</sub>
 
 ## Why
 
