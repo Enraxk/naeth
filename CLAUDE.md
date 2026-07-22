@@ -89,6 +89,11 @@ claude.ai (Remote MCP) y Claude Code sin atarse a un vendor.
   COMPLETO**. cloudflared en este equipo + **túnel propio `naeth-local`** (id `7d283520-…`,
   **separado del `enraxk` existente**) → `naeth-local.enraxk.dev` → `127.0.0.1:8800`; config
   en `naeth/cloudflared/config.yml`. OAuth en público (`OAUTH_BASE_URL=https://naeth-local.enraxk.dev`).
+  ⚠ **DEROGADO 2026-07-22**: tras el cutover a CENIT (17/07), el túnel propio `naeth-local` y su
+  hostname están RETIRADOS (verificado: `naeth-local.enraxk.dev` no responde y su credencial ya no
+  está en `~/.cloudflared`, que solo conserva la del túnel consolidado). La exposición la posee
+  ahora el núcleo (`core/exposure/` de CENIT) y el módulo sale por `memory.enraxk.dev`. El fichero
+  `naeth/cloudflared/config.yml` se BORRÓ del repo el 2026-07-22.
   **claude.ai conectado end-to-end**: cliente "Claude" registrado por DCR, login de 1
   usuario superado, tokens persistidos en Postgres, las 8 tools visibles. La pila (F1) +
   MCP (F2) + OAuth (F3) + claude.ai (F4) funcionan de punta a punta: **Naeth v1 es primera
@@ -110,6 +115,8 @@ claude.ai (Remote MCP) y Claude Code sin atarse a un vendor.
   Run; pila `unless-stopped`. Verificado: servicio Running + túnel sirve el HTTPS público.
   **Dos copias del `config.yml`**: repo (`naeth/cloudflared/`) y `~/.cloudflared/` (la del
   servicio); sincronizar ambas + `Restart-Service Cloudflared` si cambia el ingress.
+  ⚠ **DEROGADO 2026-07-22**: ya no hay dos copias ni túnel propio que sincronizar (ver la nota
+  de la Fase 4). No apliques esta instrucción.
   Pendiente menor: verificación real de reinicio y mover `pgdata` a F:. Sigue: Paso 8
   (sync) y Paso 9 (`finally`).
 - `pasos/paso8-sync.md` — Paso 8 (diseño a fondo hecho): **sincronización multi-master**
