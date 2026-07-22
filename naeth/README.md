@@ -1,7 +1,7 @@
 # naeth stack
 
-The runnable stack for `naeth`, which since July 2026 runs as the `memory` module of
-[cenit](https://github.com/Enraxk/cenit). For what the system is and why, see the
+The runnable stack for `naeth`, which since July 2026 runs as the `memory` module of `cenit`,
+a modular self-hosted platform (private for now). For what the system is and why, see the
 [root README](../README.md).
 
 ## Topology

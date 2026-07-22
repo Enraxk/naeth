@@ -112,9 +112,9 @@ pasos/               the design record, one document per step
 ## Running it
 
 This is a module, not a standalone app. Since July 2026 it runs as the `memory` module of
-[cenit](https://github.com/Enraxk/cenit) and expects the core to be up: the shared Postgres
-instance, the identity provider, and the network between them. Credentials are decrypted
-from SOPS and injected at start, so there are none in `.env`.
+`cenit`, a modular self-hosted platform I maintain (private for now), and expects that core
+to be up: the shared Postgres instance, the identity provider, and the network between them.
+Credentials are decrypted from SOPS and injected at start, so there are none in `.env`.
 
 ```powershell
 cd naeth
