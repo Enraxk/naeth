@@ -1,4 +1,4 @@
-# naeth
+# Naeth
 
 Portable, append-only memory for AI agents, exposed over the Model Context Protocol.
 
