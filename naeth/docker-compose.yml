@@ -42,7 +42,11 @@ services:
       # Fase 4: auth via IdP central (Pocket-ID) con OIDCProxy; Naeth ya no es su propio AS.
       OAUTH_ENABLED: "1"
       OAUTH_PROVIDER: oidc
-      OAUTH_BASE_URL: https://memory.enraxk.dev
+      # Paso 8.3: parametrizado para el multi-nodo. El nodo local sirve memory.enraxk.dev;
+      # el VPS `finally` arranca en staging con memory-finally.enraxk.dev y pasará al host de
+      # producción en 8.6. Debe coincidir con el host público real: el OIDCProxy construye con
+      # él sus URLs de callback y de discovery, y un valor equivocado rompe el flujo OAuth.
+      OAUTH_BASE_URL: ${OAUTH_BASE_URL:-https://memory.enraxk.dev}
       OIDC_CONFIG_URL: https://id.enraxk.dev/.well-known/openid-configuration
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?falta OIDC_CLIENT_ID (usa up.ps1)}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?falta OIDC_CLIENT_SECRET (usa up.ps1)}
