@@ -29,8 +29,11 @@ sops_export "$cenit/secrets/cenit-data.enc.env"     # CENIT_DB_PASSWORD
 sops_export "$cenit/secrets/naeth-oidc.enc.env"     # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET
 unset SOPS_AGE_KEY
 
-# Host público de ESTE nodo y ruta de blobs (el default del compose es el del PC Windows).
-export OAUTH_BASE_URL="${OAUTH_BASE_URL:-https://memory-finally.enraxk.dev}"
+# Host público. Es el MISMO en ambos nodos (memory.enraxk.dev): el connector móvil (8.6)
+# hace que producción apunte al líder, así que el base_url no cambia al alternar y el módulo
+# no necesita reconfigurarse en cada transición. (En 8.3 esto era memory-finally, el andamio
+# del staging; desde P3 el VPS sirve el host de producción.)
+export OAUTH_BASE_URL="${OAUTH_BASE_URL:-https://memory.enraxk.dev}"
 export ASSETS_PATH="${ASSETS_PATH:-/var/lib/cenit/assets}"
 mkdir -p "$ASSETS_PATH"
 
