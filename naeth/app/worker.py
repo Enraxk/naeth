@@ -14,21 +14,73 @@ from app.embeddings import EMBED_MODEL, embed_passages, warmup
 POLL_INTERVAL_S = 1.0
 BATCH = 32
 
+#: Un job en 'processing' mas viejo que esto se considera HUERFANO y se vuelve a reclamar.
+#: Holgado a proposito: un lote de 32 con e5-large tarda segundos, no minutos.
+LEASE_MINUTES = 15
+#: Tope de reintentos. Sin el, un job que falla SIEMPRE (una memoria corrupta, un texto que
+#: revienta al modelo) se reclamaria cada 15 min para siempre.
+MAX_ATTEMPTS = 5
+
+
+def reap_dead_jobs(c) -> int:
+    """Marca 'error' los jobs que agotaron los intentos. Devuelve cuantos.
+
+    Sin esto, un job que ya no se puede reclamar (attempts >= MAX) se quedaria en 'processing'
+    eternamente: invisible para la cola y sin nadie que lo mire. Marcarlo 'error' lo saca del
+    limbo y lo deja CONTABLE -- `system_status` los cuenta, asi que un problema recurrente se ve
+    en vez de desaparecer.
+    """
+    r = c.execute(
+        """UPDATE job SET status='error', finished_at=now(),
+                  error='abandonado tras ' || attempts || ' intentos'
+           WHERE kind='embed' AND status='processing'
+             AND attempts >= %s
+             AND started_at < now() - make_interval(mins => %s)
+           RETURNING id""",
+        (MAX_ATTEMPTS, LEASE_MINUTES),
+    ).fetchall()
+    return len(r)
+
 
 def claim_batch(c, n: int) -> list[dict]:
+    """Reclama hasta `n` jobs: los pendientes y los HUERFANOS.
+
+    ── POR QUE EL LEASE (fallo real, 2026-07-26) ──────────────────────────────────────────
+    Esto solo reclamaba `status='pending'`. Si el worker moria a mitad -- reinicio del PC, de
+    Docker, un apagon -- el job se quedaba en 'processing' PARA SIEMPRE y su memoria nunca
+    recibia embedding.
+
+    El sintoma es de los peores que puede tener un sistema de memoria: la nota esta, se lee, se
+    encuentra por texto... y NO aparece en la busqueda semantica. En silencio, sin un error en
+    ningun log. Se detectaron dos asi, del 8 y el 11 de julio, descubiertas 18 dias despues y de
+    pura casualidad.
+
+    Ahora un job en 'processing' mas viejo que el lease se vuelve a reclamar. `attempts` sigue
+    subiendo en cada intento, y al llegar al tope `reap_dead_jobs` lo marca 'error' en vez de
+    dejarlo dando vueltas.
+    ───────────────────────────────────────────────────────────────────────────────────────
+    """
     return c.execute(
         """UPDATE job SET status='processing', started_at=now(), attempts=attempts+1
            WHERE id IN (
-               SELECT id FROM job WHERE status='pending' AND kind='embed'
+               SELECT id FROM job
+               WHERE kind='embed'
+                 AND attempts < %s
+                 AND (status='pending'
+                      OR (status='processing'
+                          AND started_at < now() - make_interval(mins => %s)))
                ORDER BY id FOR UPDATE SKIP LOCKED LIMIT %s)
            RETURNING id, memory_id""",
-        (n,),
+        (MAX_ATTEMPTS, LEASE_MINUTES, n),
     ).fetchall()
 
 
 def process_once() -> int:
     """Procesa hasta BATCH jobs. Devuelve cuantos proceso."""
     with core.conn() as c:
+        muertos = reap_dead_jobs(c)
+        if muertos:
+            print(f"[worker] {muertos} job(s) abandonados tras {MAX_ATTEMPTS} intentos", flush=True)
         jobs = claim_batch(c, BATCH)
         if not jobs:
             return 0
