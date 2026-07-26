@@ -26,7 +26,20 @@ _pool: ConnectionPool | None = None
 def pool() -> ConnectionPool:
     global _pool
     if _pool is None:
-        _pool = ConnectionPool(DSN, min_size=1, max_size=10, kwargs={"row_factory": dict_row})
+        # check=: valida la conexion ANTES de entregarla, y si esta muerta abre otra.
+        #
+        # Sin esto, la primera peticion que reciba una conexion caida FALLA con
+        # "consuming input failed: terminating connection due to administrator command",
+        # y solo la segunda funciona. Medido en el failover multi-nodo de CENIT (8.6 P8): al
+        # cambiar de nodo lider se cierran las conexiones del rol para que el cambio de
+        # read-only surta efecto, y el usuario se comia ese primer error justo despues del
+        # relevo -- exactamente en el momento en que el sistema deberia parecer continuo.
+        #
+        # Vale para cualquier corte, no solo el failover: un reinicio de Postgres, un idle
+        # timeout o una red que se corta dejan el mismo tipo de conexion zombi en el pool.
+        _pool = ConnectionPool(DSN, min_size=1, max_size=10,
+                               check=ConnectionPool.check_connection,
+                               kwargs={"row_factory": dict_row})
     return _pool
 
 
