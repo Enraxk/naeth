@@ -7,7 +7,15 @@
 #   - assets  -> bind-mount a E:\naeth\assets (NTFS vale para servir blobs).
 
 services:
+  # Postgres PROPIO de Naeth. Desde el cutover a CENIT (Fase 4, jul-2026) los datos viven en el
+  # Postgres del NUCLEO (modules-db) y esta base ya no es produccion: quedo como rollback en
+  # frio y se retiro en 8.3 (parada, con su volumen conservado).
+  #
+  # profile "test" (CENIT 8.5): sin el, cada `up.ps1` la RESUCITABA -- deshaciendo la retirada
+  # sin que nadie lo pidiera, y dejando dos Postgres de Naeth vivos a la vez. Su unico uso
+  # legitimo hoy son los tests (TEST_DB_HOST: db), que ya corren con `--profile test`.
   db:
+    profiles: ["test"]
     image: pgvector/pgvector:pg17
     shm_size: 8gb                 # build paralelo de HNSW usa /dev/shm (Paso 6 §8); 64MB por defecto -> DiskFull enganoso
     environment:
@@ -58,6 +66,19 @@ services:
       - ./app:/srv/app                            # banco Fase 1: iterar sin rebuild
       - ${ASSETS_PATH:-E:/naeth/assets}:/assets   # bind-mount a E: (NTFS vale para blobs)
       - fastembed_cache:/root/.cache/fastembed   # comparte el modelo con el worker (no re-descargar)
+      # Store del OAuthProxy de FastMCP (CENIT 8.5). Aqui viven los clientes registrados, los
+      # authorization codes y los JTI MAPPINGS: la tabla que traduce el refresh token que tiene
+      # claude.ai al refresh token de Pocket-ID. Sin ella, un refresh responde invalid_grant
+      # ("JTI mapping not found") y el cliente tiene que volver a autorizar.
+      #
+      # Estaba en la capa del contenedor, asi que se perdia al RECREARLO (un `up` con cualquier
+      # cambio del compose, no solo un restart). Va a volumen para que sobreviva, y porque el
+      # multi-nodo necesita poder copiarlo al otro nodo.
+      #
+      # El subdirectorio es un fingerprint derivado del OIDC_CLIENT_SECRET, asi que es EL MISMO
+      # en los dos nodos (verificado: 1346950eecea existe en ambos) -> el store es transplantable
+      # tal cual. Su contenido va cifrado con Fernet, con clave derivada del mismo secreto.
+      - oauth_store:/root/.local/share/fastmcp
     ports:
       - "127.0.0.1:${API_PORT:-8800}:8000"   # visor + API, solo loopback
     networks: [default, cenit-net]           # cenit-net: alcanzar modules-db del nucleo
@@ -132,3 +153,4 @@ networks:
 volumes:
   pgdata:
   fastembed_cache:
+  oauth_store:      # ver la nota en `api`: estado del OAuthProxy, antes efimero (CENIT 8.5)
