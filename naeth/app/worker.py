@@ -12,6 +12,9 @@ from app import core
 from app.embeddings import EMBED_MODEL, embed_passages, warmup
 
 POLL_INTERVAL_S = 1.0
+#: Cuando este nodo es el MIRROR del multi-nodo (rol Postgres en read-only), no hay nada que
+#: hacer: el lider es quien escribe. Se duerme mucho mas para no despertar a la BD cada segundo.
+MIRROR_POLL_INTERVAL_S = 60.0
 BATCH = 32
 
 #: Un job en 'processing' mas viejo que esto se considera HUERFANO y se vuelve a reclamar.
@@ -29,7 +32,20 @@ def reap_dead_jobs(c) -> int:
     eternamente: invisible para la cola y sin nadie que lo mire. Marcarlo 'error' lo saca del
     limbo y lo deja CONTABLE -- `system_status` los cuenta, asi que un problema recurrente se ve
     en vez de desaparecer.
+
+    MIRA ANTES DE ESCRIBIR (multi-nodo, CENIT 8.6): en el nodo que no lidera el rol es
+    read-only, y un UPDATE incondicional en cada ciclo llenaba el log con un
+    "cannot execute UPDATE in a read-only transaction" POR SEGUNDO. El SELECT previo es
+    barato y hace que el caso normal -- no hay nada que segar -- no escriba nada.
     """
+    hay = c.execute(
+        """SELECT 1 FROM job
+           WHERE kind='embed' AND status='processing' AND attempts >= %s
+             AND started_at < now() - make_interval(mins => %s) LIMIT 1""",
+        (MAX_ATTEMPTS, LEASE_MINUTES),
+    ).fetchone()
+    if not hay:
+        return 0
     r = c.execute(
         """UPDATE job SET status='error', finished_at=now(),
                   error='abandonado tras ' || attempts || ' intentos'
@@ -75,9 +91,21 @@ def claim_batch(c, n: int) -> list[dict]:
     ).fetchall()
 
 
+def is_mirror(c) -> bool:
+    """True si esta BD esta en read-only, es decir: este nodo NO lidera (CENIT 8.6).
+
+    Se pregunta en vez de intentarlo y fallar. Postgres rechaza CUALQUIER UPDATE en una
+    transaccion read-only -- incluso uno cuyo WHERE no case con ninguna fila -- asi que sin esta
+    comprobacion el worker del nodo de respaldo escupe un error por segundo, para siempre.
+    """
+    return c.execute("SELECT current_setting('transaction_read_only') = 'on' AS ro").fetchone()["ro"]
+
+
 def process_once() -> int:
-    """Procesa hasta BATCH jobs. Devuelve cuantos proceso."""
+    """Procesa hasta BATCH jobs. Devuelve cuantos proceso, o -1 si este nodo es mirror."""
     with core.conn() as c:
+        if is_mirror(c):
+            return -1
         muertos = reap_dead_jobs(c)
         if muertos:
             print(f"[worker] {muertos} job(s) abandonados tras {MAX_ATTEMPTS} intentos", flush=True)
@@ -118,12 +146,26 @@ def main():
     print(f"[worker] warmup del modelo {EMBED_MODEL} ...", flush=True)
     dim = warmup()
     print(f"[worker] modelo listo (dim={dim}). Drenando cola job(embed).", flush=True)
+    era_mirror = None
     while True:
         try:
             n = process_once()
         except Exception as e:  # noqa: BLE001
             print(f"[worker] error: {e}", flush=True)
             n = 0
+
+        if n == -1:
+            # Nodo MIRROR: el lider es quien escribe. Se avisa SOLO al cambiar de estado, no en
+            # cada vuelta -- un mensaje por segundo no es informacion, es ruido que tapa lo demas.
+            if era_mirror is not True:
+                print("[worker] este nodo es MIRROR (BD read-only): en espera", flush=True)
+                era_mirror = True
+            time.sleep(MIRROR_POLL_INTERVAL_S)
+            continue
+
+        if era_mirror:
+            print("[worker] este nodo YA LIDERA: vuelvo a drenar la cola", flush=True)
+        era_mirror = False
         if n == 0:
             time.sleep(POLL_INTERVAL_S)
 

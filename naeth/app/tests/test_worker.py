@@ -110,3 +110,28 @@ def test_el_lease_no_afecta_a_los_done():
     with core.conn() as c:
         assert claim_batch(c, 10) == []
         assert reap_dead_jobs(c) == 0
+
+
+# ── El nodo MIRROR no debe escribir ni quejarse (CENIT 8.6) ──────────────────────────────
+
+def test_en_un_nodo_mirror_el_worker_se_declara_en_espera():
+    """En el nodo que no lidera, el rol de Postgres esta en read-only. Postgres rechaza
+    CUALQUIER escritura ahi -- incluso un UPDATE cuyo WHERE no case con nada -- asi que sin
+    preguntar antes, el worker del respaldo escupia un error POR SEGUNDO, para siempre.
+
+    Se simula la condicion en la propia sesion: es exactamente lo que ve el worker cuando el
+    rol del nodo esta marcado read-only."""
+    from app.worker import is_mirror
+    with core.conn() as c:
+        assert is_mirror(c) is False          # el nodo de test escribe con normalidad
+        c.execute("SET transaction_read_only = on")
+        assert is_mirror(c) is True
+
+
+def test_reap_no_escribe_si_no_hay_nada_que_segar():
+    """El SELECT previo evita el UPDATE incondicional: en el caso normal (sin huerfanos) no se
+    escribe nada, que es lo que hace al worker compatible con un nodo mirror."""
+    _mem_con_job("done")
+    with core.conn() as c:
+        c.execute("SET transaction_read_only = on")
+        assert reap_dead_jobs(c) == 0         # no lanza: no llego a intentar el UPDATE
