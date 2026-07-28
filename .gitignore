@@ -12,6 +12,11 @@
 !tsconfig*.json
 !.vscode/extensions.json
 
+# Config de Claude Code: el hook y el settings que lo activa SI se versionan
+# (son del repo, y sin el settings el .ps1 no se dispara). Los permisos locales NO.
+!.claude/settings.json
+.claude/settings.local.json
+
 # Datos y artefactos de ejecucion (los posee el nodo, no el repo).
 naeth/db/pgdata/
 assets/
