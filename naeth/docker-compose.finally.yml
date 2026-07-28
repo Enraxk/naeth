@@ -1,0 +1,18 @@
+# Override del nodo VPS `finally`. Se compone sobre docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.finally.yml up -d api worker viewer
+#
+# Existe SOLO para el `viewer`, y por dos diferencias que no son cosméticas:
+#
+# 1. SIN `--reload`. En el PC el reload es cómodo para desarrollar, pero es también lo que
+#    tumbó el módulo el 2026-07-28: un fichero nuevo en `app/` disparó el hot-reload y uvicorn
+#    se quedó en "Waiting for connections to close" esperando a una conexión MCP abierta. En el
+#    nodo de RESPALDO eso es peor: allí no hay nadie mirando, y el visor solo recibe tráfico
+#    justo cuando el PC no está para arreglarlo.
+# 2. SIN `ports`. En el PC el 8801 en loopback es el /mcp de Claude Code; aquí no hay Claude
+#    Code, y el único que debe alcanzar el visor es Caddy, por nombre de contenedor dentro de
+#    `cenit-net`. Publicar el puerto sería superficie regalada: recuerda que este proceso corre
+#    con OAUTH_ENABLED=0 y sirve el CRUD entero.
+services:
+  viewer:
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+    ports: !reset []

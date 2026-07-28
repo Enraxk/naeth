@@ -6,18 +6,22 @@
 #   ./up.sh [--build]   levanta (--build reconstruye la imagen)
 #   ./up.sh --down      baja
 #
-# En este nodo solo corren `api` y `worker`:
+# En este nodo corren `api`, `worker` y `viewer`:
 #   - `db` es la Postgres VIEJA de Naeth (pre-CENIT); los datos viven en modules-db del núcleo.
-#   - `viewer` es la superficie del visor, que en staging NO se expone (ver Caddyfile.finally).
+#   - `viewer` se añadió el 2026-07-28 para que el visor sobreviva al apagado del PC: hasta
+#     entonces `naeth-visor.enraxk.dev` estaba anclado al túnel del PC y daba Error 1033 en
+#     cuanto se apagaba. Va con el override `docker-compose.finally.yml`, que le quita el
+#     `--reload` y la publicación del puerto (ver allí por qué ninguna de las dos es cosmética).
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cenit="${CENIT_REPO:-/opt/cenit}"
 cd "$here"
 
-SERVICES="api worker"
+SERVICES="api worker viewer"
+COMPOSE="-f docker-compose.yml -f docker-compose.finally.yml"
 
 if [ "${1:-}" = "--down" ]; then
-    docker compose down
+    docker compose $COMPOSE down
     exit 0
 fi
 
@@ -38,9 +42,9 @@ export ASSETS_PATH="${ASSETS_PATH:-/var/lib/cenit/assets}"
 mkdir -p "$ASSETS_PATH"
 
 if [ "${1:-}" = "--build" ]; then
-    docker compose build $SERVICES
+    docker compose $COMPOSE build $SERVICES
 fi
-docker compose up -d $SERVICES
+docker compose $COMPOSE up -d $SERVICES
 
 unset CENIT_DB_PASSWORD OIDC_CLIENT_ID OIDC_CLIENT_SECRET
 echo "Naeth (módulo memory) levantado en este nodo. base_url=$OAUTH_BASE_URL"
