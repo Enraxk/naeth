@@ -21,6 +21,7 @@ FastMCP aporta nativamente discovery (RFC 8414/9728), PKCE S256 y el 401 con
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,40 @@ OAUTH_BASE_URL = os.environ.get("OAUTH_BASE_URL", "http://127.0.0.1:8800").rstri
 # postgres (Fase 3b, con login) | memory (Fase 3a, validacion del plumbing)
 OAUTH_PROVIDER = os.environ.get("OAUTH_PROVIDER", "postgres").strip().lower()
 
+# Reintentos del discovery del IdP. Existen por el incidente del 30/07/2026: `_build_auth()`
+# corre al IMPORTAR este modulo, asi que un IdP que no contestaba en ese instante mataba el
+# proceso entero. Y como la sonda de salud de la que depende `core owner recover` (CENIT) es
+# este mismo proceso, el sistema no podia recuperar el mando: circulo cerrado.
+OIDC_DISCOVERY_ATTEMPTS = int(os.environ.get("OIDC_DISCOVERY_ATTEMPTS", "20"))
+OIDC_DISCOVERY_DELAY = float(os.environ.get("OIDC_DISCOVERY_DELAY", "1.5"))
+OIDC_DISCOVERY_DELAY_MAX = float(os.environ.get("OIDC_DISCOVERY_DELAY_MAX", "15"))
+
+
+def _retry_discovery(build, *, attempts=None, delay=None, delay_max=None, sleep=time.sleep):
+    """Construye el proveedor OIDC reintentando mientras el IdP no conteste.
+
+    Espera exponencial con techo. `sleep` es inyectable para poder testear sin esperas.
+
+    LO QUE ESTO **NO** HACE, y es deliberado: si se agotan los intentos, PROPAGA la
+    excepcion en vez de arrancar sin autenticacion. Arrancar sin auth expondria /mcp, que
+    es peor que no arrancar. Lo que se compra aqui es tolerancia a que el IdP tarde en
+    levantar, no permiso para servir sin el.
+    """
+    attempts = OIDC_DISCOVERY_ATTEMPTS if attempts is None else attempts
+    espera = OIDC_DISCOVERY_DELAY if delay is None else delay
+    techo = OIDC_DISCOVERY_DELAY_MAX if delay_max is None else delay_max
+    for intento in range(1, attempts + 1):
+        try:
+            return build()
+        except Exception as e:      # cualquier fallo de red o HTTP del IdP
+            if intento >= attempts:
+                raise
+            print(f"[naeth] discovery del IdP fallido ({intento}/{attempts}): "
+                  f"{type(e).__name__}: {e}. Reintento en {espera:.1f}s", flush=True)
+            sleep(espera)
+            espera = min(espera * 2, techo)
+    raise AssertionError("inalcanzable: el ultimo intento devuelve o propaga")
+
 
 def _build_auth():
     if not OAUTH_ENABLED:
@@ -46,7 +81,7 @@ def _build_auth():
         # su propio AS: delega el login en Pocket-ID y emite sus PROPIOS JWT (token factory).
         # claude.ai hace DCR contra este proxy, que lo traduce al cliente estatico de Pocket-ID.
         from fastmcp.server.auth import OIDCProxy
-        return OIDCProxy(
+        return _retry_discovery(lambda: OIDCProxy(
             config_url=os.environ["OIDC_CONFIG_URL"],          # .well-known de Pocket-ID
             client_id=os.environ["OIDC_CLIENT_ID"],            # cliente cenit-memory
             client_secret=os.environ["OIDC_CLIENT_SECRET"],
@@ -56,7 +91,7 @@ def _build_auth():
             ],
             require_authorization_consent=False,               # el consent lo hace Pocket-ID
             forward_resource=False,                            # Pocket-ID no soporta RFC 8707
-        )
+        ))
     from fastmcp.server.auth.auth import ClientRegistrationOptions
     reg = ClientRegistrationOptions(enabled=True)  # DCR para claude.ai
     if OAUTH_PROVIDER == "memory":

@@ -55,7 +55,16 @@ services:
       # producción en 8.6. Debe coincidir con el host público real: el OIDCProxy construye con
       # él sus URLs de callback y de discovery, y un valor equivocado rompe el flujo OAuth.
       OAUTH_BASE_URL: ${OAUTH_BASE_URL:-https://memory.enraxk.dev}
-      OIDC_CONFIG_URL: https://id.enraxk.dev/.well-known/openid-configuration
+      # El discovery va al Pocket-ID **LOCAL** (mismo host, por `cenit-net`), NO al hostname
+      # publico. `id.enraxk.dev` es de clase MOVIL: su CNAME sigue al lider, asi que apuntar
+      # ahi ataba el ARRANQUE de esta API a que el lider estuviese vivo. El 30/07/2026 eso
+      # cerro un circulo: apagon -> el lider queda muerto -> la API local no arranca -> la
+      # sonda de salud no responde -> `core owner recover` no mueve el mando -> el lider sigue
+      # muerto. Cinco horas sin servicio y sin recuperacion automatica posible.
+      # El documento que devuelve el IdP local es IDENTICO (verificado: mismo issuer y mismos
+      # endpoints publicos, porque Pocket-ID los emite con su APP_URL publica), asi que el
+      # flujo OAuth no cambia en nada: solo cambia a quien se le pide el metadato.
+      OIDC_CONFIG_URL: ${OIDC_CONFIG_URL:-http://pocket-id:1411/.well-known/openid-configuration}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?falta OIDC_CLIENT_ID (usa up.ps1)}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?falta OIDC_CLIENT_SECRET (usa up.ps1)}
       # Paso 10: warn = guarda aunque el agente no declare modelo; strict = lo rechaza
