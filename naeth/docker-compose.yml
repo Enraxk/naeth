@@ -34,7 +34,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-    restart: unless-stopped
+    # SIN restart policy, a proposito (02/08/2026). Tenia `unless-stopped`, y el profile NO protege
+    # de eso: los profiles solo filtran en `compose up`, no gobiernan al daemon. Resultado: un
+    # `--profile test` que no se baja al terminar deja la base creada, y a partir de ahi CADA
+    # arranque de Docker la resucitaba sola. Se vio hoy: creada el 29/07 23:35 por unos tests,
+    # viva otra vez el 02/08 10:54 con el daemon, con su ultima escritura en el 17/07 (cutover).
+    # Los tests no la necesitan: `depends_on: service_healthy` ya la levanta en cada `run`.
 
   api:
     build:
