@@ -1,0 +1,27 @@
+[
+  { "_doc": "Part 3: the two MCP read tools and the derived memory_current view." },
+
+  { "type": "rectangle", "id": "a_get", "x": 180, "y": 230, "width": 340, "height": 100,
+    "strokeColor": "#6d28d9", "backgroundColor": "#ddd6fe", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "memory_get(id)\nreturns the row plus its\nfull supersession chain",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "a_search", "x": 1100, "y": 230, "width": 340, "height": 100,
+    "strokeColor": "#6d28d9", "backgroundColor": "#ddd6fe", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "memory_search(query, k)\nhybrid RRF, HNSW + tsvector\nthe agent's recall path",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "a_view", "x": 1100, "y": 410, "width": 340, "height": 80,
+    "strokeColor": "#047857", "backgroundColor": "#a7f3d0", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "VIEW memory_current", "fontSize": 16, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "text", "id": "a_view_note", "x": 560, "y": 412,
+    "text": "A derived view, not a table.\nIt drops tombstoned rows and any row\nthat is a parent in supersession.",
+    "fontSize": 14, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "arrow", "start": { "id": "a_get" }, "end": { "id": "a_v1" }, "strokeColor": "#6d28d9",
+    "label": { "text": "any version, by id" } },
+  { "type": "arrow", "start": { "id": "a_search" }, "end": { "id": "a_view" }, "strokeColor": "#6d28d9" },
+  { "type": "arrow", "start": { "id": "a_view" }, "end": { "id": "a_v3" }, "strokeColor": "#047857",
+    "label": { "text": "the tip" } }
+]

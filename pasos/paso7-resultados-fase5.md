@@ -24,15 +24,15 @@ solo el `.exe`), así que arranca pero **no enruta**. La reparación fue fijar e
 del servicio para que ejecute el túnel con el **config local**:
 
 ```
-"…\cloudflared.exe" tunnel --config "C:\Users\eneki\.cloudflared\config.yml" run naeth-local
+"…\cloudflared.exe" tunnel --config "C:\Users\<usuario>\.cloudflared\config.yml" run naeth-local
 ```
 
 Así el servicio es autónomo y mantiene el ingress **versionado en el repo** (config local,
 no en el dashboard de Cloudflare). El servicio corre como `LocalSystem`, que puede leer el
-`config.yml` y las credenciales en `C:\Users\eneki\.cloudflared\` (rutas absolutas).
+`config.yml` y las credenciales en `C:\Users\<usuario>\.cloudflared\` (rutas absolutas).
 
 > **Dos copias del `config.yml`**: la fuente en `naeth/cloudflared/config.yml` (repo) y la
-> que usa el servicio en `C:\Users\eneki\.cloudflared\config.yml`. Si se cambia el ingress,
+> que usa el servicio en `C:\Users\<usuario>\.cloudflared\config.yml`. Si se cambia el ingress,
 > actualizar ambas (o re-copiar) y `Restart-Service Cloudflared`.
 
 ## Verificación
@@ -53,7 +53,7 @@ no en el dashboard de Cloudflare). El servicio corre como `LocalSystem`, que pue
   Windows con Docker Desktop).
 - **Verificación de reinicio pendiente**: la config está puesta, pero **confirmar al 100%
   requiere reiniciar el equipo** y comprobar que todo levanta solo. No se reinició aquí.
-- **`pgdata` aún en C:**: mover la *disk image* de Docker a F: (Settings → Resources) sigue
+- **`pgdata` aún en el disco de sistema**: mover la *disk image* de Docker al SSD SATA (Settings → Resources) sigue
   pendiente; es operativo y disruptivo (migra datos), se hará cuando convenga.
 - **`ImagePath` ligado a la ruta del paquete winget**: estable por package id (no incluye
   versión), así que sobrevive actualizaciones de cloudflared; si se reinstala por otra vía,
@@ -66,4 +66,4 @@ autostart + `unless-stopped`. claude.ai mantiene la conexión sin sesión abiert
 **Paso 7 queda cerrado también en lo operativo**: Naeth v1 corre como primera instancia real
 y autónoma. Lo siguiente es harina de otra fase: el [Paso 8](paso8-sync.md) (sync
 multi-master con `finally`) y el [Paso 9](paso9-despliegue-vps.md) (`finally` como segundo
-nodo). Pendiente menor: mover `pgdata` a F: y una verificación real de reinicio.
+nodo). Pendiente menor: mover `pgdata` al SSD SATA y una verificación real de reinicio.

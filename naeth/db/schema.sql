@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS attachment (
     mime           text,
     size_bytes     bigint,
     sha256         text NOT NULL,                        -- content-addressed (sync de binarios)
-    storage_path   text NOT NULL,                        -- ruta en el volumen de assets (E:\naeth\assets)
+    storage_path   text NOT NULL,                        -- ruta relativa dentro del volumen de assets
     extracted_text text,
     source_client  text NOT NULL DEFAULT 'web',
     created_at     timestamptz NOT NULL DEFAULT now()

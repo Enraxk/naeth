@@ -44,7 +44,7 @@ es la CAPA de seguridad/exposición del núcleo. La visión modular la envuelve;
 
 ## Estado actual (NO romper — todo funcionando)
 - **comfy-mcp** operativo: ComfyUI `:8188` + servidor MCP `:9100` (OAuth propio) + túnel
-  `comfy.enraxk.dev` por tareas programadas. Persistente.
+  `comfy-mcp.example` por tareas programadas. Persistente.
 - **Naeth** operativo, con el **tapón de seguridad aplicado** (visor `/` y `/api` → 404 al edge, en las
   dos copias del config). Solo `/mcp` + OAuth públicos.
 - Esta visión es un **rediseño futuro**, no urgente. Nada de esto corre prisa.

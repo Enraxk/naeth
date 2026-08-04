@@ -1,0 +1,28 @@
+[
+  { "_doc": "Part 2: the version chain inside table memory." },
+
+  { "type": "rectangle", "id": "a_v1", "x": 180, "y": 650, "width": 340, "height": 150,
+    "strokeColor": "#1e40af", "backgroundColor": "#dbeafe",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "v1      2026-05-02\nDeploys go out on Fridays\nauthor: claude.ai / opus\nis_current = false",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "a_v2", "x": 640, "y": 650, "width": 340, "height": 150,
+    "strokeColor": "#1e40af", "backgroundColor": "#dbeafe",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "v2      2026-06-11\nDeploys go out on Tuesdays\nauthor: claude-code / opus\nis_current = false",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "a_v3", "x": 1100, "y": 650, "width": 340, "height": 150,
+    "strokeColor": "#047857", "backgroundColor": "#a7f3d0",
+    "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "v3      2026-07-24\nDeploys go out Tue and Thu\nauthor: claude-code / opus\nis_current = true",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "arrow", "start": { "id": "a_v1" }, "end": { "id": "a_v2" }, "strokeColor": "#1e3a5f" },
+  { "type": "arrow", "start": { "id": "a_v2" }, "end": { "id": "a_v3" }, "strokeColor": "#1e3a5f" },
+
+  { "type": "text", "id": "a_chain_note", "x": 430, "y": 825,
+    "text": "each arrow is one row in supersession(child_id, parent_id)",
+    "fontSize": 14, "fontFamily": 3, "strokeColor": "#1e3a5f" }
+]

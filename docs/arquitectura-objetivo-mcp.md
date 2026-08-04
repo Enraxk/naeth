@@ -39,9 +39,9 @@ Cada cliente se protege **según cómo puede autenticarse**, pero todos contra *
 Separar por ROL hace las reglas simples (a nivel de host, sin malabares de path):
 - `id.enraxk.dev` → Pocket-ID (IdP).
 - `naeth.enraxk.dev` → Naeth `/mcp` (máquina: allowlist IP + OAuth).
-- `comfy.enraxk.dev` → comfy `/mcp` (máquina: allowlist IP + OAuth).
+- `comfy-mcp.example` → comfy `/mcp` (máquina: allowlist IP + OAuth).
 - `visor.enraxk.dev` → visor de Naeth (navegador: forward-auth SSO, cualquier IP).
-- `studio.enraxk.dev` → image-studio (navegador: forward-auth SSO, cualquier IP).
+- `image-studio.example` → image-studio (navegador: forward-auth SSO, cualquier IP).
 *(Alternativa: MCP y UI por path en el mismo host; funciona pero obliga a reglas por path. Preferido host-level.)*
 
 ## Decisión sobre el image-studio
@@ -92,7 +92,7 @@ ya validada. Detrás del forward-auth. Es un mini-build futuro (Fase 6).
 - No se rompe: probar el túnel nuevo como réplica antes de parar el viejo.
 
 **Fase 6 · (Opcional, cuando lo quieras) UIs remotas**
-- Caddy forward-auth para `visor.enraxk.dev`; construir y exponer `studio.enraxk.dev`. Sin allowlist de IP,
+- Caddy forward-auth para `visor.enraxk.dev`; construir y exponer `image-studio.example`. Sin allowlist de IP,
   con login SSO (passkey desde el móvil). El visor deja de ser solo-local si tú quieres.
 
 **Fase 7 · Escala a N**

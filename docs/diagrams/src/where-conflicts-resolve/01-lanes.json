@@ -1,0 +1,38 @@
+[
+  { "_doc": "Part 1: title, the two lane frames and the phase axis." },
+
+  { "type": "text", "id": "b_title", "x": 60, "y": 40,
+    "text": "Two places to resolve a contradiction",
+    "fontSize": 30, "fontFamily": 3, "strokeColor": "#1e40af" },
+
+  { "type": "text", "id": "b_sub", "x": 60, "y": 92,
+    "text": "Same problem, different moment of decision. Neither of them overwrites anything.",
+    "fontSize": 17, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "text", "id": "b_lane1_head", "x": 250, "y": 150,
+    "text": "Dense-Mem",
+    "fontSize": 20, "fontFamily": 3, "strokeColor": "#b45309" },
+
+  { "type": "text", "id": "b_lane1_note", "x": 420, "y": 156,
+    "text": "as I read your README, correct me",
+    "fontSize": 14, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "text", "id": "b_lane2_head", "x": 880, "y": 150,
+    "text": "Naeth",
+    "fontSize": 20, "fontFamily": 3, "strokeColor": "#1e40af" },
+
+  { "type": "rectangle", "id": "b_lane1", "x": 250, "y": 230, "width": 520, "height": 460,
+    "strokeColor": "#b45309", "backgroundColor": "transparent",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0 },
+
+  { "type": "rectangle", "id": "b_lane2", "x": 880, "y": 230, "width": 520, "height": 460,
+    "strokeColor": "#1e40af", "backgroundColor": "transparent",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0 },
+
+  { "type": "text", "id": "b_ph1", "x": 70, "y": 295,
+    "text": "1  WRITE", "fontSize": 18, "fontFamily": 3, "strokeColor": "#64748b" },
+  { "type": "text", "id": "b_ph2", "x": 70, "y": 445,
+    "text": "2  STORE", "fontSize": 18, "fontFamily": 3, "strokeColor": "#64748b" },
+  { "type": "text", "id": "b_ph3", "x": 70, "y": 595,
+    "text": "3  RECALL", "fontSize": 18, "fontFamily": 3, "strokeColor": "#64748b" }
+]

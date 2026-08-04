@@ -1,0 +1,21 @@
+[
+  { "_doc": "Part 2: Dense-Mem lane. The server decides, by comparing." },
+
+  { "type": "rectangle", "id": "b_dm_write", "x": 285, "y": 260, "width": 450, "height": 100,
+    "strokeColor": "#b45309", "backgroundColor": "#fef3c7", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "remember(...)\nraw evidence is staged before\nit is promoted to a typed fact",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "b_dm_store", "x": 285, "y": 410, "width": 450, "height": 100,
+    "strokeColor": "#b45309", "backgroundColor": "#fed7aa", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "the server compares claims\na comparable conflict becomes\na clarification task",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "b_dm_recall", "x": 285, "y": 560, "width": 450, "height": 100,
+    "strokeColor": "#b45309", "backgroundColor": "#fef3c7", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "recall_memory(...)\nsupport-gated: candidates and\nhypotheses stay out by default",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "arrow", "start": { "id": "b_dm_write" }, "end": { "id": "b_dm_store" }, "strokeColor": "#b45309" },
+  { "type": "arrow", "start": { "id": "b_dm_store" }, "end": { "id": "b_dm_recall" }, "strokeColor": "#b45309" }
+]

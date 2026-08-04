@@ -1,0 +1,19 @@
+[
+  { "_doc": "Part 1: title and the frame for table memory (background, goes first for z-index)." },
+
+  { "type": "text", "id": "a_title", "x": 60, "y": 40,
+    "text": "In Naeth, a memory is a chain, not a row",
+    "fontSize": 30, "fontFamily": 3, "strokeColor": "#1e40af" },
+
+  { "type": "text", "id": "a_sub", "x": 60, "y": 92,
+    "text": "Nothing is overwritten and nothing is deleted. Replacing a fact inserts a new row and keeps the old one.",
+    "fontSize": 17, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "text", "id": "a_frame_label", "x": 700, "y": 570,
+    "text": "table memory: append-only, every version stays",
+    "fontSize": 15, "fontFamily": 3, "strokeColor": "#1e40af" },
+
+  { "type": "rectangle", "id": "a_frame", "x": 130, "y": 600, "width": 1360, "height": 280,
+    "strokeColor": "#64748b", "backgroundColor": "transparent",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0 }
+]

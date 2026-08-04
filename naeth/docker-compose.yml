@@ -2,9 +2,9 @@
 # MCP/OAuth NO estan aqui todavia (Fases 2-3). Todo escucha solo en loopback.
 #
 # Almacenamiento (decidido 2026-06-24):
-#   - pgdata  -> volumen Docker nombrado (gestionado/ext4 sobre la disk image en F:),
+#   - pgdata  -> volumen Docker nombrado (gestionado/ext4 sobre la disk image de Docker),
 #               NO bind-mount NTFS (Postgres rinde mal sobre el FS montado de Windows).
-#   - assets  -> bind-mount a E:\naeth\assets (NTFS vale para servir blobs).
+#   - assets  -> bind-mount a la ruta de ASSETS_PATH (NTFS vale para servir blobs).
 
 services:
   # Postgres PROPIO de Naeth. Desde el cutover a CENIT (Fase 4, jul-2026) los datos viven en el
@@ -78,7 +78,7 @@ services:
       AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}
     volumes:
       - ./app:/srv/app                            # banco Fase 1: iterar sin rebuild
-      - ${ASSETS_PATH:-E:/naeth/assets}:/assets   # bind-mount a E: (NTFS vale para blobs)
+      - ${ASSETS_PATH:-./assets}:/assets          # bind-mount, ver ASSETS_PATH en .env
       - fastembed_cache:/root/.cache/fastembed   # comparte el modelo con el worker (no re-descargar)
       # Store del OAuthProxy de FastMCP (CENIT 8.5). Aqui viven los clientes registrados, los
       # authorization codes y los JTI MAPPINGS: la tabla que traduce el refresh token que tiene
@@ -109,7 +109,7 @@ services:
       EMBED_DIM: ${EMBED_DIM:-1024}
     volumes:
       - ./app:/srv/app                            # banco Fase 1: iterar sin rebuild
-      - ${ASSETS_PATH:-E:/naeth/assets}:/assets
+      - ${ASSETS_PATH:-./assets}:/assets
       - fastembed_cache:/root/.cache/fastembed   # no re-descargar el modelo en cada arranque
     networks: [default, cenit-net]
     restart: unless-stopped
@@ -132,7 +132,7 @@ services:
       AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}   # Paso 10 (ver nota en api)
     volumes:
       - ./app:/srv/app
-      - ${ASSETS_PATH:-E:/naeth/assets}:/assets
+      - ${ASSETS_PATH:-./assets}:/assets
       - fastembed_cache:/root/.cache/fastembed
     ports:
       - "127.0.0.1:8801:8000"   # visor + /api + /mcp(sin auth) en loopback

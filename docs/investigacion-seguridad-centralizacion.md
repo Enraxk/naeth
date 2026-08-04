@@ -12,7 +12,7 @@
   servicio Windows.
 - **comfy-mcp** (imágenes): FastMCP + AS OAuth 2.1 PROPIO (misma estructura, tokens en JSON,
   login de 1 usuario) envolviendo ComfyUI local. uv. Túnel Cloudflare dedicado propio
-  `comfy.enraxk.dev → 127.0.0.1:9100`, cloudflared como tarea programada.
+  `comfy-mcp.example → 127.0.0.1:9100`, cloudflared como tarea programada.
 - Ambos conectados a claude.ai (connector remoto OAuth 2.1 + PKCE + DCR con login propio) y a
   Claude Code (MCP HTTP). Cada uno reimplementa su PROPIO OAuth y login → dos de todo.
 
@@ -59,7 +59,7 @@ MI CONTEXTO REAL (punto de partida, no lo cuestiones)
   * COMFY-MCP (generación de imágenes): FastMCP + Authorization Server OAuth 2.1 PROPIO
     (misma estructura que Naeth pero tokens/clientes en un JSON, login de 1 usuario) que envuelve
     un ComfyUI local. Corre con uv. Expuesto por túnel Cloudflare dedicado propio
-    (comfy.enraxk.dev → 127.0.0.1:9100), cloudflared como tarea programada.
+    (comfy-mcp.example → 127.0.0.1:9100), cloudflared como tarea programada.
 - Ambos se conectan a claude.ai (custom connector remoto, flujo OAuth 2.1 + PKCE + DCR con MI
   pantalla de login) y a Claude Code (MCP HTTP).
 - CADA sistema reimplementa su PROPIO OAuth y su PROPIO login. Dos logins, dos contraseñas, dos

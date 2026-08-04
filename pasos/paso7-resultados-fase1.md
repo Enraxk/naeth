@@ -64,8 +64,8 @@ recall en español), que es donde el plan los sitúa de todos modos.
 - **Sin MCP/OAuth/túnel todavía**: la Fase 1 solo es la pila base + visor local. Las
   herramientas MCP (Fase 2), OAuth 2.1 (Fase 3) y el túnel `enraxk` + claude.ai (Fase 4)
   vienen después.
-- **`pgdata` aún en C:**: arrancó en el volumen Docker por defecto. Mover la *disk image*
-  de Docker Desktop a **F:** (Settings → Resources) queda pendiente; con datos mínimos es
+- **`pgdata` aún en el disco de sistema**: arrancó en el volumen Docker por defecto. Mover la *disk image*
+  de Docker Desktop al **SSD SATA** (Settings → Resources) queda pendiente; con datos mínimos es
   trivial hacerlo más tarde.
 - **No es calidad de recall en español**: recall@k aquí mide HNSW vs exacto (¿el índice
   recupera lo que recuperaría la fuerza bruta?), **no** si el modelo entiende bien el

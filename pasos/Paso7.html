@@ -183,7 +183,7 @@ worker <span class="c">embeddings en CPU · consume la cola job</span>
 
 cloudflared: naeth-local.enraxk.dev ──▶ 127.0.0.1:PUERTO_MCP   <span class="c">(solo el MCP)</span></pre>
       <ul class="list">
-        <li><strong>Discos</strong> (2026-06-24): <strong>pgdata → F:</strong> (SSD SATA; se mueve la <em>disk image</em> de Docker Desktop a F:, sigue siendo volumen gestionado/ext4, no bind-mount). <strong>Binarios → E:</strong> (HDD 1.8 TB; <code>E:\naeth\assets</code> como bind-mount — NTFS vale para servir blobs). C: (sistema) se deja libre.</li>
+        <li><strong>Discos</strong> (2026-06-24): <strong>pgdata → SSD SATA</strong> (se mueve la <em>disk image</em> de Docker Desktop a ese disco, sigue siendo volumen gestionado/ext4, no bind-mount). <strong>Binarios → HDD</strong> (la ruta de <code>ASSETS_PATH</code> como bind-mount — NTFS vale para servir blobs). El disco de sistema se deja libre.</li>
         <li><strong>pgdata</strong> en volumen Docker (backend WSL2), nunca bind-mount a ruta NTFS: Postgres rinde mal sobre el FS montado de Windows.</li>
         <li><strong>Solo el endpoint MCP</strong> va por el túnel; visor e inspección de DB se quedan en <code>localhost</code>.</li>
         <li>En local <strong>no aplica</strong> el endurecimiento de <code>finally</code> (UFW, fail2ban, LUKS); la única superficie pública es el MCP, protegido por el OAuth de Naeth.</li>

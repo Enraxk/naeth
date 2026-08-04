@@ -1,0 +1,23 @@
+[
+  { "_doc": "Part 4: the honest trade-off on both sides, and the punchline." },
+
+  { "type": "text", "id": "b_to1_title", "x": 288, "y": 715,
+    "text": "what it buys and what it costs", "fontSize": 13, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "rectangle", "id": "b_to1", "x": 285, "y": 740, "width": 450, "height": 110,
+    "strokeColor": "#b45309", "backgroundColor": "transparent", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "Catches contradictions nobody noticed.\n\nPays for it with false positives and\na queue someone has to work through.",
+               "fontSize": 13, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "text", "id": "b_to2_title", "x": 918, "y": 715,
+    "text": "what it buys and what it costs", "fontSize": 13, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "rectangle", "id": "b_to2", "x": 915, "y": 740, "width": 450, "height": 110,
+    "strokeColor": "#1e40af", "backgroundColor": "transparent", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "No queue, no false positives, no noise.\n\nPays for it when nobody marks the\ncontradiction: then nobody sees it.",
+               "fontSize": 13, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "text", "id": "b_punch", "x": 400, "y": 910,
+    "text": "The difference is not overwrite versus preserve.\nIt is server inference versus author intent.",
+    "fontSize": 22, "fontFamily": 3, "strokeColor": "#1e40af" }
+]

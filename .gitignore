@@ -11,6 +11,8 @@
 !package-lock.json
 !tsconfig*.json
 !.vscode/extensions.json
+# Diagram sources: plain shapes and coordinates, no secrets.
+!docs/diagrams/src/**/*.json
 
 # Config de Claude Code: el hook y el settings que lo activa SI se versionan
 # (son del repo, y sin el settings el .ps1 no se dispara). Los permisos locales NO.

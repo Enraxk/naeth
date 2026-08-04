@@ -161,13 +161,13 @@ Evidencia general: [support.claude.com — custom connectors](https://support.cl
   `127.0.0.1:PUERTO`.
 - `worker` — generador de embeddings (CPU) que consume la cola `job`.
 
-**Discos de este equipo** (decidido 2026-06-24): C: SSD NVMe (sistema), E: HDD 1.8 TB,
-F: SSD SATA (573 GB libres).
+**Discos de este equipo** (decidido 2026-06-24): un SSD NVMe de sistema, un HDD grande de
+datos y un SSD SATA secundario.
 
-- **`pgdata` → F:** (SSD). Se mueve la *disk image* de Docker Desktop a F: (Settings →
+- **`pgdata` → SSD SATA**. Se mueve la *disk image* de Docker Desktop a ese disco (Settings →
   Resources → Disk image location); el volumen sigue siendo gestionado/ext4, **no**
-  bind-mount NTFS. No se carga el disco del sistema (C:).
-- **Binarios de adjuntos → E:** (HDD, ~1.38 TB libres): `E:\naeth\assets`, montado como
+  bind-mount NTFS. No se carga el disco del sistema.
+- **Binarios de adjuntos → HDD**: la ruta de `ASSETS_PATH`, montado como
   bind-mount en `api`/`worker`. NTFS vale para servir blobs (la penalización afecta a DBs
   con muchos `fsync`, no a archivos). Es el `storage_path` del [Paso 6](paso6-esquema.md).
 

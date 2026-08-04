@@ -1,0 +1,56 @@
+[
+  { "_doc": "Part 1: title and what is actually stored, two chains and one old edge." },
+
+  { "type": "text", "id": "c_title", "x": 60, "y": 40,
+    "text": "What happens to an edge when its node is replaced",
+    "fontSize": 30, "fontFamily": 3, "strokeColor": "#1e40af" },
+
+  { "type": "text", "id": "c_sub", "x": 60, "y": 92,
+    "text": "The relation is never rewritten. Its endpoints are resolved at read time.",
+    "fontSize": 17, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "text", "id": "c_band1", "x": 140, "y": 175,
+    "text": "WHAT IS STORED", "fontSize": 16, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "rectangle", "id": "c_frame", "x": 140, "y": 205, "width": 1000, "height": 290,
+    "strokeColor": "#64748b", "backgroundColor": "transparent",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0 },
+
+  { "type": "rectangle", "id": "c_a1", "x": 180, "y": 250, "width": 260, "height": 80,
+    "strokeColor": "#1e40af", "backgroundColor": "#dbeafe",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "A.v1   deploy policy\nis_current = false", "fontSize": 13, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "c_a2", "x": 500, "y": 250, "width": 260, "height": 80,
+    "strokeColor": "#1e40af", "backgroundColor": "#dbeafe",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "A.v2   deploy policy\nis_current = false", "fontSize": 13, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "c_a3", "x": 820, "y": 250, "width": 260, "height": 80,
+    "strokeColor": "#047857", "backgroundColor": "#a7f3d0", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "A.v3   deploy policy\nis_current = true", "fontSize": 13, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "c_b1", "x": 180, "y": 400, "width": 260, "height": 80,
+    "strokeColor": "#1e40af", "backgroundColor": "#dbeafe",
+    "strokeStyle": "dashed", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "B.w1   release checklist\nis_current = false", "fontSize": 13, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "c_b2", "x": 500, "y": 400, "width": 260, "height": 80,
+    "strokeColor": "#047857", "backgroundColor": "#a7f3d0", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "B.w2   release checklist\nis_current = true", "fontSize": 13, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "arrow", "start": { "id": "c_a1" }, "end": { "id": "c_a2" }, "strokeColor": "#1e3a5f" },
+  { "type": "arrow", "start": { "id": "c_a2" }, "end": { "id": "c_a3" }, "strokeColor": "#1e3a5f" },
+  { "type": "arrow", "start": { "id": "c_b1" }, "end": { "id": "c_b2" }, "strokeColor": "#1e3a5f" },
+  { "type": "arrow", "start": { "id": "c_a1" }, "end": { "id": "c_b1" }, "strokeColor": "#b45309",
+    "label": { "text": "depends_on" } },
+
+  { "type": "text", "id": "c_stored_note", "x": 820, "y": 400,
+    "text": "The edge was written in May\nagainst v1 and w1, and it still\npoints there. Nothing rewrites it.",
+    "fontSize": 13, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "rectangle", "id": "c_question", "x": 1190, "y": 290, "width": 340, "height": 140,
+    "strokeColor": "#dc2626", "backgroundColor": "#fee2e2", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "relation_list(A.v3)\n\nthe naive answer is none:\nno edge points at v3",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } }
+]

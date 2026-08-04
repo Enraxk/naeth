@@ -138,7 +138,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:var
       <ul class="list">
         <li><strong>Persistencia de procesos</strong>: túnel y pila corren en segundo plano de la sesión. Para sobrevivir a un reinicio del equipo hay que instalarlos como servicios (<code>cloudflared service install</code>; Docker autostart). Es el endurecimiento mínimo de la <strong>Fase 5</strong>, pendiente.</li>
         <li><strong>Login sencillo</strong>: 1 usuario, contraseña en <code>.env</code>, sin CSRF/rate-limit. Suficiente personal; se endurece en <code>finally</code>.</li>
-        <li><strong><code>pgdata</code> aún en C:</strong>: mover la disk image a F: sigue pendiente (operativo).</li>
+        <li><strong><code>pgdata</code> aún en el disco de sistema</strong>: mover la disk image al SSD SATA sigue pendiente (operativo).</li>
         <li><strong>Un solo nodo</strong>: el multi-master con <code>finally</code> es el Paso 8; su despliegue, el Paso 9.</li>
       </ul>
       <div class="callout callout--win" style="margin-top:24px"><span class="callout__tag">veredicto · paso 7</span><div class="callout__body"><p><strong>claude.ai habla con la memoria de Naeth alojada en este equipo</strong>, por un túnel propio, autenticado con el OAuth 2.1 + PKCE + DCR + login nativo de Naeth. La pila (Fase 1), el MCP (Fase 2), el OAuth (3a+3b) y claude.ai (Fase 4) funcionan de punta a punta sobre el núcleo del Paso 6. <strong>Naeth v1 corre como primera instancia real.</strong> Sigue: endurecimiento (Fase 5), luego Paso 8 (sync) y Paso 9 (finally).</p></div></div>

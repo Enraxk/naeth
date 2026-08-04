@@ -1,0 +1,21 @@
+[
+  { "_doc": "Part 4: evidence artifacts, the real view SQL and the three ADD-only writes." },
+
+  { "type": "text", "id": "a_ev1_title", "x": 135, "y": 915,
+    "text": "db/schema.sql", "fontSize": 13, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "rectangle", "id": "a_ev1", "x": 130, "y": 940, "width": 660, "height": 195,
+    "strokeColor": "#1e293b", "backgroundColor": "#1e293b", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "CREATE VIEW memory_current AS\nSELECT m.* FROM memory m\nWHERE NOT EXISTS (SELECT 1 FROM tombstone t\n                  WHERE t.target_id = m.id\n                    AND t.target_kind = 'memory')\n  AND NOT EXISTS (SELECT 1 FROM supersession s\n                  WHERE s.parent_id = m.id);",
+               "fontSize": 13, "fontFamily": 3, "strokeColor": "#22c55e",
+               "textAlign": "left", "verticalAlign": "middle" } },
+
+  { "type": "text", "id": "a_ev2_title", "x": 835, "y": 915,
+    "text": "app/core.py", "fontSize": 13, "fontFamily": 3, "strokeColor": "#64748b" },
+
+  { "type": "rectangle", "id": "a_ev2", "x": 830, "y": 940, "width": 660, "height": 195,
+    "strokeColor": "#1e293b", "backgroundColor": "#1e293b", "strokeWidth": 1, "roughness": 0,
+    "label": { "text": "add()        INSERT row  +  queue embed job\nsupersede()  INSERT new row  +  INSERT supersession\ntombstone()  INSERT tombstone row\n\nNo UPDATE. No DELETE.\n(only exceptions: the async embedding fill\n and the is_current cache column)",
+               "fontSize": 13, "fontFamily": 3, "strokeColor": "#22c55e",
+               "textAlign": "left", "verticalAlign": "middle" } }
+]

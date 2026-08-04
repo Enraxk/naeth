@@ -3,7 +3,12 @@
 param([switch]$Build, [switch]$Down)
 $ErrorActionPreference = 'Stop'
 $here  = Split-Path -Parent $MyInvocation.MyCommand.Path
-$cenit = "E:\Documentos\Eneko\Proyectos\CENIT"
+# La ruta al repo del nucleo es local a cada maquina, asi que vive en el entorno, no aqui:
+#   [Environment]::SetEnvironmentVariable("CENIT_PATH", "<ruta al repo CENIT>", "User")
+$cenit = $env:CENIT_PATH
+if (-not $cenit -or -not (Test-Path (Join-Path $cenit "secrets\load-age-key.ps1"))) {
+    throw "No encuentro el repo de CENIT (CENIT_PATH = '$cenit'). Definelo con: [Environment]::SetEnvironmentVariable('CENIT_PATH', '<ruta>', 'User') y abre una consola nueva."
+}
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 Set-Location $here
 . "$cenit\secrets\load-age-key.ps1"

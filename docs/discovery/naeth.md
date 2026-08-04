@@ -133,12 +133,13 @@ Raíz mínima: `CLAUDE.md`, `docs/`, `pasos/`, `spike/`. **Todos los pasos (0-9)
   cloudflared; antes era "Windows sin Docker". El spike viejo usaba Python 3.11 + uv
   (uv instala 3.12 que Basic Memory exigía); ya no es el camino tras descartar Basic
   Memory como sustrato.
-- **Discos del equipo local** (decidido 2026-06-24): `C:` SSD NVMe (sistema, 448 GB
-  libres), `E:` HDD 1.8 TB (~1.38 TB libres), `F:` SSD SATA (573 GB libres).
-  Almacenamiento de Naeth: **`pgdata` en `F:`** (se mueve la *disk image* de Docker
-  Desktop a F: en Settings → Resources; el volumen sigue siendo gestionado/ext4, no
-  bind-mount NTFS) y **binarios de adjuntos en `E:`** (`E:\naeth\assets`, bind-mount;
-  NTFS vale para servir blobs). `C:` (sistema) se deja libre.
+- **Discos del equipo local** (decidido 2026-06-24): un SSD NVMe de sistema, un HDD
+  grande de datos y un SSD SATA secundario.
+  Almacenamiento de Naeth: **`pgdata` en el SSD SATA** (se mueve la *disk image* de
+  Docker Desktop a ese disco en Settings → Resources; el volumen sigue siendo
+  gestionado/ext4, no bind-mount NTFS) y **binarios de adjuntos en el HDD** (la ruta de
+  `ASSETS_PATH`, bind-mount; NTFS vale para servir blobs). El disco de sistema se deja
+  libre.
 - **Apagones ocasionales** (no constantes), entre dos nodos fijos sobre los que solo se
   actúa desde casa → consistencia eventual, sin tiempo real (motivo del sync, Paso 8).
 - **Deploy real**: home server LAN llamado `finally` (Ubuntu) — GTX 1660 4 GB, Ryzen

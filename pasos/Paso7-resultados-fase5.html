@@ -104,8 +104,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:var
     <section id="servicio" class="section">
       <div class="section__head"><div class="section__tag"><span class="hash">§01</span><span>servicio cloudflared</span></div><h2>Con config local, no dashboard <a class="anchor-link" href="#servicio">#</a></h2>
       <p class="section__lede"><code>service install</code> deja el servicio <strong>sin argumentos</strong> (binPath = solo el <code>.exe</code>): arranca pero no enruta. La reparación: fijar el <code>ImagePath</code> para que ejecute el túnel con el config local.</p></div>
-      <div class="callout callout--info"><span class="callout__tag">imagepath</span><div class="callout__body"><p><code>"…\cloudflared.exe" tunnel --config "C:\Users\eneki\.cloudflared\config.yml" run naeth-local</code></p><p>Autónomo y con el <strong>ingress versionado en el repo</strong> (config local, no en el dashboard de Cloudflare). LocalSystem lee el config y las credenciales por ruta absoluta.</p></div></div>
-      <div class="callout callout--warn"><span class="callout__tag">dos copias</span><div class="callout__body"><p>El <code>config.yml</code> vive en el repo (<code>naeth/cloudflared/</code>) y en <code>C:\Users\eneki\.cloudflared\</code> (la que usa el servicio). Si cambia el ingress, actualizar ambas y <code>Restart-Service Cloudflared</code>.</p></div></div>
+      <div class="callout callout--info"><span class="callout__tag">imagepath</span><div class="callout__body"><p><code>"…\cloudflared.exe" tunnel --config "C:\Users\<usuario>\.cloudflared\config.yml" run naeth-local</code></p><p>Autónomo y con el <strong>ingress versionado en el repo</strong> (config local, no en el dashboard de Cloudflare). LocalSystem lee el config y las credenciales por ruta absoluta.</p></div></div>
+      <div class="callout callout--warn"><span class="callout__tag">dos copias</span><div class="callout__body"><p>El <code>config.yml</code> vive en el repo (<code>naeth/cloudflared/</code>) y en <code>C:\Users\<usuario>\.cloudflared\</code> (la que usa el servicio). Si cambia el ingress, actualizar ambas y <code>Restart-Service Cloudflared</code>.</p></div></div>
     </section>
 
     <section id="verif" class="section">
@@ -123,7 +123,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:var
       <ul class="list">
         <li><strong>Desfase boot vs login</strong>: cloudflared arranca en el boot; Docker y la pila, al iniciar sesión. En esa ventana el túnel da 502 hasta que la pila levanta. Aceptable para sobremesa personal.</li>
         <li><strong>Verificación de reinicio pendiente</strong>: la config está puesta, pero confirmarlo al 100% requiere reiniciar el equipo. No se reinició aquí.</li>
-        <li><strong><code>pgdata</code> aún en C:</strong>: mover la disk image a F: sigue pendiente (operativo, disruptivo).</li>
+        <li><strong><code>pgdata</code> aún en el disco de sistema</strong>: mover la disk image al SSD SATA sigue pendiente (operativo, disruptivo).</li>
         <li><strong><code>ImagePath</code> ligado al path del paquete winget</strong>: estable por package id; sobrevive actualizaciones.</li>
       </ul>
       <div class="callout callout--win" style="margin-top:24px"><span class="callout__tag">veredicto · paso 7</span><div class="callout__body"><p>Naeth <strong>arranca solo tras un reinicio</strong>: cloudflared como servicio y la pila con autostart + <code>unless-stopped</code>. claude.ai mantiene la conexión sin sesión abierta. El <strong>Paso 7 queda cerrado también en lo operativo</strong>: Naeth v1 corre como primera instancia real y autónoma. Sigue: Paso 8 (sync multi-master) y Paso 9 (finally como segundo nodo).</p></div></div>

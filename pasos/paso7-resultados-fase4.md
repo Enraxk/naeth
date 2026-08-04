@@ -64,7 +64,7 @@ el login lo resolvió. Aprendizaje operativo: tras tocar `.env`, recrear el serv
 - **Login sencillo**: 1 usuario, contraseña en `.env`, sin CSRF/rate-limit (ver
   [Fase 3b](paso7-resultados-fase3b.md)). Suficiente para uso personal; se endurece en
   `finally` ([Paso 9](paso9-despliegue-vps.md)) si hace falta.
-- **`pgdata` aún en C:**: mover la *disk image* de Docker a F: sigue pendiente (operativo,
+- **`pgdata` aún en el disco de sistema**: mover la *disk image* de Docker al SSD SATA sigue pendiente (operativo,
   trivial con datos pequeños).
 - **Un solo nodo todavía**: esto es el nodo local. El multi-master (sync con `finally`) es
   el [Paso 8](paso8-sync.md); el despliegue en `finally`, el [Paso 9](paso9-despliegue-vps.md).

@@ -1,0 +1,21 @@
+[
+  { "_doc": "Part 3: Naeth lane. The author decides, by writing." },
+
+  { "type": "rectangle", "id": "b_n_write", "x": 915, "y": 260, "width": 450, "height": 100,
+    "strokeColor": "#1e40af", "backgroundColor": "#dbeafe", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "memory_supersede(parent_id, ...)\nthe author names what this\nversion replaces",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "b_n_store", "x": 915, "y": 410, "width": 450, "height": 100,
+    "strokeColor": "#1e40af", "backgroundColor": "#bfdbfe", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "INSERT row + INSERT supersession\nthe server compares nothing\nand infers nothing",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "rectangle", "id": "b_n_recall", "x": 915, "y": 560, "width": 450, "height": 100,
+    "strokeColor": "#047857", "backgroundColor": "#a7f3d0", "strokeWidth": 2, "roughness": 0,
+    "label": { "text": "memory_search  ->  the tip only\nmemory_get     ->  the whole chain",
+               "fontSize": 14, "fontFamily": 3, "strokeColor": "#374151" } },
+
+  { "type": "arrow", "start": { "id": "b_n_write" }, "end": { "id": "b_n_store" }, "strokeColor": "#1e40af" },
+  { "type": "arrow", "start": { "id": "b_n_store" }, "end": { "id": "b_n_recall" }, "strokeColor": "#1e40af" }
+]
