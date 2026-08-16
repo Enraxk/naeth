@@ -96,6 +96,29 @@ services:
     ports:
       - "127.0.0.1:${API_PORT:-8800}:8000"   # visor + API, solo loopback
     networks: [default, cenit-net]           # cenit-net: alcanzar modules-db del nucleo
+    # Salud REAL del proceso: que la app CONTESTE, no que el PID exista. Anadido el 2026-08-16,
+    # tras el incidente del 15/08 en `finally`: la app murio al importar y el proceso reloader
+    # siguio vivo como PID 1, asi que `docker ps` dijo `running` con 0 reinicios durante 25 h.
+    #
+    # ⚠ LO QUE ESTO **NO** HACE, y conviene tenerlo claro: NO reinicia nada. Las restart policies
+    # de Docker reaccionan a que el contenedor TERMINE, no a que pase a `unhealthy` (el reinicio
+    # por salud es de Swarm y de Kubernetes, no de Compose). Es una creencia muy extendida y es
+    # falsa. Esto sirve para que `docker ps` diga la verdad y para dar una senal barata a
+    # healthcheck.sh y al vigia. Quien evita la caida es arrancar sin `--reload` en el nodo de
+    # respaldo (ver docker-compose.finally.yml), no este bloque.
+    #
+    # urllib en vez de curl porque la imagen es python:3.12-slim y no trae curl; y de la stdlib
+    # en vez de httpx para no depender de una transitiva de fastmcp.
+    # `start_period` holgado a proposito: el arranque carga el modelo de embeddings y ademas
+    # puede pasarse minutos reintentando el discovery del IdP (ver _retry_discovery). Durante
+    # ese rato los fallos no cuentan como caida.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
     restart: unless-stopped
 
   worker:
@@ -112,6 +135,21 @@ services:
       - ${ASSETS_PATH:-./assets}:/assets
       - fastembed_cache:/root/.cache/fastembed   # no re-descargar el modelo en cada arranque
     networks: [default, cenit-net]
+    # El worker NO sirve HTTP, asi que aqui se mide lo unico que se puede medir barato y de
+    # verdad: que este contenedor alcanza su Postgres. Cubre el fallo real y frecuente (base
+    # caida, credenciales, red del compose).
+    #
+    # ⚠ Dicho con todas las letras: NO detecta un worker COLGADO. Un proceso vivo que no procesa
+    # ni un job da VERDE aqui. Para eso haria falta un latido del propio worker, que hoy no
+    # existe. Se dice porque un healthcheck que aparenta medir mas de lo que mide es peor que no
+    # tener ninguno: ensena a confiar en un verde que no significa lo que parece.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import os,psycopg; psycopg.connect(os.environ['NAETH_DSN'], connect_timeout=5).close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
   # Visor + /api del modulo memory en su PROPIO puerto (mini-proyecto de seguridad, jul-2026).
@@ -137,6 +175,16 @@ services:
     ports:
       - "127.0.0.1:8801:8000"   # visor + /api + /mcp(sin auth) en loopback
     networks: [default, cenit-net]
+    # Igual que el de `api` (ver la nota larga alli). `start_period` mas corto porque este
+    # proceso arranca con OAUTH_ENABLED=0: no hace discovery del IdP, asi que no tiene el
+    # tramo de reintentos que justifica los 120 s del otro.
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
   # Tests (Paso 6/7, core del grafo). No arranca en `up` normal: profile "test".

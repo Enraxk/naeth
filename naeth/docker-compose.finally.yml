@@ -1,18 +1,30 @@
 # Override del nodo VPS `finally`. Se compone sobre docker-compose.yml:
 #   docker compose -f docker-compose.yml -f docker-compose.finally.yml up -d api worker viewer
 #
-# Existe SOLO para el `viewer`, y por dos diferencias que no son cosméticas:
+# NINGÚN proceso de este nodo lleva `--reload`, y esa es toda la razón de ser del fichero.
 #
 # 1. SIN `--reload`. En el PC el reload es cómodo para desarrollar, pero es también lo que
 #    tumbó el módulo el 2026-07-28: un fichero nuevo en `app/` disparó el hot-reload y uvicorn
 #    se quedó en "Waiting for connections to close" esperando a una conexión MCP abierta. En el
 #    nodo de RESPALDO eso es peor: allí no hay nadie mirando, y el visor solo recibe tráfico
 #    justo cuando el PC no está para arreglarlo.
-# 2. SIN `ports`. En el PC el 8801 en loopback es el /mcp de Claude Code; aquí no hay Claude
-#    Code, y el único que debe alcanzar el visor es Caddy, por nombre de contenedor dentro de
-#    `cenit-net`. Publicar el puerto sería superficie regalada: recuerda que este proceso corre
-#    con OAUTH_ENABLED=0 y sirve el CRUD entero.
+#
+#    ⚠ ESTO CUBRÍA SOLO AL `viewer` HASTA EL 2026-08-16, y salió caro. El `api` se quedó con
+#    `--reload`, y el 15/08 la app murió al importar (530 del IdP durante el arranque en frío)
+#    mientras el proceso RELOADER seguía vivo como PID 1. Docker vio `running` con 0 reinicios,
+#    `restart: unless-stopped` no se disparó nunca porque el contenedor jamás terminó, y el
+#    módulo estuvo 25 h caído sin que nada lo levantase. Sin `--reload` el proceso muere de
+#    verdad, Docker lo reinicia, y cada reintento es una oportunidad nueva de arrancar bien.
+#    El razonamiento era correcto desde julio; lo que falló fue aplicarlo a medias.
+#
+# 2. SIN `ports` en el viewer. En el PC el 8801 en loopback es el /mcp de Claude Code; aquí no
+#    hay Claude Code, y el único que debe alcanzar el visor es Caddy, por nombre de contenedor
+#    dentro de `cenit-net`. Publicar el puerto sería superficie regalada: recuerda que este
+#    proceso corre con OAUTH_ENABLED=0 y sirve el CRUD entero.
 services:
+  api:
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+
   viewer:
     command: uvicorn app.api:app --host 0.0.0.0 --port 8000
     ports: !reset []
