@@ -57,10 +57,10 @@
 
   <section class="est-sec">
     <div class="est-grid">
-      <div class="est-tile"><span class="v">{c?.memory_current ?? '–'}</span><span class="k">Vigentes</span></div>
-      <div class="est-tile"><span class="v">{tot || '–'}</span><span class="k">Versiones</span></div>
-      <div class="est-tile"><span class="v">{c?.relations ?? '–'}</span><span class="k">Relaciones</span></div>
-      <div class="est-tile"><span class="v">{projs || '–'}</span><span class="k">Proyectos</span></div>
+      <div class="est-tile"><span class="v">{c?.memory_current ?? '-'}</span><span class="k">Vigentes</span></div>
+      <div class="est-tile"><span class="v">{tot || '-'}</span><span class="k">Versiones</span></div>
+      <div class="est-tile"><span class="v">{c?.relations ?? '-'}</span><span class="k">Relaciones</span></div>
+      <div class="est-tile"><span class="v">{projs || '-'}</span><span class="k">Proyectos</span></div>
     </div>
   </section>
 
@@ -112,15 +112,15 @@
     <div class="est-emb">
       <div class="est-bar"><i style="width:{pct}%"></i></div>
       <div class="est-emb-meta">
-        <span class="v" class:ok={pct === 100}>Embeddings {tot ? pct + ' %' : '–'}</span>
+        <span class="v" class:ok={pct === 100}>Embeddings {tot ? pct + ' %' : '-'}</span>
         <span class="k">{emb}/{tot} embebidas · {pend} sin embeber</span>
       </div>
     </div>
     <div class="est-grid" style="margin-top:12px">
-      <div class="est-tile"><span class="v" class:warn={(q?.pending ?? 0) > 0}>{q?.pending ?? '–'}</span><span class="k">Cola pendiente</span></div>
-      <div class="est-tile"><span class="v">{q?.processing ?? '–'}</span><span class="k">Procesando</span></div>
-      <div class="est-tile"><span class="v ok">{q?.done ?? '–'}</span><span class="k">Completadas</span></div>
-      <div class="est-tile"><span class="v" class:warn={(q?.error ?? 0) > 0}>{q?.error ?? '–'}</span><span class="k">Errores</span></div>
+      <div class="est-tile"><span class="v" class:warn={(q?.pending ?? 0) > 0}>{q?.pending ?? '-'}</span><span class="k">Cola pendiente</span></div>
+      <div class="est-tile"><span class="v">{q?.processing ?? '-'}</span><span class="k">Procesando</span></div>
+      <div class="est-tile"><span class="v ok">{q?.done ?? '-'}</span><span class="k">Completadas</span></div>
+      <div class="est-tile"><span class="v" class:warn={(q?.error ?? 0) > 0}>{q?.error ?? '-'}</span><span class="k">Errores</span></div>
       <div class="est-tile"><span class="v">{fmtLag(q?.avg_lag_s)}</span><span class="k">Desfase medio</span></div>
     </div>
   </section>
@@ -159,7 +159,9 @@
   .barwrap { flex: 1 1 auto; width: 100%; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--border); }
   .bar { width: 100%; max-width: 30px; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; opacity: .85; }
   .day:hover .bar { opacity: 1; }
-  .day.empty .bar { background: var(--border); }
+  /* Un dia con cero memorias tiene que VERSE que existe. Con --border daba 1.18:1 en oscuro,
+     o sea que el hueco del grafico era indistinguible del fondo. */
+  .day.empty .bar { background: var(--dim); }
   .day .x { font: 10px var(--font-mono); color: var(--dim); line-height: 1; }
 
   .est-emb { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }

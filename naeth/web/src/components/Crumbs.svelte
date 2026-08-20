@@ -37,7 +37,8 @@
         {#if c.icon}<Icon name={c.icon} size={13} />{/if}<span>{c.label}</span>
       </span>
     {/if}
-    {#if i < crumbs.length - 1}<span class="sep"><Icon name="chevron-right" size={13} color="var(--border)" /></span>{/if}
+    <!-- el color va en la prop, no heredado: cambiar solo `.sep` no le afectaba -->
+    {#if i < crumbs.length - 1}<span class="sep"><Icon name="chevron-right" size={13} color="var(--dim)" /></span>{/if}
   {/each}
 </nav>
 
@@ -47,5 +48,5 @@
   .crumb > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   button.crumb:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
   .crumb.cur { color: var(--ink); flex: 1 1 auto; }
-  .sep { display: inline-flex; align-items: center; color: var(--border); }
+  .sep { display: inline-flex; align-items: center; color: var(--dim); }  /* --border: 1.2:1 */
 </style>

@@ -30,7 +30,7 @@
   .sb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
   .sb :global(b) { color: var(--ink); font-weight: 600; }
   .sb :global(.warn) { color: var(--warn); }
-  .sep { color: var(--border); }
+  .sep { color: var(--dim); }   /* con --border era invisible (1.2:1) */
   .health { display: flex; align-items: center; gap: 6px; color: var(--ok); flex: 0 0 auto; }
   .health.bad { color: var(--warn); }
 </style>

@@ -16,7 +16,7 @@
 
   const projects = $derived(buildTree(data.tree ?? [], prefs.sort))
 
-  const SORT_LABEL = { az: 'A–Z', 'date-desc': 'Nuevas', 'date-asc': 'Antiguas' } as const
+  const SORT_LABEL = { az: 'A-Z', 'date-desc': 'Nuevas', 'date-asc': 'Antiguas' } as const
   const SORT_NEXT = { az: 'date-desc', 'date-desc': 'date-asc', 'date-asc': 'az' } as const
 
   function toggle(key: string) {

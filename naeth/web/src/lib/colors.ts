@@ -9,13 +9,15 @@ export const TYPE: Record<string, Meta> = {
   observation: { icon: 'eye', c: ['#e0b84b', '#b45309'] },
   decision: { icon: 'git-commit-horizontal', c: ['#b58cff', '#7c3aed'] },
   preference: { icon: 'heart', c: ['#f48fb1', '#db2777'] },
-  learning: { icon: 'lightbulb', c: ['#5ad17e', '#16a34a'] },
+  // El verde claro #16a34a se quedaba en 2.86:1 sobre la sidebar, bajo el 3:1 de elementos
+  // graficos. #15803d (el mismo que --ok en claro) sube a 4.3 sin cambiar de familia.
+  learning: { icon: 'lightbulb', c: ['#5ad17e', '#15803d'] },
   error: { icon: 'triangle-alert', c: ['#f0686b', '#dc2626'] },
 }
 
 export const PROJECT: Record<string, Meta> = {
   naeth: { icon: 'database', c: ['#38d3c9', '#0d9488'] },
-  gridwatch: { icon: 'zap', c: ['#5ad17e', '#16a34a'] },
+  gridwatch: { icon: 'zap', c: ['#5ad17e', '#15803d'] },   // ver la nota en TYPE.learning
   infra: { icon: 'server', c: ['#e0a64b', '#b45309'] },
   personal: { icon: 'users', c: ['#f48fb1', '#db2777'] },
   yogin: { icon: 'sparkles', c: ['#b58cff', '#7c3aed'] },

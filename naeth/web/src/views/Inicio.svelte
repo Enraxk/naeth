@@ -18,9 +18,9 @@
     const c = data.status?.counts
     const projs = new Set((data.tree || []).map((m) => (m.path || '(sin path)').split('/')[0])).size
     return {
-      vig: c?.memory_current ?? (data.tree ? data.tree.length : '–'),
-      projs: projs || '–',
-      ver: c?.memory_total ?? '–',
+      vig: c?.memory_current ?? (data.tree ? data.tree.length : '-'),
+      projs: projs || '-',
+      ver: c?.memory_total ?? '-',
     }
   })
 </script>

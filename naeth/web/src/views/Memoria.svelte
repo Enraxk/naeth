@@ -1,12 +1,13 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
-  import Milkdown, { type EditorApi } from '../components/Milkdown.svelte'
-  import { getMemory, supersede, getRelations } from '../lib/api'
+  import Milkdown, { type EditorApi, type WikiState } from '../components/Milkdown.svelte'
+  import { getMemory, supersede, getRelations, addRelation } from '../lib/api'
   import type { MemoryDetail, Relation } from '../lib/types'
   import { navigate } from '../lib/router.svelte'
   import { data } from '../lib/data.svelte'
   import { typeMeta, typeColor } from '../lib/colors'
   import { fmtDate } from '../lib/format'
+  import { buildIndex, toDisplayMarkdown, extractLinkedIds } from '../lib/wikilinks'
 
   let { id }: { id: string } = $props()
 
@@ -38,6 +39,78 @@
   const EMOJIS = ['😀','😄','😅','😂','🙂','😉','😍','🤔','😎','😴','😢','😡','👍','👎','👏','🙌','🙏','💪','👀','🧠','🔥','✨','⭐','💡','✅','❌','⚠️','❓','❗','📌','📎','📝','📁','📅','🔗','🔒','🚀','🎯','🐛','⚙️','💾','🌍','❤️','🎉','☕','📈','🧩','🌙']
 
   const typeOptions = $derived(ALL_TYPES.includes(dType) ? ALL_TYPES : [dType, ...ALL_TYPES])
+
+  // Wikilinks: en LECTURA se muestran resueltos; en EDICIÓN se edita el markdown ORIGINAL.
+  // Que el texto transformado no llegue nunca al editor es lo que impide que un guardado
+  // reescriba los [[ ]] del autor por enlaces.
+  const wikiIndex = $derived(buildIndex(data.tree ?? []))
+  const displayValue = $derived(editing ? mdValue : toDisplayMarkdown(mdValue, wikiIndex))
+  // El árbol puede llegar DESPUÉS que la memoria (polling aparte). Este booleano entra en la
+  // {#key} para remontar una única vez cuando el índice deja de estar vacío; si no, una memoria
+  // abierta en frío se quedaría con todos sus wikilinks sin resolver.
+  const treeReady = $derived((data.tree?.length ?? 0) > 0)
+
+  // --- selector de memoria al teclear `[[` ------------------------------------------------
+  // El plugin de ProseMirror solo dice "hay un [[ abierto, aquí"; la lista y el teclado son de
+  // aquí, con el mismo comportamiento que el quick-open (flechas, Enter, Esc).
+  let wiki = $state<WikiState | null>(null)
+  let wikiActive = $state(0)
+  let wikiDismissed = $state<number | null>(null)   // posición del `[[` que se cerró con Esc
+
+  /** Sin acentos y en minúsculas: los títulos van llenos de tildes y de `·`. */
+  const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+  const wikiHits = $derived.by(() => {
+    if (!wiki) return []
+    const q = fold(wiki.query.trim())
+    // Por PALABRAS, no por cadena literal: escribir "CENIT vigilancia" tiene que encontrar
+    // "CENIT · vigilancia de hostnames", y con un `includes` del texto entero no lo encuentra
+    // porque el `· ` de en medio rompe la coincidencia.
+    const tokens = q.split(/\s+/).filter(Boolean)
+    const rows = (data.tree ?? []).filter((r) => r.id !== id && r.title)
+    const scored = rows
+      .map((r) => {
+        const t = fold(r.title ?? '')
+        // Empezar por lo tecleado vale más que contenerlo: al escribir "cenit" interesa antes
+        // el título que arranca así que uno que lo menciona a mitad.
+        const rank = !tokens.length ? 2 : t.startsWith(q) ? 0 : tokens.every((k) => t.includes(k)) ? 1 : -1
+        return { r, rank }
+      })
+      .filter((x) => x.rank >= 0)
+    scored.sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        String(b.r.created_at || '').localeCompare(String(a.r.created_at || '')),
+    )
+    return scored.slice(0, 8).map((x) => x.r)
+  })
+
+  const wikiOpen = $derived(!!wiki && wikiHits.length > 0 && wiki.from !== wikiDismissed)
+
+  function onWikiState(s: WikiState | null) {
+    wiki = s
+    if (!s) { wikiActive = 0; return }
+    if (s.from !== wikiDismissed) wikiDismissed = null
+    wikiActive = 0
+  }
+
+  function chooseWiki(i: number) {
+    const hit = wikiHits[i]
+    if (!hit || !wiki) return
+    mdRef?.wikiInsert(wiki.from, wiki.to, hit.title ?? '(sin título)', hit.id)
+    dirty = true
+    wiki = null
+  }
+
+  /** true si la tecla la consume el selector; si no, el editor la trata como siempre. */
+  function onWikiKey(key: string): boolean {
+    if (!wikiOpen) return false
+    if (key === 'ArrowDown') { wikiActive = (wikiActive + 1) % wikiHits.length; return true }
+    if (key === 'ArrowUp') { wikiActive = (wikiActive - 1 + wikiHits.length) % wikiHits.length; return true }
+    if (key === 'Enter' || key === 'Tab') { chooseWiki(wikiActive); return true }
+    if (key === 'Escape') { wikiDismissed = wiki?.from ?? null; return true }
+    return false
+  }
 
   // índice (outline) a partir de los encabezados del contenido
   const outline = $derived.by(() => {
@@ -147,6 +220,33 @@
   function descartarDraft() { clearDraft(id); draftAvail = false }
   function cancel() { editing = false; draftAvail = !!readDraft(id) }
 
+  /**
+   * Materializa como relaciones `links_to` los enlaces que haya en el texto.
+   *
+   * Se llama con el id de la versión RECIÉN creada: tras un supersede, la vigente es esa, y una
+   * relación colgada de la versión vieja no es la que se va a mirar.
+   *
+   * NO borra nada. Si un enlace desaparece del texto, su relación se queda: pudo crearla Eneko a
+   * mano, el esquema es ADD-only, y retirar cosas por inferencia es justo el efecto silencioso
+   * que este repo evita. Si algún día estorba, se decide aparte.
+   */
+  async function syncRelations(sourceId: string, content: string) {
+    const targets = extractLinkedIds(content, buildIndex(data.tree ?? []))
+      .filter((t) => t !== sourceId)                 // una nota no se enlaza a sí misma
+    if (!targets.length) return
+    let previas: Relation[] = []
+    try { previas = await getRelations(sourceId) } catch { return }  // sin saber qué hay, no se crea
+    // Solo cuentan las SALIENTES con el mismo predicado: que B ya apunte a A no hace redundante
+    // que A apunte a B. Sin este filtro, cada guardado añadiría un duplicado más al grafo.
+    const ya = new Set(
+      previas.filter((r) => r.direction === 'out' && r.predicate === 'links_to').map((r) => r.target_id),
+    )
+    for (const t of targets) {
+      if (ya.has(t)) continue
+      try { await addRelation(sourceId, t, 'links_to') } catch { /* una relación no tumba el guardado */ }
+    }
+  }
+
   async function doSave() {
     if (!detail || saving) return
     saving = true
@@ -163,7 +263,12 @@
       clearDraft(id)
       editing = false; saving = false; dirty = false
       const newId = r.memory?.id
-      if (newId) navigate('memoria', newId)
+      if (newId) {
+        // Antes de navegar: así la carga de la versión nueva ya trae las relaciones y el panel
+        // no tiene que refrescarse dos veces ni competir consigo mismo.
+        await syncRelations(newId, content)
+        navigate('memoria', newId)
+      }
     } catch {
       saving = false
     }
@@ -276,9 +381,35 @@
         </div>
       </div>
     {/if}
-    {#key `${m.id}-${editing}-${mdKey}`}
-      <div class="d-body"><Milkdown value={mdValue} readonly={!editing} getRef={(r) => (mdRef = r)} /></div>
+    {#key `${m.id}-${editing}-${mdKey}-${treeReady}`}
+      <div class="d-body">
+        <Milkdown
+          value={displayValue}
+          readonly={!editing}
+          getRef={(r) => (mdRef = r)}
+          onWiki={onWikiState}
+          {onWikiKey}
+        />
+      </div>
     {/key}
+
+    {#if wikiOpen && wiki}
+      <div class="wikipop" style="left: {wiki.left}px; top: {wiki.bottom + 6}px">
+        <div class="wp-head">Enlazar memoria</div>
+        {#each wikiHits as h, i (h.id)}
+          <button
+            class="wp-item"
+            class:on={i === wikiActive}
+            onmousedown={(e) => e.preventDefault()}
+            onclick={() => chooseWiki(i)}
+          >
+            <span class="wp-ico"><Icon name={typeMeta(h.memory_type).icon} size={13} color={typeColor(h.memory_type)} /></span>
+            <span class="wp-title">{h.title}</span>
+            <span class="wp-path">{h.path ?? ''}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
 
     {#if editing}
       <div class="e-actions">
@@ -353,11 +484,31 @@
   .edit-btn { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; font: 12px var(--font-mono); color: var(--dim); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; }
   .edit-btn:hover { color: var(--ink); border-color: var(--accent); }
   .d-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 12px var(--font-mono); color: var(--dim); margin-bottom: 12px; }
-  .d-meta .sep { color: var(--border); }
+  /* --dim y no --border: un separador tiene que leerse. Con --border daba 1.2:1. */
+  .d-meta .sep { color: var(--dim); }
   .d-type { display: inline-flex; align-items: center; gap: 5px; }
   .d-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
   .tag { font: 11px var(--font-mono); color: var(--dim); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; }
   .d-body { font: 14px/1.65 var(--font-sans); color: var(--ink); margin-top: 4px; }
+
+  /* Selector de `[[`: fixed porque se posiciona con coordenadas de viewport (coordsAtPos). */
+  .wikipop {
+    position: fixed; z-index: 60; width: min(460px, 90vw);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35); padding: 4px; overflow: hidden;
+  }
+  .wp-head {
+    font: 10px var(--font-mono); letter-spacing: .5px; text-transform: uppercase;
+    color: var(--dim); padding: 5px 8px 4px;
+  }
+  .wp-item {
+    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+    padding: 6px 8px; border-radius: 6px; color: var(--ink); min-width: 0;
+  }
+  .wp-item:hover, .wp-item.on { background: var(--sel); }
+  .wp-ico { flex: 0 0 auto; display: inline-flex; }
+  .wp-title { font: 13px var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+  .wp-path { font: 10px var(--font-mono); color: var(--dim); flex: 0 0 auto; }
 
   /* toolbar de formato (Markdown-native) */
   .mdbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 6px 6px; margin-bottom: 10px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; }

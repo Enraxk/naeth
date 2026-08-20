@@ -20,17 +20,81 @@
 }
 
 :root {
-  /* tema oscuro por defecto */
-  --bg: #0d0f12; --bg2: #0b0d10; --panel: #15181d; --border: #262b33;
+  /* Tema oscuro por defecto. Se subio desde el casi negro azulado de antes (#0d0f12), que Eneko
+     veia demasiado oscuro. Punto de partida: el fondo de Claude Desktop (#20201f), pero al verlo
+     en la pantalla real resultaba calido de mas, asi que se eligio un gris al mismo nivel de
+     claridad y un punto hacia el frio. El resto de la escala se deriva de el manteniendo la
+     jerarquia del diseno: bg2 hundido para la sidebar, panel levantado para tiles y tarjetas. */
+  --bg: #1e2022; --bg2: #191b1d; --panel: #282a2d; --border: #363a3e;
   --ink: #e6e8eb; --dim: #8a929e; --accent: #5db0ff; --sel: #17222e;
   --ok: #46c98b; --warn: #e0a64b;
+  /* Código inline. Token propio y no --warn: sobre el fondo compuesto del tema claro
+     (rgb(242,242,240), que es --bg2 al 60% sobre --bg), --warn daba 4.49:1, a una centésima
+     del 4.5:1 que pide WCAG AA. Con --code queda en 6.33:1, con margen. */
+  --code: #e0a64b;
   color-scheme: light dark;
 }
 :root[data-theme="light"] {
   --bg: #f7f7f5; --bg2: #efefec; --panel: #ffffff; --border: #e3e3df;
-  --ink: #1f2329; --dim: #6b7280; --accent: #2563eb; --sel: #e7f0fb;
+  /* --dim: #6b7280 pasaba sobre --bg (4.51) pero se quedaba en 4.20 sobre --bg2, que es el
+     fondo de la sidebar y justo donde vive (subtemas, boton de orden, fechas). #646d79 es el
+     minimo que pasa 4.5 en las tres superficies: 4.55 sobre bg2, 4.89 sobre bg, 5.24 sobre panel. */
+  --ink: #1f2329; --dim: #646d79; --accent: #2563eb; --sel: #e7f0fb;
   --ok: #15803d; --warn: #b45309;
+  --code: #92400e;
 }
+
+/* ===== Tema de Milkdown (Crepe) atado a los tokens de Naeth =====
+   Crepe distribuye sus temas (nord, nord-dark…) como un bloque de variables bajo `.milkdown`.
+   Importarlos era un fallo doble: sus colores no son los nuestros, y el `import()` condicional
+   que los cargaba es acumulativo: una vez inyectado el CSS oscuro, cambiar a claro no lo
+   retiraba y el texto quedaba casi blanco sobre fondo casi blanco (contraste 1.02:1).
+   Mapeando aquí, el editor hereda el tema del visor: como los tokens de arriba ya cambian con
+   [data-theme], el cambio es instantáneo y no hay que remontar el editor. */
+.milkdown {
+  --crepe-color-background: var(--bg);
+  --crepe-color-on-background: var(--ink);
+  --crepe-color-surface: var(--panel);
+  --crepe-color-surface-low: var(--bg2);
+  --crepe-color-on-surface: var(--ink);
+  --crepe-color-on-surface-variant: var(--dim);
+  --crepe-color-outline: var(--border);
+  --crepe-color-primary: var(--accent);
+  --crepe-color-secondary: var(--sel);
+  --crepe-color-on-secondary: var(--ink);
+  --crepe-color-inverse: var(--ink);
+  --crepe-color-on-inverse: var(--bg);
+  --crepe-color-inline-code: var(--code);
+  --crepe-color-error: var(--warn);
+  --crepe-color-hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --crepe-color-selected: var(--sel);
+  --crepe-color-inline-area: var(--bg2);
+
+  --crepe-font-title: var(--font-sans);
+  --crepe-font-default: var(--font-sans);
+  --crepe-font-code: var(--font-mono);
+
+  /* Derivadas del ink para que la sombra siga al tema (clara sobre oscuro y al revés),
+     que es justo lo que hacían los dos temas de Crepe con valores fijos. */
+  --crepe-shadow-1:
+    0px 1px 3px 1px color-mix(in srgb, var(--ink) 15%, transparent),
+    0px 1px 2px 0px color-mix(in srgb, var(--ink) 30%, transparent);
+  --crepe-shadow-2:
+    0px 2px 6px 2px color-mix(in srgb, var(--ink) 15%, transparent),
+    0px 1px 2px 0px color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+/* Crepe pinta la vineta de lista y sus iconos con --crepe-color-outline (list-item.css:21 el
+   color, :25 el fill del SVG). Esa variable es correcta para BORDES, que es lo que dice su
+   nombre, pero para un glifo que hay que leer se queda en 1.2:1. Se sobreescribe solo el
+   marcador, sin tocar la variable, para no engordar los bordes de todo lo demas.
+
+   La clase va REPETIDA a proposito (`.label-wrapper.label-wrapper`): el CSS de Crepe se importa
+   en runtime desde onMount, asi que se inserta DESPUES que este fichero y con la misma
+   especificidad ganaba el suyo. Repetir la clase sube la especificidad sin recurrir a
+   !important, y sin eso este arreglo se aplicaba o no segun el orden de carga. */
+.milkdown .milkdown-list-item-block li .label-wrapper.label-wrapper { color: var(--dim); }
+.milkdown .milkdown-list-item-block li .label-wrapper.label-wrapper svg { fill: var(--dim); }
 
 html, body { height: 100%; }
 #app { height: 100%; }
