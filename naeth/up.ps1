@@ -6,6 +6,10 @@ $here  = Split-Path -Parent $MyInvocation.MyCommand.Path
 # La ruta al repo del nucleo es local a cada maquina, asi que vive en el entorno, no aqui:
 #   [Environment]::SetEnvironmentVariable("CENIT_PATH", "<ruta al repo CENIT>", "User")
 $cenit = $env:CENIT_PATH
+# Si la consola se abrio ANTES de definir la variable, el proceso no la tiene aunque este en el
+# registro: los hijos heredan el entorno del padre, no releen el registro. Pasa siempre justo
+# despues de configurarla, que es cuando mas rabia da. Se mira tambien el ambito de usuario.
+if (-not $cenit) { $cenit = [Environment]::GetEnvironmentVariable("CENIT_PATH", "User") }
 if (-not $cenit -or -not (Test-Path (Join-Path $cenit "secrets\load-age-key.ps1"))) {
     throw "No encuentro el repo de CENIT (CENIT_PATH = '$cenit'). Definelo con: [Environment]::SetEnvironmentVariable('CENIT_PATH', '<ruta>', 'User') y abre una consola nueva."
 }
