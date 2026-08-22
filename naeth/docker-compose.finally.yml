@@ -21,10 +21,25 @@
 #    hay Claude Code, y el único que debe alcanzar el visor es Caddy, por nombre de contenedor
 #    dentro de `cenit-net`. Publicar el puerto sería superficie regalada: recuerda que este
 #    proceso corre con OAUTH_ENABLED=0 y sirve el CRUD entero.
+#
+# 3. EL VISOR SE SIRVE DESDE LA IMAGEN, no desde `web/dist`. Añadido el 22/08/2026, cuando el v2
+#    pasó a producción y este nodo se quedó con el v1: `dist/` no está versionado, así que un
+#    `git pull` no lo trae, y el Node de este host es el 18, que Vite 8 ya no admite. El
+#    Dockerfile lo compila en una etapa aparte y lo deja en `/srv/viewer-build`.
+#
+#    ⚠ La ruta es DISTINTA de la del PC (`/srv/viewer`) a propósito. El bind-mount
+#    `./web/dist:/srv/viewer` del compose base se aplica también aquí, porque un override puede
+#    resetear la lista de volúmenes entera pero no retirar uno solo, y aquí `web/dist` no existe:
+#    Docker crearía un directorio vacío y lo montaría encima del build. Con dos rutas, ese
+#    directorio vacío queda ahí sin que nadie lo mire.
 services:
   api:
     command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+    environment:
+      NAETH_VIEWER_DIR: /srv/viewer-build
 
   viewer:
     command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+    environment:
+      NAETH_VIEWER_DIR: /srv/viewer-build
     ports: !reset []

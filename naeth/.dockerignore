@@ -1,0 +1,26 @@
+# Contexto de build de la imagen de Naeth (app/Dockerfile, contexto `naeth/`).
+#
+# Existe desde el 22/08/2026, cuando el Dockerfile pasó a multi-stage y empezó a copiar `web/`.
+# Sin esto el contexto eran 168 MB, de los que 163 MB son `node_modules`, y ademas se colaba
+# dentro de la imagen: el `node_modules` de este host es de Windows, y sus binarios nativos no
+# valen en la imagen Linux. La etapa `front` hace su propio `npm ci`.
+web/node_modules/
+
+# El build se genera EN la imagen (etapa `front`). El de aquí es el del PC, que además llega al
+# contenedor por bind-mount en runtime: copiarlo solo serviría para que la imagen naciera con una
+# versión que nadie mira.
+web/dist/
+
+# Nada de esto hace falta dentro de la imagen y solo engorda el contexto.
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+db/pgdata/
+assets/
+fastembed_cache/
+
+# Secretos y estado local: NUNCA en una imagen.
+.env
+.env.*
+!.env.example
