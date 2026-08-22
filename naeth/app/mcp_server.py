@@ -28,10 +28,17 @@ from typing import Any
 from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.staticfiles import StaticFiles
 
 from app import core
 
-VIEWER_DIR = Path(__file__).resolve().parent / "viewer"
+# Directorio del visor que se sirve en "/". Por defecto el v1 (`app/viewer/index.html`, un HTML
+# monolitico y autocontenido), y con NAETH_VIEWER_DIR se apunta al build del v2 (Vite + Svelte),
+# que el compose monta en /srv/viewer.
+#
+# Es una env var y no una constante justo para eso: el rollback del v2 al v1 es quitar la variable
+# y recrear el contenedor, sin revertir ni una linea de codigo. El v1 se conserva por lo mismo.
+VIEWER_DIR = Path(os.environ.get("NAETH_VIEWER_DIR") or (Path(__file__).resolve().parent / "viewer"))
 
 OAUTH_ENABLED = os.environ.get("OAUTH_ENABLED", "").strip().lower() in ("1", "true", "yes")
 OAUTH_BASE_URL = os.environ.get("OAUTH_BASE_URL", "http://127.0.0.1:8800").rstrip("/")
@@ -469,3 +476,25 @@ def _json(obj: Any) -> Any:
 
 # App principal del proceso: MCP en /mcp + OAuth en raiz + visor/CRUD.
 app = mcp.http_app(path="/mcp")
+
+# Estaticos del visor v2. El v1 era un HTML unico con todo inline, asi que la ruta "/" bastaba;
+# un build de Vite pide ademas /assets/index-<hash>.js y .css, y hasta hoy eso devolvia 404 en los
+# dos puertos. De ahi que "ajustar el custom_route" no bastara para desplegarlo.
+#
+# Se monta SOLO si el directorio existe, y las dos mitades de esa condicion importan:
+#
+#   - Sin el `if`, StaticFiles valida el directorio al CONSTRUIRSE (a nivel de modulo) y un clon sin
+#     build tumbaria el import entero. Es el patron del incidente del 30/07/2026 con el discovery
+#     del IdP: fallar al importar deja el proceso muerto y cierra el circulo de recuperacion de
+#     CENIT. Por eso ademas `check_dir=False`, como segunda red.
+#   - Y con `check_dir=False` PERO sin el `if`, la ruta existe pero revienta al primer GET: medido,
+#     devolvia 500 donde antes habia un 404 limpio. Un 500 es una alarma falsa en produccion.
+#
+# Asi, sin build no hay ruta y /assets/* cae en el 404 de siempre; con build, se sirve.
+#
+# No hace falta un catch-all que devuelva index.html: el router del visor es por HASH (#/m/<id>),
+# asi que las unicas rutas que pide el navegador son "/" y /assets/*. Un catch-all solo taparia
+# los 404 legitimos de la API.
+_ASSETS_DIR = VIEWER_DIR / "assets"
+if _ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=_ASSETS_DIR, check_dir=False), name="assets")

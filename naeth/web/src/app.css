@@ -26,8 +26,21 @@
      claridad y un punto hacia el frio. El resto de la escala se deriva de el manteniendo la
      jerarquia del diseno: bg2 hundido para la sidebar, panel levantado para tiles y tarjetas. */
   --bg: #1e2022; --bg2: #191b1d; --panel: #282a2d; --border: #363a3e;
-  --ink: #e6e8eb; --dim: #8a929e; --accent: #5db0ff; --sel: #17222e;
+  --ink: #e6e8eb; --dim: #8a929e; --accent: #5db0ff;
   --ok: #46c98b; --warn: #e0a64b;
+  /* Fondo de lo seleccionado. Era un color suelto (#17222e) elegido aparte del resto de la escala,
+     y por eso se leia como un parche azul pegado encima en vez de como "esta fila esta activa".
+     Derivarlo del fondo sobre el que vive lo ata al tema: quien marca la seleccion es el borde de
+     --accent (Sidebar.svelte), el fondo solo la insinua. Un unico color-mix sirve para los dos
+     temas, porque --accent y --bg2 ya cambian con [data-theme].
+
+     El mix opera sobre los LITERALES de --accent y --bg2, no sobre las variables, y eso no es un
+     descuido: con variables dentro, Lightning CSS no puede resolver el mix en tiempo de build y
+     se inventa un fallback cogiendo un operando suelto (`var(--accent)`), o sea la fila
+     seleccionada del azul del acento a plena saturacion con el texto encima. Con literales lo
+     calcula y emite el color exacto. Si algun dia cambian --accent o --bg2, hay que cambiarlos
+     tambien aqui: es el precio, y por eso queda escrito. */
+  --sel: color-mix(in srgb, #5db0ff 10%, #191b1d);
   /* Código inline. Token propio y no --warn: sobre el fondo compuesto del tema claro
      (rgb(242,242,240), que es --bg2 al 60% sobre --bg), --warn daba 4.49:1, a una centésima
      del 4.5:1 que pide WCAG AA. Con --code queda en 6.33:1, con margen. */
@@ -39,9 +52,11 @@
   /* --dim: #6b7280 pasaba sobre --bg (4.51) pero se quedaba en 4.20 sobre --bg2, que es el
      fondo de la sidebar y justo donde vive (subtemas, boton de orden, fechas). #646d79 es el
      minimo que pasa 4.5 en las tres superficies: 4.55 sobre bg2, 4.89 sobre bg, 5.24 sobre panel. */
-  --ink: #1f2329; --dim: #646d79; --accent: #2563eb; --sel: #e7f0fb;
+  --ink: #1f2329; --dim: #646d79; --accent: #2563eb;
   --ok: #15803d; --warn: #b45309;
   --code: #92400e;
+  /* Mismo mix con los literales del tema claro (ver la nota en :root). */
+  --sel: color-mix(in srgb, #2563eb 10%, #efefec);
 }
 
 /* ===== Tema de Milkdown (Crepe) atado a los tokens de Naeth =====

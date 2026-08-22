@@ -171,6 +171,27 @@ export function toDisplayMarkdown(src: string, ix: WikiIndex): string {
 }
 
 /**
+ * Deshace el escape que mete el serializador de Milkdown en `[`, `]` y `_`.
+ *
+ * MEDIDO el 22/08/2026 sobre notas reales del corpus: al serializar, mdast-util-to-markdown aplica
+ * sus patrones `unsafe` y devuelve `wal\_level` donde el autor escribió `wal_level`, y
+ * `\[\[Método · algo\]\]` donde había un wikilink. Como `doSave` guarda **exactamente** lo que
+ * devuelve `getMarkdown()`, eso no es cosmético: **242 de las 411 memorias vigentes (59 %) se
+ * corrompían al editarlas desde el visor**, y los 263 wikilinks del corpus dejaban de resolver,
+ * porque `WIKI` busca `[[` literal y `\[\[` no casa (verificado: 1 coincidencia pasa a 0).
+ *
+ * Por qué aquí y no en el serializador: configurarlo por dentro exigía sobreescribir el handler de
+ * `text` en el contexto de Milkdown (sus patrones `unsafe` se concatenan y no se pueden retirar), y
+ * al intentarlo el editor dejaba de montar con `contextNotFound`. Esto es una función pura, se
+ * prueba sola y no puede tumbar el editor.
+ *
+ * Solo estos tres caracteres. El resto del escape se respeta, así que un `*` o un `#` que el autor
+ * quiso literales siguen protegidos.
+ */
+export const unescapeMarkdown = (src: string): string =>
+  src ? src.replace(/\\([[\]_])/g, '$1') : src
+
+/**
  * Ids a los que apunta el markdown, para materializarlos como relaciones al guardar.
  * Cuenta tanto los `[[ ]]` como los enlaces `](#/m/<id>)` que ya insertó el autocompletado.
  */

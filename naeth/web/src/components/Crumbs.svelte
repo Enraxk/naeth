@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte'
   import { route, navigate } from '../lib/router.svelte'
   import { data } from '../lib/data.svelte'
-  import { projMeta, ORIGIN_ICON } from '../lib/colors'
+  import { projMeta } from '../lib/colors'
   import { openSearch } from '../lib/search.svelte'
 
   type Crumb = { label: string; icon?: string; go?: () => void }
@@ -20,7 +20,7 @@
     const parts = (row?.path || '').split('/').filter(Boolean)
     const out: Crumb[] = [home]
     if (parts[0]) out.push({ label: parts[0], icon: projMeta(parts[0]).icon, go: () => openSearch('/' + parts[0]) })
-    if (parts[1]) out.push({ label: parts[1], icon: ORIGIN_ICON[parts[1]] || 'folder', go: () => openSearch(':' + parts[1]) })
+    if (parts[1]) out.push({ label: parts[1], icon: 'folder', go: () => openSearch(':' + parts[1]) })
     out.push({ label: row?.title || '(memoria)' })
     return out
   })

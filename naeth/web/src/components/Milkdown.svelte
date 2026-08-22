@@ -31,6 +31,7 @@
 <script lang="ts">
   // Wrapper de Milkdown Crepe (WYSIWYG), cargado en diferido (su propio chunk).
   import { onMount, onDestroy } from 'svelte'
+  import { unescapeMarkdown } from '../lib/wikilinks'
 
   let {
     value = '',
@@ -136,7 +137,10 @@
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const run = (key: any, payload?: any) => crepe?.editor.action(callCommand(key, payload))
     getRef?.({
-      getMarkdown: () => (crepe ? crepe.getMarkdown() : value),
+      // `unescapeMarkdown` va AQUI, en el unico punto por el que sale texto del editor: lo usan
+      // tanto el guardado como el autosave del borrador, asi que ponerlo en cada llamante seria
+      // dejar la puerta abierta a que el siguiente se olvide. Ver el porque en wikilinks.ts.
+      getMarkdown: () => (crepe ? unescapeMarkdown(crepe.getMarkdown()) : value),
       bold: () => run(cm.toggleStrongCommand.key),
       italic: () => run(cm.toggleEmphasisCommand.key),
       strike: () => run(gfm.toggleStrikethroughCommand.key),

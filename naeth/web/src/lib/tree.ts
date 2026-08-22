@@ -1,8 +1,11 @@
 import type { TreeRow } from './types'
 import type { SortMode } from './prefs.svelte'
 
-export interface Origin { origin: string; leaves: TreeRow[]; mod: string; d: string }
-export interface Project { proj: string; origins: Origin[]; mod: string; d: string }
+// El segundo nivel del path es el SUBTEMA (`naeth/viewer`, `cenit/build`). Se llamaba "origen" y
+// valia `code` o `chat`, pero ese esquema se derogo el 21/07/2026: quien escribio cada nota lo
+// registra el campo `author`, no la ruta.
+export interface Subtopic { subtopic: string; leaves: TreeRow[]; mod: string; d: string }
+export interface Project { proj: string; subtopics: Subtopic[]; mod: string; d: string }
 
 const maxDate = (arr: TreeRow[]) =>
   arr.reduce((mx, x) => { const d = String(x.created_at || ''); return d > mx ? d : mx }, '')
@@ -31,23 +34,23 @@ export function buildTree(rows: TreeRow[], sort: SortMode): Project[] {
   for (const m of rows) {
     const parts = (m.path || '(sin path)').split('/')
     const proj = parts[0] || '(sin path)'
-    const origin = parts[1] || '·'
+    const subtopic = parts[1] || '·'
     if (!pm.has(proj)) pm.set(proj, new Map())
-    const om = pm.get(proj)!
-    if (!om.has(origin)) om.set(origin, [])
-    om.get(origin)!.push(m)
+    const sm = pm.get(proj)!
+    if (!sm.has(subtopic)) sm.set(subtopic, [])
+    sm.get(subtopic)!.push(m)
   }
   const projects: Project[] = []
-  for (const [proj, om] of pm) {
-    const origins: Origin[] = []
+  for (const [proj, sm] of pm) {
+    const subtopics: Subtopic[] = []
     let all: TreeRow[] = []
-    for (const [origin, leaves] of om) {
+    for (const [subtopic, leaves] of sm) {
       sortLeaves(leaves, sort)
       all = all.concat(leaves)
-      origins.push({ origin, leaves, mod: maxDate(leaves), d: groupDate(leaves, sort) })
+      subtopics.push({ subtopic, leaves, mod: maxDate(leaves), d: groupDate(leaves, sort) })
     }
-    origins.sort((a, b) => orderCmp(a.origin, b.origin, a.d, b.d, sort))
-    projects.push({ proj, origins, mod: maxDate(all), d: groupDate(all, sort) })
+    subtopics.sort((a, b) => orderCmp(a.subtopic, b.subtopic, a.d, b.d, sort))
+    projects.push({ proj, subtopics, mod: maxDate(all), d: groupDate(all, sort) })
   }
   projects.sort((a, b) => orderCmp(a.proj, b.proj, a.d, b.d, sort))
   return projects

@@ -3,12 +3,12 @@ import type { TreeRow } from './types'
 import { data } from './data.svelte'
 import { navigate } from './router.svelte'
 
-type Kind = 'type' | 'tag' | 'project' | 'source'
+type Kind = 'type' | 'tag' | 'project' | 'subtopic'
 export type Hit =
   | { cmd: false; row: TreeRow }
   | { cmd: true; kind: Kind; value: string; n: number }
 
-const PREFIX: Record<Kind, string> = { type: '@', tag: '#', project: '/', source: ':' }
+const PREFIX: Record<Kind, string> = { type: '@', tag: '#', project: '/', subtopic: ':' }
 
 export const qo = $state<{ query: string; open: boolean; hits: Hit[]; active: number; label: string; focusReq: number }>({
   query: '', open: false, hits: [], active: -1, label: '', focusReq: 0,
@@ -19,18 +19,20 @@ let timer: ReturnType<typeof setTimeout>
 
 function parseQuery(raw: string) {
   const m = raw.match(/^([@#/:])(\S*)\s*([\s\S]*)$/)
-  if (m) return { kind: ({ '@': 'type', '#': 'tag', '/': 'project', ':': 'source' } as Record<string, Kind>)[m[1]], key: m[2].toLowerCase(), text: m[3].trim() }
+  if (m) return { kind: ({ '@': 'type', '#': 'tag', '/': 'project', ':': 'subtopic' } as Record<string, Kind>)[m[1]], key: m[2].toLowerCase(), text: m[3].trim() }
   return { kind: null as Kind | null, key: '', text: raw }
 }
 const rows = () => data.tree ?? []
-const originOf = (path: string | null) => (path || '(sin path)').split('/')[1] || '·'
+// Segundo nivel del path. Se llamaba `originOf` y filtraba por `code`/`chat`, del esquema derogado
+// el 21/07/2026; hoy los valores son subtemas (`viewer`, `build`, `magic`…).
+const subtopicOf = (path: string | null) => (path || '(sin path)').split('/')[1] || '·'
 
 function cmdValues(kind: Kind): [string, number][] {
   const m = new Map<string, number>()
   for (const x of rows()) {
     if (kind === 'type') { const v = x.memory_type || '?'; m.set(v, (m.get(v) || 0) + 1) }
     else if (kind === 'project') { const v = (x.path || '(sin path)').split('/')[0]; m.set(v, (m.get(v) || 0) + 1) }
-    else if (kind === 'source') { const v = originOf(x.path); m.set(v, (m.get(v) || 0) + 1) }
+    else if (kind === 'subtopic') { const v = subtopicOf(x.path); m.set(v, (m.get(v) || 0) + 1) }
     else for (const t of x.tags || []) m.set(t, (m.get(t) || 0) + 1)
   }
   return [...m.entries()]
@@ -55,7 +57,7 @@ export async function doSearch(raw: string) {
     const exact = key !== '' && values.some(([v]) => v.toLowerCase() === key)
     if (!exact) {
       const opts = values.filter(([v]) => v.toLowerCase().startsWith(key)).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      const head = { type: 'Tipos', tag: 'Etiquetas', project: 'Proyectos', source: 'Fuentes' }[kind]
+      const head = { type: 'Tipos', tag: 'Etiquetas', project: 'Proyectos', subtopic: 'Subtemas' }[kind]
       setHits(opts.map(([value, n]) => ({ cmd: true, kind, value, n })), head)
       return
     }
@@ -71,7 +73,7 @@ export async function doSearch(raw: string) {
   } else { qo.open = false; return }
   if (kind === 'type') hits = hits.filter((h) => String(h.memory_type || '').toLowerCase().startsWith(key))
   else if (kind === 'project') hits = hits.filter((h) => String(h.path || '').toLowerCase().startsWith(key))
-  else if (kind === 'source') hits = hits.filter((h) => originOf(h.path).toLowerCase().startsWith(key))
+  else if (kind === 'subtopic') hits = hits.filter((h) => subtopicOf(h.path).toLowerCase().startsWith(key))
   else if (kind === 'tag') hits = hits.filter((h) => (h.tags || []).some((t) => t.toLowerCase().includes(key)))
   setHits(hits.slice(0, 50).map((row) => ({ cmd: false, row })))
 }

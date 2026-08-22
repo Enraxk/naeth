@@ -6,7 +6,7 @@
   import { buildTree } from '../lib/tree'
   import { route, navigate } from '../lib/router.svelte'
   import { ui, closeDrawer } from '../lib/ui.svelte'
-  import { typeMeta, typeColor, projMeta, projColor, ORIGIN_ICON } from '../lib/colors'
+  import { typeMeta, typeColor, projMeta, projColor } from '../lib/colors'
   import { fmtShort } from '../lib/format'
 
   function openMem(id: string) {
@@ -65,7 +65,13 @@
     </button>
   </div>
 
-  <div id="tree" class="tree" role="tree">
+  <!-- Sin `role="tree"`, retirado el 22/08/2026. Lo declaraba, pero sus hijos son <div> y <button>:
+       ni un `treeitem`, ni `aria-expanded` en los nodos que colapsan, ni `aria-selected` en la hoja
+       activa, ni navegacion con flechas. Un lector de pantalla anunciaba un arbol y luego no
+       encontraba ningun item, que es peor que no anunciar nada. Lo que es de verdad hoy es una
+       lista de botones, y asi queda hasta que el rol se implemente entero. El aria-label del <nav>
+       se queda: describe el contenido sin prometer una semantica que no se cumple. -->
+  <div id="tree" class="tree">
     {#each projects as p (p.proj)}
       {@const pKey = 'p:' + p.proj}
       {@const pc = projColor(p.proj)}
@@ -77,21 +83,27 @@
           <span class="rdate">{fmtShort(p.mod)}</span>
         </button>
         <div class="children indent">
-          {#each p.origins as o (o.origin)}
-            {@const oKey = 'o:' + p.proj + '/' + o.origin}
-            <div class="group" class:collapsed={collapsed.has(oKey)}>
-              <button class="row origin" onclick={() => toggle(oKey)}>
+          {#each p.subtopics as s (s.subtopic)}
+            <!-- La clave sigue siendo "o:": es lo que hay guardado en localStorage bajo
+                 `naeth-collapsed`. Cambiarla olvidaría los colapsos que Eneko ya tiene abiertos. -->
+            {@const sKey = 'o:' + p.proj + '/' + s.subtopic}
+            <div class="group" class:collapsed={collapsed.has(sKey)}>
+              <button class="row subtopic" onclick={() => toggle(sKey)}>
                 <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
-                <span class="ico"><Icon name={ORIGIN_ICON[o.origin] || 'folder'} size={13} color={pc} /></span>
-                <span class="label">{o.origin}</span>
-                <span class="rdate">{fmtShort(o.mod)}</span>
+                <span class="ico"><Icon name="folder" size={13} color={pc} /></span>
+                <span class="label">{s.subtopic}</span>
+                <span class="rdate">{fmtShort(s.mod)}</span>
               </button>
               <div class="children indent">
-                {#each o.leaves as m (m.id)}
+                {#each s.leaves as m (m.id)}
+                  <!-- `title` con el titulo entero: `.label` recorta con ellipsis y en este corpus
+                       los titulos son largos, asi que sin esto no habia forma de leerlo sin abrir
+                       la memoria. -->
                   <button
                     class="row leaf"
                     class:sel={route.view === 'memoria' && route.id === m.id}
                     data-id={m.id}
+                    title={m.title || '(sin título)'}
                     onclick={() => openMem(m.id)}
                   >
                     <span class="ico"><Icon name={typeMeta(m.memory_type).icon} size={13} color={typeColor(m.memory_type)} /></span>
@@ -134,7 +146,7 @@
   .rdate { display: none; margin-left: auto; flex: 0 0 auto; padding-left: 8px; font: 10px var(--font-mono); color: var(--dim); white-space: nowrap; }
   .row:hover .rdate { display: block; }
   .row.proj .label { font: 600 12px var(--font-mono); }
-  .row.origin .label { font: 12px var(--font-mono); color: var(--dim); }
+  .row.subtopic .label { font: 12px var(--font-mono); color: var(--dim); }
   .row.leaf .label { font: 13px var(--font-sans); flex: 1 1 auto; }
   .row.leaf.sel { background: var(--sel); box-shadow: inset 2px 0 0 var(--accent); }
   .children { display: flex; flex-direction: column; gap: 1px; }

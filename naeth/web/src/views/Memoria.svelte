@@ -6,7 +6,7 @@
   import { navigate } from '../lib/router.svelte'
   import { data } from '../lib/data.svelte'
   import { typeMeta, typeColor } from '../lib/colors'
-  import { fmtDate } from '../lib/format'
+  import { fmtDate, fmtAuthor } from '../lib/format'
   import { buildIndex, toDisplayMarkdown, extractLinkedIds } from '../lib/wikilinks'
 
   let { id }: { id: string } = $props()
@@ -112,6 +112,26 @@
     return false
   }
 
+  // --- autoría (Paso 10) --------------------------------------------------------------------
+  // Corta en la cabecera, completa en el tooltip. Mismo patrón que el `id`, que muestra 8 caracteres
+  // y guarda el uuid entero en el title: la línea de meta tiene que caber en móvil.
+  const autoria = $derived(fmtAuthor(detail?.memory.author))
+  const autoriaLarga = $derived.by(() => {
+    const a = detail?.memory.author
+    if (!a) return ''
+    return [
+      a.product && `producto ${a.product}`,
+      a.surface && `superficie ${a.surface}`,
+      a.actor && `actor ${a.actor}`,
+      // `model_source` es lo que dice si fiarse del modelo: `declared` lo dijo el agente al
+      // escribir, `unknown_legacy` es una nota anterior al backfill y ahí no consta.
+      a.model ? `modelo ${a.model}` : 'modelo sin registrar',
+      a.model_source && `(${a.model_source})`,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+  })
+
   // índice (outline) a partir de los encabezados del contenido
   const outline = $derived.by(() => {
     const src = detail?.memory.content ?? ''
@@ -157,7 +177,7 @@
 
   $effect(() => {
     const mid = id
-    editing = false; saving = false; dirty = false; notFound = false
+    editing = false; saving = false; dirty = false; notFound = false; baseReady = false
     getMem(mid).then(async (r) => {
       if (mid !== id) return
       if (!r?.memory) { detail = null; notFound = true; return }
@@ -183,9 +203,31 @@
   }
   function clearDraft(mid: string) { try { localStorage.removeItem(draftKey(mid)) } catch { /* noop */ } }
 
+  /**
+   * Markdown tal y como lo devuelve el editor recién montado con el contenido ORIGINAL, y no el
+   * contenido original a secas.
+   *
+   * Milkdown normaliza al cargar (por ejemplo, añade un salto de línea final), así que comparar
+   * contra `m.content` daba SIEMPRE distinto: el editor nacía "· modificado" sin que nadie tocase
+   * nada, y el autosave dejaba un borrador espurio que al volver pedía "retomar" cambios que no
+   * existían. Comparando contra lo que el propio editor produce, `dirty` mide lo que escribió
+   * Eneko y no lo que reescribió el serializador. Cubre además cualquier normalización futura, sin
+   * tener que saber de antemano cuál es.
+   */
+  let baseMd = $state('')
+  let baseReady = $state(false)
+
+  /** Se llama cuando el editor ya está montado. Una sola vez por sesión de edición. */
+  function captureBase() {
+    if (!editing || baseReady || !mdRef) return
+    baseMd = mdRef.getMarkdown()
+    baseReady = true
+    dirty = isDirtyNow(baseMd)
+  }
+
   function isDirtyNow(content: string) {
     const m = detail!.memory
-    return content !== m.content
+    return content !== baseMd
       || dTitle !== (m.title ?? '')
       || dType !== m.memory_type
       || dPath !== (m.path ?? '')
@@ -207,6 +249,9 @@
   function startEdit() {
     const m = detail!.memory
     dTitle = m.title ?? ''; dType = m.memory_type; dTags = [...(m.tags ?? [])]; dPath = m.path ?? ''
+    // La base la captura `captureBase()` cuando el editor termine de montar; hasta entonces
+    // sirve el contenido crudo, que solo se usaria si el editor no llegara a montar.
+    baseMd = m.content; baseReady = false
     editing = true; dirty = false
   }
   function retomarDraft() {
@@ -215,10 +260,13 @@
     dTags = d.tags ?? []; dPath = d.path ?? ''
     mdValue = d.content ?? detail!.memory.content
     mdKey++           // remonta Milkdown con el contenido del borrador
+    // Aqui NO se recaptura la base: lo que se monta es el borrador, no el original, asi que
+    // tomarlo como referencia declararia "sin cambios" un texto que si los tiene.
+    baseMd = detail!.memory.content; baseReady = true
     editing = true; dirty = true
   }
   function descartarDraft() { clearDraft(id); draftAvail = false }
-  function cancel() { editing = false; draftAvail = !!readDraft(id) }
+  function cancel() { editing = false; baseReady = false; draftAvail = !!readDraft(id) }
 
   /**
    * Materializa como relaciones `links_to` los enlaces que haya en el texto.
@@ -250,7 +298,10 @@
   async function doSave() {
     if (!detail || saving) return
     saving = true
-    const content = mdRef ? mdRef.getMarkdown() : detail.memory.content
+    const md = mdRef ? mdRef.getMarkdown() : detail.memory.content
+    // Si el cuerpo no cambio respecto a la base, se guarda el ORIGINAL tal cual. Asi un guardado
+    // que solo toca titulo, tipo, ruta o tags no reescribe el texto con la version del editor.
+    const content = baseReady && md === baseMd ? detail.memory.content : md
     try {
       const r = await supersede(id, {
         content,
@@ -325,7 +376,7 @@
           </select>
         </label>
         <label class="grow">ruta
-          <input bind:value={dPath} oninput={() => (dirty = true)} placeholder="proyecto/origen" />
+          <input bind:value={dPath} oninput={() => (dirty = true)} placeholder="proyecto/subtema" />
         </label>
       </div>
       <div class="e-tags">
@@ -343,6 +394,9 @@
         <span>{m.path || '(sin path)'}</span><span class="sep">·</span>
         <span class="d-type"><Icon name={typeMeta(m.memory_type).icon} size={13} color={typeColor(m.memory_type)} /><span>{m.memory_type}</span></span>
         <span class="sep">·</span><span>{fmtDate(m.created_at)}</span>
+        {#if autoria}
+          <span class="sep">·</span><span title={autoriaLarga}>{autoria}</span>
+        {/if}
         <span class="sep">·</span><span title={m.id}>id {String(m.id).slice(0, 8)}</span>
       </div>
       {#if m.tags?.length}
@@ -386,7 +440,7 @@
         <Milkdown
           value={displayValue}
           readonly={!editing}
-          getRef={(r) => (mdRef = r)}
+          getRef={(r) => { mdRef = r; captureBase() }}
           onWiki={onWikiState}
           {onWikiKey}
         />

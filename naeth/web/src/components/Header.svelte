@@ -4,7 +4,7 @@
   import { toggleDrawer } from '../lib/ui.svelte'
   import { loadTree, loadStatus } from '../lib/data.svelte'
   import { qo, setQuery, openSearch, closeSearch, move, choose, PREFIX } from '../lib/search.svelte'
-  import { typeMeta, typeColor, projMeta, projColor, ORIGIN_ICON } from '../lib/colors'
+  import { typeMeta, typeColor, projMeta, projColor } from '../lib/colors'
 
   let inputEl: HTMLInputElement | undefined = $state()
 
@@ -64,7 +64,7 @@
       bind:this={inputEl}
       value={qo.query}
       type="search"
-      placeholder="buscar memoria…  ·  @tipo  #tag  /proyecto  :fuente"
+      placeholder="buscar memoria…  ·  @tipo  #tag  /proyecto  :subtema"
       aria-label="Buscar memoria"
       autocomplete="off"
       oninput={(e) => setQuery(e.currentTarget.value)}
@@ -83,7 +83,7 @@
                 <span class="ico">
                   {#if h.kind === 'type'}<Icon name={typeMeta(h.value).icon} color={typeColor(h.value)} />
                   {:else if h.kind === 'project'}<Icon name={projMeta(h.value).icon} color={projColor(h.value)} />
-                  {:else if h.kind === 'source'}<Icon name={ORIGIN_ICON[h.value] || 'folder'} color="var(--dim)" />
+                  {:else if h.kind === 'subtopic'}<Icon name="folder" color="var(--dim)" />
                   {:else}<Icon name="hash" color="var(--dim)" />{/if}
                 </span>
                 <span class="qt">{PREFIX[h.kind]}{h.value}</span>

@@ -32,10 +32,13 @@ export const PROJECT: Record<string, Meta> = {
   skills: { icon: 'puzzle', c: ['#e0cf4b', '#a16207'] },
 }
 
-export const ORIGIN_ICON: Record<string, string> = {
-  code: 'square-terminal',
-  chat: 'message-circle',
-}
+// Aqui vivia ORIGIN_ICON, que mapeaba `code` y `chat` a un icono. Retirado el 22/08/2026: eran los
+// valores del esquema viejo `proyecto/origen`, derogado el 21/07/2026. Desde entonces el segundo
+// nivel del path es el SUBTEMA, y medido contra el arbol vivo hay 46 subtemas distintos de los que
+// **ninguno** casaba: las 411 memorias vigentes caian ya al icono de carpeta.
+//
+// Retirarlo no cambia nada de lo que se ve. Se prefiere eso a inflar el mapa a 46 entradas, que
+// seria inventar una taxonomia visual que nadie ha pedido y que envejeceria igual de mal.
 
 const FALLBACK: Meta = { icon: 'folder', c: ['#8a929e', '#6b7280'] }
 

@@ -76,8 +76,16 @@ services:
       # (instructivo). Activar strict SOLO cuando los clientes hayan recargado el schema
       # de las tools (agent_model), o no podran escribir hasta reconectar.
       AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}
+      # Visor v2 (Vite + Svelte). Sin esta variable se sirve el v1 de `app/viewer/`, que se
+      # conserva justo para eso: el rollback es quitar estas dos lineas y recrear, sin tocar
+      # una sola linea de codigo.
+      NAETH_VIEWER_DIR: /srv/viewer
     volumes:
       - ./app:/srv/app                            # banco Fase 1: iterar sin rebuild
+      # El build del visor v2. Bind-mount PROPIO y no copiado dentro de `app/`, que se monta con
+      # --reload: escribir ahi los 192 ficheros del build disparia el hot-reload y dejaria colgado
+      # a `naeth-viewer-1`, que es por donde entra Claude Code. Solo lectura: nadie escribe ahi.
+      - ./web/dist:/srv/viewer:ro
       - ${ASSETS_PATH:-./assets}:/assets          # bind-mount, ver ASSETS_PATH en .env
       - fastembed_cache:/root/.cache/fastembed   # comparte el modelo con el worker (no re-descargar)
       # Store del OAuthProxy de FastMCP (CENIT 8.5). Aqui viven los clientes registrados, los
@@ -168,8 +176,16 @@ services:
       EMBED_DIM: ${EMBED_DIM:-1024}
       OAUTH_ENABLED: "0"        # SSO por oauth2-proxy delante (publico) + loopback local
       AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}   # Paso 10 (ver nota en api)
+      # Visor v2 (Vite + Svelte). Sin esta variable se sirve el v1 de `app/viewer/`, que se
+      # conserva justo para eso: el rollback es quitar estas dos lineas y recrear, sin tocar
+      # una sola linea de codigo.
+      NAETH_VIEWER_DIR: /srv/viewer
     volumes:
       - ./app:/srv/app
+      # El build del visor v2. Bind-mount PROPIO y no copiado dentro de `app/`, que se monta con
+      # --reload: escribir ahi los 192 ficheros del build disparia el hot-reload y dejaria colgado
+      # a `naeth-viewer-1`, que es por donde entra Claude Code. Solo lectura: nadie escribe ahi.
+      - ./web/dist:/srv/viewer:ro
       - ${ASSETS_PATH:-./assets}:/assets
       - fastembed_cache:/root/.cache/fastembed
     ports:
