@@ -35,7 +35,8 @@ Desplegada en los dos nodos como **`2.2026.08.3`** (`01a586f` la marca, `fe38975
 - [x] Las dos capas flotantes con el mismo gesto, vía `@starting-style` porque se montan con `{#if}` → [`Header.svelte`](../../naeth/web/src/components/Header.svelte), [`PathField.svelte`](../../naeth/web/src/components/PathField.svelte)
 - [x] Respetar `prefers-reduced-motion`, con las clases repetidas para ganar al hash de Svelte → [`src/app.css`](../../naeth/web/src/app.css)
 - [x] Desplegar en los dos nodos y poner el tag. Los hashes de los assets vuelven a coincidir entre nodos
-- [x] El símbolo en el README de la raíz, con `<picture>` y dos ficheros (un SVG por `<img>` no hereda `currentColor`). Verificado en el render real de GitHub: sirve la variante oscura en tema oscuro y la clara en claro → [`README.md`](../../README.md), [`docs/img/`](../img/)
+- [x] La marca en el README de la raíz: **el lockup entero, y el lockup ES el H1**. Dos ficheros por pieza (un SVG cargado por `<img>` no hereda `currentColor`), servidos por `<picture>` según el tema. Verificado en el render real de GitHub → [`README.md`](../../README.md), [`docs/img/`](../img/)
+  - ⚠ **Coste aceptado el 28/08, medido y no supuesto**: un heading cuyo único contenido es una imagen se queda **sin `id` y sin ancla**, y **no sale en el Outline** de GitHub, porque ambos se generan del texto. El `alt="Naeth"` sí cubre a los lectores de pantalla. Si algún día molesta, la vuelta atrás es poner el lockup encima y recuperar el `# Naeth` debajo
 - [ ] **[Eneko]** Mirar el visor desde el móvil tras el SSO, que es lo único que no se puede comprobar desde aquí
 
 ## Fase 3 · Camino de lectura, la parte aditiva
