@@ -229,37 +229,96 @@ def get(memory_id: str) -> dict | None:
         return {"memory": m, "supersession": chain}
 
 
-def search(query: str, *, k: int = 10, q_embedding: list[float] | None = None) -> list[dict]:
+def _like_escape(s: str) -> str:
+    """Neutraliza los comodines de LIKE en un valor que viene de fuera.
+
+    Sin esto, un `path_prefix` de `naeth_` casaria tambien con `naethX`, porque en LIKE el guion
+    bajo es "un caracter cualquiera". Y el corpus tiene rutas con guion bajo, asi que no es
+    hipotetico.
+    """
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _filtros(path_prefix: str | None, tags: list[str] | None,
+             memory_type: str | None, since: str | None) -> tuple[str, dict]:
+    """Fragmento de WHERE comun a las TRES consultas de `search`, con sus parametros.
+
+    Se devuelve para pegarlo con AND detras de un WHERE que ya existe, o vacio si no hay filtros,
+    de modo que una llamada sin filtros produce exactamente el SQL de antes.
+    """
+    frag: list[str] = []
+    params: dict = {}
+    if path_prefix:
+        # El patron se construye aqui y viaja como PARAMETRO, asi que el SQL no lleva ningun `%`
+        # literal que psycopg pudiera confundir con un placeholder.
+        frag.append(r"path LIKE %(f_path)s ESCAPE '\'")
+        params["f_path"] = _like_escape(path_prefix) + "%"
+    if tags:
+        # `@>` es "los tiene TODOS", no "alguno": filtrar por dos tags acota, no amplia.
+        frag.append("tags @> %(f_tags)s")
+        params["f_tags"] = list(tags)
+    if memory_type:
+        frag.append("memory_type = %(f_type)s")
+        params["f_type"] = memory_type
+    if since:
+        frag.append("created_at >= %(f_since)s")
+        params["f_since"] = since
+    return (" AND " + " AND ".join(frag)) if frag else "", params
+
+
+def search(query: str, *, k: int = 10, q_embedding: list[float] | None = None,
+           path_prefix: str | None = None, tags: list[str] | None = None,
+           memory_type: str | None = None, since: str | None = None) -> list[dict]:
     """Busqueda hibrida RRF (semantica + lexica) sobre lo vigente (Paso 6 §9).
-    Si q_embedding es None, hace solo busqueda lexica (util antes de tener el modelo)."""
+    Si q_embedding es None, hace solo busqueda lexica (util antes de tener el modelo).
+
+    LOS FILTROS SE APLICAN DENTRO DE CADA RAMA, no sobre el resultado, y esa es toda la diferencia
+    entre mejorar el recall y solo recortar la salida: filtrando despues, las 50 plazas de `sem` y
+    de `txt` ya se las ha llevado lo de siempre, y lo que queda es el mismo ruido con menos filas.
+    Filtrando dentro, esas 50 plazas se reparten entre lo que de verdad compite.
+
+    NO hay filtro de `is_current`: la busqueda va sobre la vista `memory_current` a proposito.
+    Medido el 28/08/2026, 40 de los 297 pares de supersession son CORRECTIVOS (el hijo desmiente
+    algo del padre), asi que abrir la busqueda al historico devolveria afirmaciones ya refutadas
+    sin su correccion al lado. El historico se alcanza por `get`, que marca `is_current` y trae la
+    cadena.
+    """
+    where, fp = _filtros(path_prefix, tags, memory_type, since)
     with conn() as c:
         if q_embedding is None:
             return c.execute(
-                """SELECT *, ts_rank(tsv, plainto_tsquery('simple', %s)) AS score
-                   FROM memory_current
-                   WHERE tsv @@ plainto_tsquery('simple', %s)
-                   ORDER BY score DESC LIMIT %s""",
-                (query, query, k),
+                f"""SELECT *, ts_rank(tsv, plainto_tsquery('simple', %(kw)s)) AS score
+                    FROM memory_current
+                    WHERE tsv @@ plainto_tsquery('simple', %(kw)s){where}
+                    ORDER BY score DESC LIMIT %(k)s""",
+                {"kw": query, "k": k, **fp},
             ).fetchall()
 
         return c.execute(
-            """WITH sem AS (
-                   SELECT id, row_number() OVER (ORDER BY embedding <=> %(q)s::vector) AS r
-                   FROM memory_current WHERE embedding IS NOT NULL
-                   ORDER BY embedding <=> %(q)s::vector LIMIT 50
-               ),
-               txt AS (
-                   SELECT id, row_number() OVER (
-                       ORDER BY ts_rank(tsv, plainto_tsquery('simple', %(kw)s)) DESC) AS r
-                   FROM memory_current WHERE tsv @@ plainto_tsquery('simple', %(kw)s) LIMIT 50
-               )
-               SELECT m.*, (coalesce(1.0/(60+sem.r),0) + coalesce(1.0/(60+txt.r),0)) AS score
-               FROM memory_current m
-               LEFT JOIN sem ON sem.id = m.id
-               LEFT JOIN txt ON txt.id = m.id
-               WHERE sem.id IS NOT NULL OR txt.id IS NOT NULL
-               ORDER BY score DESC LIMIT %(k)s""",
-            {"q": q_embedding, "kw": query, "k": k},
+            f"""WITH sem AS (
+                    SELECT id, row_number() OVER (ORDER BY embedding <=> %(q)s::vector) AS r
+                    FROM memory_current WHERE embedding IS NOT NULL{where}
+                    ORDER BY embedding <=> %(q)s::vector LIMIT 50
+                ),
+                txt AS (
+                    SELECT id, row_number() OVER (
+                        ORDER BY ts_rank(tsv, plainto_tsquery('simple', %(kw)s)) DESC) AS r
+                    FROM memory_current WHERE tsv @@ plainto_tsquery('simple', %(kw)s){where}
+                    -- El ORDER BY de aqui NO es redundante con el de la ventana: sin el, el
+                    -- LIMIT 50 se lleva cincuenta filas CUALESQUIERA de las que casan, y que
+                    -- salgan las mejores depende de la forma del plan y no del SQL. Hoy salia
+                    -- bien por casualidad (Limit -> WindowAgg -> Sort, verificado con EXPLAIN);
+                    -- con los filtros de arriba el plan cambia.
+                    ORDER BY ts_rank(tsv, plainto_tsquery('simple', %(kw)s)) DESC
+                    LIMIT 50
+                )
+                SELECT m.*, (coalesce(1.0/(60+sem.r),0) + coalesce(1.0/(60+txt.r),0)) AS score
+                FROM memory_current m
+                LEFT JOIN sem ON sem.id = m.id
+                LEFT JOIN txt ON txt.id = m.id
+                WHERE sem.id IS NOT NULL OR txt.id IS NOT NULL
+                ORDER BY score DESC LIMIT %(k)s""",
+            {"q": q_embedding, "kw": query, "k": k, **fp},
         ).fetchall()
 
 
@@ -277,6 +336,136 @@ def tree() -> list[dict]:
                  "path": r["path"], "tags": r["tags"],
                  "created_at": r["created_at"].isoformat() if r["created_at"] else None}
                 for r in rows]
+
+
+def _top(c, sql: str, limit: int, params: dict | None = None) -> dict:
+    """Ejecuta un agrupado `(clave, n)` y devuelve el top N MAS lo que se queda fuera.
+
+    El `resto` no es decoracion: una lista recortada en silencio se lee como si fuera la lista
+    entera, y entonces el inventario miente por omision justo en la cola, que es donde viven las
+    rarezas que uno busca.
+    """
+    filas = c.execute(sql, params or {}).fetchall()
+    top = [{"k": r["k"], "n": r["n"]} for r in filas[:limit]]
+    return {"top": top, "distintos": len(filas),
+            "resto": sum(r["n"] for r in filas[limit:]) if len(filas) > limit else 0}
+
+
+def stats(mode: str = "counts", limit: int = 15) -> dict:
+    """Introspeccion del corpus: `counts` (como esta repartido) o `hygiene` (que esta mal).
+
+    ⚠ DEVUELVE RECUENTOS, NO FILAS, y esa es la razon de ser de la tool. Nacio porque responder
+    una pregunta agregada costaba cuatro busquedas y unas 40.000 palabras de contexto, asi que una
+    tool de inventario que escupiera listas largas empeoraria justo lo que viene a arreglar. Para
+    el detalle estan los filtros de `search`.
+    """
+    with conn() as c:
+        if mode == "hygiene":
+            return _stats_hygiene(c, limit)
+
+        counts = status()["counts"]
+        return {
+            "mode": "counts",
+            "totales": {
+                "vigentes": counts["memory_current"],
+                "filas": counts["memory_total"],
+                "superadas": counts["superseded"],
+                "retiradas": counts["tombstones"],
+                "relaciones": counts["relations"],
+            },
+            "por_proyecto": _top(c, """SELECT split_part(path,'/',1) AS k, count(*) AS n
+                                       FROM memory_current WHERE path IS NOT NULL
+                                       GROUP BY 1 ORDER BY 2 DESC, 1""", limit),
+            "por_path": _top(c, """SELECT path AS k, count(*) AS n FROM memory_current
+                                   WHERE path IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1""", limit),
+            "por_tipo": _top(c, """SELECT memory_type AS k, count(*) AS n FROM memory_current
+                                   GROUP BY 1 ORDER BY 2 DESC, 1""", limit),
+            "por_tag": _top(c, """SELECT unnest(tags) AS k, count(*) AS n FROM memory_current
+                                  GROUP BY 1 ORDER BY 2 DESC, 1""", limit),
+            "por_autor": _top(c, """SELECT coalesce(author_product,'(sin autor)')
+                                           || coalesce(' · ' || author_model, '') AS k,
+                                           count(*) AS n
+                                    FROM memory_current GROUP BY 1 ORDER BY 2 DESC, 1""", limit),
+            "por_mes": _top(c, """SELECT to_char(created_at,'YYYY-MM') AS k, count(*) AS n
+                                  FROM memory_current GROUP BY 1 ORDER BY 1 DESC""", limit),
+        }
+
+
+def _stats_hygiene(c, limit: int) -> dict:
+    """Lo que esta mal Y es indiscutible que esta mal. Cada lista va con muestra acotada."""
+    def ids(sql: str, params: dict | None = None) -> dict:
+        filas = c.execute(sql, params or {}).fetchall()
+        return {"n": len(filas),
+                "muestra": [{"id": str(r["id"]), "title": r.get("title"),
+                             "path": r.get("path")} for r in filas[:limit]]}
+
+    # Wikilinks que NO resuelven. Se miran las dos formas que apuntan por id (uuid entero y
+    # prefijo de 8); la de titulo y la de slug se quedan fuera A PROPOSITO: parte de los slugs
+    # apuntan a la memoria NATIVA de Claude Code, que no vive aqui, y marcarlos como rotos seria
+    # inventarse un problema. Es el mismo criterio que ya aplica `wikilinks.ts` en el visor.
+    rotos = c.execute(
+        r"""WITH l AS (
+                SELECT m.id, m.title, m.path,
+                       split_part((regexp_matches(m.content,'\[\[([^\]]+)\]\]','g'))[1],'|',1) AS dest
+                FROM memory_current m
+            )
+            SELECT id, title, path, dest FROM l
+            WHERE (dest ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                   AND NOT EXISTS (SELECT 1 FROM memory_current x WHERE x.id::text = l.dest))
+               OR (dest ~ '^[0-9a-f]{8}$'
+                   AND NOT EXISTS (SELECT 1 FROM memory_current x WHERE x.id::text LIKE l.dest || '%'))"""
+    ).fetchall()
+
+    # Rutas que parecen una ERRATA de un subtema ya establecido del mismo proyecto. El umbral 2 no
+    # es arbitrario: medido el 28/08/2026 sobre el corpus entero, con 2 salia exactamente el unico
+    # error real (`naeth/stets` por `status`) y ningun falso positivo; con 3 ya entraba uno.
+    # Lo que NO sirve es marcar por volumen: "subtema con una sola memoria" senalaba 32 rutas, de
+    # las que 20 eran `*/status`, que es la convencion funcionando.
+    erratas = c.execute(
+        """WITH sub AS (
+               SELECT split_part(path,'/',1) AS proj, split_part(path,'/',2) AS sub, count(*) AS n
+               FROM memory_current WHERE path IS NOT NULL GROUP BY 1,2
+           )
+           SELECT r.proj || '/' || r.sub AS ruta, e.sub AS parecido_a,
+                  levenshtein(r.sub, e.sub) AS distancia
+           FROM sub r JOIN sub e ON e.proj = r.proj AND e.sub <> r.sub AND e.n >= 2
+           WHERE r.n = 1 AND levenshtein(r.sub, e.sub) <= 2
+           ORDER BY 3, 1"""
+    ).fetchall()
+
+    cadenas = c.execute(
+        """WITH RECURSIVE h AS (
+               SELECT id AS head, id AS node, 1 AS n FROM memory_current
+               UNION ALL
+               SELECT h.head, s.parent_id, h.n + 1 FROM h JOIN supersession s ON s.child_id = h.node
+           ), largo AS (SELECT head, max(n) AS versiones FROM h GROUP BY 1)
+           SELECT l.head AS id, m.title, m.path, l.versiones
+           FROM largo l JOIN memory_current m ON m.id = l.head
+           WHERE l.versiones >= 5 ORDER BY l.versiones DESC LIMIT %(lim)s""",
+        {"lim": limit},
+    ).fetchall()
+
+    return {
+        "mode": "hygiene",
+        "sin_titulo": ids("""SELECT id, title, path FROM memory_current
+                             WHERE title IS NULL OR btrim(title) = ''"""),
+        "sin_tags": ids("""SELECT id, title, path FROM memory_current
+                           WHERE tags IS NULL OR cardinality(tags) = 0"""),
+        "sin_path": ids("""SELECT id, title, path FROM memory_current
+                           WHERE path IS NULL OR btrim(path) = ''"""),
+        "huerfanas": ids("""SELECT id, title, path FROM memory_current m
+                            WHERE NOT EXISTS (SELECT 1 FROM relation r
+                                              WHERE r.source_id = m.id OR r.target_id = m.id)"""),
+        "wikilinks_rotos": {
+            "n": len(rotos),
+            "muestra": [{"id": str(r["id"]), "title": r["title"], "destino": r["dest"]}
+                        for r in rotos[:limit]],
+        },
+        "rutas_sospechosas": [{"ruta": r["ruta"], "parecido_a": r["parecido_a"],
+                               "distancia": r["distancia"]} for r in erratas],
+        "cadenas_largas": [{"id": str(r["id"]), "title": r["title"], "path": r["path"],
+                            "versiones": r["versiones"]} for r in cadenas],
+    }
 
 
 def authors() -> list[dict]:
@@ -302,21 +491,40 @@ def authors() -> list[dict]:
 def status() -> dict:
     """Salud: conteos, estado de la cola de embeddings, modelo/dimension activos."""
     with conn() as c:
+        # Tres de estas cifras estaban mal hasta el 28/08/2026, y no por redondeo: contaban dos
+        # poblaciones distintas en un solo numero, asi que cualquiera que DERIVARA algo de aqui lo
+        # sacaba mal sin manera de notarlo. Paso de verdad, al montar un informe de estado.
+        #   - `tombstones` sumaba los de memoria y los de relacion. Ahora `tombstones` son los de
+        #     MEMORIA y los de relacion van aparte: restar el total de las filas para saber cuantas
+        #     versiones se superaron daba de menos.
+        #   - `relations` contaba la tabla entera, retiradas incluidas.
+        #   - `superseded` no existia y habia que derivarlo restando, que es justo lo que fallaba.
+        #     Se cuenta directo de su tabla, que es la unica forma que no depende de suposiciones.
         counts = c.execute(
             """SELECT
                  (SELECT count(*) FROM memory)                         AS memory_total,
                  (SELECT count(*) FROM memory_current)                 AS memory_current,
                  (SELECT count(*) FROM memory WHERE embedding IS NULL) AS pendientes_embed,
-                 (SELECT count(*) FROM relation)                       AS relations,
-                 (SELECT count(*) FROM tombstone)                      AS tombstones""",
+                 (SELECT count(*) FROM supersession)                   AS superseded,
+                 (SELECT count(*) FROM relation r
+                    WHERE NOT EXISTS (SELECT 1 FROM tombstone t
+                                      WHERE t.target_id = r.id AND t.target_kind = 'relation'))
+                                                                       AS relations,
+                 (SELECT count(*) FROM tombstone WHERE target_kind = 'memory')   AS tombstones,
+                 (SELECT count(*) FROM tombstone WHERE target_kind = 'relation') AS tombstones_relation""",
         ).fetchone()
+        # `avg_lag_s` promediaba TODA la tabla `job` desde el primer dia, asi que no respondia
+        # "cuanto tarda un embedding hoy" sino "cuanto ha tardado de media en la vida del nodo", y
+        # se movia sola sin que cambiara nada. Se acota a los ultimos 7 dias; si en esa ventana no
+        # hay ninguno terminado, devuelve NULL en vez de una media de hace meses.
         queue = c.execute(
             """SELECT
                  count(*) FILTER (WHERE status='pending')    AS pending,
                  count(*) FILTER (WHERE status='processing') AS processing,
                  count(*) FILTER (WHERE status='done')       AS done,
                  count(*) FILTER (WHERE status='error')      AS error,
-                 extract(epoch FROM avg(finished_at - created_at) FILTER (WHERE status='done')) AS avg_lag_s
+                 extract(epoch FROM avg(finished_at - created_at) FILTER (
+                   WHERE status='done' AND finished_at > now() - interval '7 days')) AS avg_lag_s
                FROM job""",
         ).fetchone()
         return {

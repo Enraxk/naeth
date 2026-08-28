@@ -10,6 +10,12 @@
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- `levenshtein`, que usa el modo higiene de `stats` para distinguir un subtema nuevo de una
+-- ERRATA de otro que ya existe (`naeth/stets` por `naeth/status`). Se probo antes con los
+-- trigramas de pg_trgm y NO sirven: una transposicion de letras comparte muy pocos.
+-- ⚠ Esto solo se aplica en una base NUEVA. En una que ya exista hay que crearla a mano, y en los
+-- DOS nodos: si falta en uno, el modo higiene funciona aqui y revienta alli.
+CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 
 -- ============================================================
 -- 2. Tabla nucleo: memory (fila inmutable, una por version)

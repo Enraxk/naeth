@@ -250,9 +250,17 @@ async def memory_add(content: str, title: str | None = None,
                       "context about the user's projects, decisions, configs and "
                       "preferences. ENTRY tool -- call before answering about those "
                       "topics. Hybrid search (semantic + lexical, RRF) over current "
-                      "memories; returns the top-k most relevant.")
-def memory_search(query: str, k: int = 10) -> list[dict[str, Any]]:
-    hits = core.search(query, k=k, q_embedding=_embed_query(query))
+                      "memories; returns the top-k most relevant. Optional filters "
+                      "narrow the search BEFORE ranking, which is the cheapest way to "
+                      "improve recall: path_prefix ('naeth/' or 'naeth/core'), tags "
+                      "(must have ALL of them), memory_type (fact|decision|observation|"
+                      "preference) and since (ISO date, only memories created after).")
+def memory_search(query: str, k: int = 10, path_prefix: str | None = None,
+                  tags: list[str] | None = None, memory_type: str | None = None,
+                  since: str | None = None) -> list[dict[str, Any]]:
+    hits = core.search(query, k=k, q_embedding=_embed_query(query),
+                       path_prefix=path_prefix, tags=tags,
+                       memory_type=memory_type, since=since)
     return [{"id": str(h["id"]), "title": h["title"],
              "content": h["content"], "memory_type": h["memory_type"],
              "tags": h["tags"], "score": float(h["score"]) if h.get("score") else None}
@@ -326,6 +334,21 @@ def relation_list(memory_id: str) -> list[dict[str, Any]]:
 async def relation_tombstone(relation_id: str) -> dict[str, Any]:
     return core.tombstone(relation_id, target_kind="relation",
                           source_client=_source_client(_authorship()))
+
+
+@mcp.tool(name="memory_stats",
+          description="Introspect the Naeth corpus itself: how it is distributed, or what is "
+                      "wrong with it. Use for INVENTORY questions that search cannot answer "
+                      "('how many notes per project', 'which ones have no title', 'which "
+                      "wikilinks are broken'). mode='counts' groups by project, path, type, tag, "
+                      "author and month; mode='hygiene' lists notes with no title, no tags, no "
+                      "path, no relations, broken wikilinks, long version chains and paths that "
+                      "look like a typo of an existing subtopic. Returns COUNTS plus a capped "
+                      "sample, never the full rows: use memory_search with filters for detail.")
+def memory_stats(mode: str = "counts", limit: int = 15) -> dict[str, Any]:
+    if mode not in ("counts", "hygiene"):
+        return {"error": "mode debe ser 'counts' o 'hygiene'", "recibido": mode}
+    return core.stats(mode=mode, limit=limit)
 
 
 @mcp.tool(name="system_status",
