@@ -54,9 +54,24 @@ volumes:
 ```
 
 ```bash
-npm run build
-cd .. && ./up.ps1        # recrea api y viewer
+npm run build            # esto YA despliega: ver abajo
 ```
+
+**`npm run build` es todo el despliegue en el PC, y no hace falta recrear nada después.** Los dos
+procesos leen del disco en cada petición: la raíz construye su `FileResponse` dentro del handler
+(`../app/mcp_server.py:341-343`) y `StaticFiles` resuelve cada `/assets/*` por ruta, así que un
+build nuevo, con hashes nuevos, se sirve al instante. Medido el 28/08/2026: recién compilado, los
+dos puertos devolvían ya el `index-` nuevo y el `.js` daba 200, sin tocar Docker.
+
+⚠ **La excepción, y es la que justifica que aquí pusiera `up.ps1`:** el mount de `/assets` está
+detrás de un `if _ASSETS_DIR.is_dir()` que se evalúa **al importar el módulo**
+(`../app/mcp_server.py:498-500`). Si el contenedor arrancó cuando `web/dist/assets` todavía no
+existía (un clon recién hecho, o tras borrar `dist/`), la ruta no se montó y compilar después no la
+añade: ahí sí hay que recrear con `../up.ps1`. En un clon nuevo, entonces: compilar **antes** de
+levantar, o levantar dos veces.
+
+Recrear la pila por costumbre no es gratis: se lleva por delante el `:8801`, que es por donde entra
+Claude Code.
 
 En el **VPS `finally`**, desde la imagen: el `Dockerfile` es multi-stage y compila el front con
 Node 22 en una etapa aparte, dejándolo en `/srv/viewer-build`, que es a donde apunta el
