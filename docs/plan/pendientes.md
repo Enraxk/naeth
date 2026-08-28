@@ -41,16 +41,25 @@ Desplegada en los dos nodos como **`2.2026.08.3`** (`01a586f` la marca, `fe38975
 - [x] El selector de wikilinks se salía de la pantalla en móvil: 212 px fuera en un viewport de 375. Clamp en CSS, `max-height` en `dvh` por el teclado, y dos líneas de título por debajo de 600 px → [`Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte), [`Memoria.svelte`](../../naeth/web/src/views/Memoria.svelte)
 - [ ] **[Eneko]** Qué hacer con **`naeth/stets`** (`5e0b4862`, "Test en móvil"), la memoria de la prueba: su ruta lleva una errata de `status`. Es escritura en Naeth, así que no la toco sin decisión
 
-## Fase 3 · Camino de lectura, la parte aditiva
+## Fase 3 · Camino de lectura, la parte aditiva · CERRADA el 28/08/2026
 
-- [ ] Filtros en `memory_search` (`path_prefix`, `tags`, `memory_type`, `since`, `is_current`), filtrando antes de rankear → [`core.py:232`](../../naeth/app/core.py), [`mcp_server.py:254`](../../naeth/app/mcp_server.py)
-- [ ] `memory_stats`, modo recuento: por path, subtema, tipo, tag, autor y mes → [`mcp_server.py`](../../naeth/app/mcp_server.py)
-- [ ] `memory_stats`, modo higiene: sin título, sin tags, path fuera de taxonomía, longitud de cadenas, huérfanas y wikilinks que no resuelven
-- [ ] Separar en `system_status` los tombstones de memoria (20) de los de relación (4), y descontar las relaciones retiradas → [`core.py:307-311`](../../naeth/app/core.py)
-- [ ] Acotar `avg_lag_s` a una ventana reciente: hoy promedia toda la tabla `job` desde junio → [`core.py:313-320`](../../naeth/app/core.py)
-- [ ] `ORDER BY` explícito antes del `LIMIT 50` de la rama léxica, que hoy depende de la forma del plan → [`core.py:252-255`](../../naeth/app/core.py)
-- [ ] Comprobar que una fila sin embedding no se cae del corte de 50 de la rama léxica
-- [ ] Pasar la suite de pytest y desplegar en los dos nodos con tag → `docker compose --profile test run --rm test`, luego `docker compose rm -sf db`
+Desplegada en los dos nodos como **`2.2026.08.5`** (`2610fb7` y el arreglo de la degradación).
+Suite de pytest de 28 a 48.
+
+- [x] Filtros en `memory_search` (`path_prefix`, `tags`, `memory_type`, `since`), aplicados **dentro** de cada rama y no sobre el resultado → [`core.py`](../../naeth/app/core.py)
+- [x] **`is_current` NO entra**, decidido con medición: 40 de los 297 pares de supersession son correctivos, así que abrir el histórico devolvería afirmaciones ya refutadas
+- [x] `system_status` deja de contar dos poblaciones en un número: `tombstones` son los de memoria, los de relación van aparte, `relations` descuenta las retiradas y `superseded` se cuenta de su tabla
+- [x] `avg_lag_s` acotado a 7 días. **El retardo real es de 1,53 s**, no los 3.433 s de la media histórica que citaba el análisis del 28/08
+- [x] `memory_stats`, modo recuento: agrupa por proyecto, path, tipo, tag, autor y mes, con recuentos y el **resto declarado**, nunca listas completas
+- [x] `memory_stats`, modo higiene: sin título, sin tags, sin path, huérfanas, cadenas largas, wikilinks rotos y erratas de ruta por distancia de edición ≤ 2 → [`core.py`](../../naeth/app/core.py)
+- [x] La higiene **degrada** si falta `fuzzystrmatch`: en el nodo de respaldo no se puede crear porque está en `read_only`, y ese read-only es la protección del failover
+- [ ] **Crear `fuzzystrmatch` en `finally`** la próxima vez que ese nodo lidere. Hasta entonces la detección de erratas solo corre en el PC, y allí avisa en vez de fallar
+
+### Lo que salió de fuera del plan
+
+- [x] Retirada con tombstone la memoria de prueba `naeth/stets`
+
+- [ ] Comprobar que una fila **sin embedding** no se cae del corte de 50 de la rama léxica. Es lo único del plan de la fase 3 que quedó sin cubrir: los tests van sobre la rama léxica pura, y ese reparto solo se ve con embeddings de verdad
 
 ## Fase 4 · El digest
 
