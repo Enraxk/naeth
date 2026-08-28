@@ -25,6 +25,15 @@ CREATE TABLE IF NOT EXISTS memory (
     content_hash  text NOT NULL,                       -- sha256 del contenido (dedup/idempotencia)
     title         text,
     content       text NOT NULL,
+    -- Resumen corto ESCRITO A MANO (fase 4, 28/08/2026). `memory_search` devuelve esto en vez
+    -- del contenido entero: la busqueda da el mapa y `memory_get` sigue trayendo el terreno.
+    -- El tope de 300 esta MEDIDO sobre 24 digests reales (212-296, mediana 267), no elegido:
+    -- ver docs/plan/fase-4-0-tope-y-prioridad.md. Se empieza apretado porque relajar el CHECK
+    -- despues es gratis y apretarlo obligaria a reeditar a mano.
+    -- ⚠ Esto solo se aplica en una base NUEVA. En una que ya exista, migrations/006-digest.sql,
+    -- y ahi esta el porque `finally` va PRIMERO y el PC despues.
+    digest        text CONSTRAINT memory_digest_len
+                       CHECK (digest IS NULL OR length(digest) <= 300),
     memory_type   text NOT NULL DEFAULT 'observation', -- observation|decision|learning|error|...
     tags          text[] NOT NULL DEFAULT '{}',
     path          text,                                -- jerarquia logica para el arbol

@@ -67,12 +67,100 @@ Suite de pytest de 28 a 48.
 
 ## Fase 4 · El digest
 
-- [ ] **[Eneko]** El parámetro nace obligatorio en las dos tools de escritura, o nace opcional y se endurece después
-- [ ] Columna `digest` con tope duro y su migración → [`db/migrations/`](../../naeth/db/migrations/)
-- [ ] Parámetro `digest` en `memory_add` y `memory_supersede`, que son las dos únicas que escriben contenido → [`mcp_server.py:236`](../../naeth/app/mcp_server.py), [`:285`](../../naeth/app/mcp_server.py)
-- [ ] `memory_search` deja de devolver `content` y pasa a devolver `path`, `created_at` y `digest` → [`mcp_server.py:254-259`](../../naeth/app/mcp_server.py)
-- [ ] Backfill revisado de las 459 vigentes, por tandas y por proyecto, nunca con una pasada de LLM sin revisar
-- [ ] Actualizar `NaethPersist` en sus dos copias, la local y la de claude.ai, que divergen a mano
-- [ ] Mostrar el digest en el visor → [`views/Memoria.svelte`](../../naeth/web/src/views/Memoria.svelte)
-- [ ] Rehacer el informe de estado del 28/08 con las tools nuevas y medir el contexto consumido
-- [ ] Desplegar en los dos nodos y poner el tag
+La única que **rompe contrato**. `memory_search` deja de devolver el contenido íntegro (media de
+2.686 caracteres por nota, unos 27.000 en una búsqueda de `k=10`) y pasa a devolver un resumen corto
+escrito a mano. La búsqueda da el mapa; `memory_get` sigue trayendo el terreno.
+
+Decidido con Eneko el 28/08: **el backfill completo es requisito de cierre**, pero por grupos y en
+orden de importancia medida, no arbitrario. Y el tope no se fijó de entrada: se midió.
+
+### 4.0 · El tope y el orden del backfill · CERRADA el 28/08/2026
+
+Informe con la medición completa en [`fase-4-0-tope-y-prioridad.md`](fase-4-0-tope-y-prioridad.md).
+
+- [x] **Tope de 300 caracteres**, medido redactando 24 digests reales sobre una muestra estratificada
+  de 590 a 7.569 caracteres de nota, no eligiendo entre opciones
+- [x] **El digest satura**: la nota crece 13x y el digest 1,6x. El outlier de 36.266 es una
+  transcripción cruda de ASR, de otra naturaleza; el techo real de una nota es ~8.500
+- [x] ⚠ **Detectado un sesgo de anclaje en la propia medición** y descartado el p90 fácil (324):
+  14 de 24 caían en 296-325 con 2, 3 o 4 frases, ajustando la frase al espacio. La prueba que sí
+  resiste es comprimir los 5 peores: bajan a 257-283 **sin perder una sola afirmación**
+- [x] La asimetría que decide el número: subir un `CHECK` después es gratis, bajarlo obliga a reeditar
+- [x] **Tres grupos: G1 96 · G2 209 · G3 165**, por citas entrantes, versiones acumuladas y `*/status`
+- [x] **La recencia se cayó al medirla**: 428 de 470 son de los últimos 60 días, así que no separa
+  nada. Con ella dentro, G2 se llevaba 368 de 470
+- [x] **La frecuencia de consulta no es medible**: ninguna de las 15 tablas del esquema registra
+  accesos. No se sustituye por un proxy inventado
+- [x] Top-30 verificado a ojo, que es lo que la fase 3 enseñó a no saltarse: ni una nota irreconocible
+- [x] Los 24 digests calibrados quedan en [`digests-g1.tsv`](digests-g1.tsv), como primera tanda de G1
+
+### 4.1 · La columna y la migración · CERRADA el 28/08/2026
+
+- [x] Columna `digest text` con `CHECK (digest IS NULL OR length(digest) <= 300)`, nullable a
+  propósito → [`db/migrations/`](../../naeth/db/migrations/), [`db/schema.sql`](../../naeth/db/schema.sql)
+- [x] ⚠ **En `finally` PRIMERO, en el PC después.** `handoff.py:235` saca las columnas del ORIGEN y
+  `sync.py:198` crea el staging en el DESTINO con `LIKE`: origen con la columna y destino sin ella
+  rompe el `COPY IN` de la tabla `memory` ENTERA. Al revés es benigno
+- [x] En `finally`, con `PGOPTIONS` para el `read_only`. Verificado después: sigue en `on` y un
+  `CREATE TABLE` normal allí sigue fallando
+- [x] **El sync no se rompió**: `core handoff --from local --to finally` pasó sus 9 tablas con
+  `memory` 790 -> 790. Era el riesgo número uno de la fase y queda cerrado con evidencia
+- [ ] **[Eneko]** Recomendado y no incluido: `"digest": "COALESCE({t}.{c}, EXCLUDED.{c})"` en
+  `MONOTONIC_MERGE_RULES` (`CENIT/core/reconciler/src/cenit_core/sync.py:119`). Una línea que haría
+  converger el digest solo. Es otro repo
+
+### 4.2 · Escritura: el digest en las dos tools
+
+- [ ] `digest` en `core.add` y `core.supersede` → [`core.py:63`](../../naeth/app/core.py), [`:91`](../../naeth/app/core.py)
+- [ ] Y en las dos tools que escriben contenido → [`mcp_server.py:235`](../../naeth/app/mcp_server.py), [`:292`](../../naeth/app/mcp_server.py)
+- [ ] Y en las dos rutas del visor que escriben → [`mcp_server.py:407`](../../naeth/app/mcp_server.py), [`:425`](../../naeth/app/mcp_server.py)
+- [ ] `NAETH_DIGEST_ENFORCE=warn|strict`, calcado de `_enforce_model` ([`:220`](../../naeth/app/mcp_server.py)).
+  **Nace en `warn`**, decidido por el precedente medido: `AUTHORSHIP_ENFORCE` lleva un mes pidiendo
+  `agent_model` sin obligarlo y se cumple (julio 119/129, **agosto 343/343**). Y la asimetría:
+  `strict` pierde la escritura entera, `warn` deja un NULL rellenable
+- [ ] ⚠ **El digest NO se hereda del padre al superseder**: describiría la versión anterior, o sea
+  mentiría con la firma de un resumen bueno. Mejor NULL
+
+### 4.3 · Lectura: `memory_search` deja de devolver el contenido
+
+- [ ] Devuelve `digest`, `path` y `created_at`; deja de devolver `content` → [`mcp_server.py:258-267`](../../naeth/app/mcp_server.py)
+- [ ] ⚠ **`core.search` NO cambia**: `/api/search` del visor consume la fila entera y se rompería
+- [ ] Mientras queden NULL, recorte del contenido **marcado como recorte**, para que el ahorro empiece
+  el día del despliegue y el agente sepa que le falta algo
+- [ ] ⚠ **El riesgo mayor de la fase**: si el agente no pide `memory_get` cuando el digest no le basta,
+  la memoria queda peor que antes. Va en la descripción de la tool y se comprueba en 4.6
+
+### 4.4 · El visor no pierde el digest
+
+- [ ] Campo editable con contador, en las dos vistas que escriben → [`Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte), [`Memoria.svelte`](../../naeth/web/src/views/Memoria.svelte), [`types.ts`](../../naeth/web/src/lib/types.ts), [`api.ts`](../../naeth/web/src/lib/api.ts)
+- [ ] ⚠ **No es cosmético, es integridad**: `Memoria.svelte` manda todos los campos al superseder
+  porque el core no hereda. Sin el digest ahí, editar desde el visor lo borra
+
+### 4.5 · `memory_stats` mide el avance
+
+- [ ] "Vigentes sin digest", por proyecto y por grupo. Es el marcador de 4.7 → [`core.py:354`](../../naeth/app/core.py)
+
+### 4.6 · Suite, despliegue y tag
+
+- [ ] `docker compose --profile test run --rm test`, y después `docker compose rm -sf db`, **nunca `down`**
+- [ ] `npm test && npm run check && npm run build` en `naeth/web/`
+- [ ] Despliegue en los dos nodos y tag `2.2026.08.6`
+
+### 4.7 · El backfill por grupos (8-12 sesiones)
+
+- [ ] **G1, 96 notas.** Las 24 de [`digests-g1.tsv`](digests-g1.tsv) ya están escritas
+- [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
+- [ ] **G2, 209 notas**
+- [ ] **G3, 165 notas**
+- [ ] ⚠ **Cada tanda son DOS ejecuciones, una por nodo** (`sync.py:119-127`: el merge solo reconcilia
+  `is_current` y `embedding`, en el resto manda la fila local). Verificar recuentos iguales al cerrar
+- [ ] ⚠ **`UPDATE` directo, no `supersede`**: por supersession serían 470 versiones nuevas para
+  arreglar metadato. Misma excepción al ADD-only que el em dash del 28/07 y el borrado del 28/08.
+  Backup previo en `_digest_backup`, como `_path_backup` y `_emdash_backup`
+- [ ] ⚠ **Nunca una pasada de LLM sin revisar**: varias notas llevan dentro su propia versión refutada
+- [ ] Al terminar: `NAETH_DIGEST_ENFORCE=strict` y retirar el recorte de 4.3
+
+### 4.8 · `NaethPersist` en sus dos copias
+
+- [ ] El digest entra en la estructura del informe, para redactarlo **en la revisión** y no después →
+  `~/.claude/skills/NaethPersist/SKILL.md` y `userpreferences-naeth-claudeai.md` (divergen a mano)
