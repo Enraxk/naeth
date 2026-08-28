@@ -146,9 +146,7 @@ Informe con la medición completa en [`fase-4-0-tope-y-prioridad.md`](fase-4-0-t
 - [ ] ⚠ **La descripción nueva no llega a las sesiones MCP ya abiertas**: el cliente cachea el schema
   del handshake, así que el aviso de "llama a `memory_get`" solo entra en sesiones nuevas. No es un
   fallo, pero conviene saberlo al medir si el aviso funciona
-- [ ] ⚠ **`finally` sigue con el código viejo**: los dos nodos tienen la columna, pero el módulo solo
-  se recargó aquí. Si el respaldo liderara ahora, `memory_search` allí devolvería el contenido entero.
-  No es una rotura (es el comportamiento anterior), y lo cierra el despliegue de 4.6
+- [x] ⚠ **`finally` sigue con el código viejo**: cerrado por el despliegue de 4.6
 
 ### 4.4 · El visor no pierde el digest · CERRADA el 28/08/2026
 
@@ -180,11 +178,19 @@ Informe con la medición completa en [`fase-4-0-tope-y-prioridad.md`](fase-4-0-t
   vista sí la tiene. El fallo solo existe en una base migrada, o sea en las dos de producción.
   Añadido a la migración 006 y aplicado en los dos nodos
 
-### 4.6 · Suite, despliegue y tag
+### 4.6 · Suite, despliegue y tag · CERRADA el 28/08/2026
 
-- [ ] `docker compose --profile test run --rm test`, y después `docker compose rm -sf db`, **nunca `down`**
-- [ ] `npm test && npm run check && npm run build` en `naeth/web/`
-- [ ] Despliegue en los dos nodos y tag `2.2026.08.6`
+Desplegada en los dos nodos como **`2.2026.08.6`**.
+
+- [x] Suite de pytest: **48 -> 61 en verde**. Y el `db` bajado con `rm -sf`, nunca `down`
+- [x] Front: **89 tests**, `check` limpio sobre 465 ficheros, y `build`
+- [x] `finally` desplegado con `up.sh --build`. ⚠ **Allí el visor NO sale de un `dist/` montado**
+  como en el PC: `NAETH_VIEWER_DIR` apunta a `/srv/viewer-build`, que se compila DENTRO de la imagen.
+  Por eso allí hace falta `--build` y aquí no
+- [x] Tag `2.2026.08.6` en los dos, con `git fetch --tags` en `finally` para que `git describe`
+  responda allí
+- [x] Verificado al cerrar: los tres endpoints en 200, `read_only` correcto por nodo,
+  **790 / 470 / 0 sin embedding idénticos**, y el digest escrito presente en los dos
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
