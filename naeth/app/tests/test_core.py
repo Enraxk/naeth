@@ -333,3 +333,21 @@ def test_hygiene_no_marca_las_huerfanas_que_si_tienen_relacion():
     h = core.stats("hygiene")
     assert h["huerfanas"]["n"] == 1
     assert h["huerfanas"]["muestra"][0]["title"] == "o3"
+
+
+def test_hygiene_degrada_si_falta_fuzzystrmatch_en_vez_de_reventar():
+    """El nodo de respaldo esta en read-only, asi que alli la extension NO se puede crear. Sin
+    esta degradacion, `hygiene` funcionaria en el PC y devolveria un error en el VPS, que es el
+    modo de fallo mas caro de este sistema."""
+    core.add("a", title="d1", path="naeth/status")
+    core.add("b", title="d2", path="naeth/status")
+    core.add("c", title="d3", path="naeth/stets")
+    with core.conn() as c:
+        c.execute("DROP EXTENSION IF EXISTS fuzzystrmatch")
+    h = core.stats("hygiene")
+    assert "no_disponible" in h["rutas_sospechosas"]     # avisa, no revienta
+    assert h["sin_titulo"]["n"] == 0                      # y el resto sigue respondiendo
+    assert h["huerfanas"]["n"] == 3
+    with core.conn() as c:
+        c.execute("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch")
+    assert [r["ruta"] for r in core.stats("hygiene")["rutas_sospechosas"]] == ["naeth/stets"]

@@ -421,7 +421,18 @@ def _stats_hygiene(c, limit: int) -> dict:
     # error real (`naeth/stets` por `status`) y ningun falso positivo; con 3 ya entraba uno.
     # Lo que NO sirve es marcar por volumen: "subtema con una sola memoria" senalaba 32 rutas, de
     # las que 20 eran `*/status`, que es la convencion funcionando.
-    erratas = c.execute(
+    #
+    # ⚠ ESTA SECCION DEGRADA EN VEZ DE REVENTAR, y no es celo: `levenshtein` viene de
+    # `fuzzystrmatch`, que el schema crea SOLO en una base nueva. En el nodo de respaldo no se
+    # puede crear mientras esta en read-only (que es su estado normal), asi que sin esto
+    # `memory_stats hygiene` funcionaria aqui y devolveria un error alli. Se comprueba ANTES de
+    # lanzar la consulta, y no con un try: una consulta que falla aborta la transaccion y se lleva
+    # por delante todo lo que venga detras.
+    tiene_levenshtein = c.execute(
+        "SELECT count(*) > 0 AS ok FROM pg_proc WHERE proname = 'levenshtein'"
+    ).fetchone()["ok"]
+
+    erratas = [] if not tiene_levenshtein else c.execute(
         """WITH sub AS (
                SELECT split_part(path,'/',1) AS proj, split_part(path,'/',2) AS sub, count(*) AS n
                FROM memory_current WHERE path IS NOT NULL GROUP BY 1,2
@@ -462,7 +473,10 @@ def _stats_hygiene(c, limit: int) -> dict:
                         for r in rotos[:limit]],
         },
         "rutas_sospechosas": [{"ruta": r["ruta"], "parecido_a": r["parecido_a"],
-                               "distancia": r["distancia"]} for r in erratas],
+                               "distancia": r["distancia"]} for r in erratas]
+        if tiene_levenshtein else
+        {"no_disponible": "falta la extension fuzzystrmatch en este nodo; el resto de la "
+                          "higiene no depende de ella"},
         "cadenas_largas": [{"id": str(r["id"]), "title": r["title"], "path": r["path"],
                             "versiones": r["versiones"]} for r in cadenas],
     }
