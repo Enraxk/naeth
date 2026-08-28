@@ -206,7 +206,16 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 - [ ] ⚠ **Nunca una pasada de LLM sin revisar**: varias notas llevan dentro su propia versión refutada
 - [ ] Al terminar: `NAETH_DIGEST_ENFORCE=strict` y retirar el recorte de 4.3
 
-### 4.8 · `NaethPersist` en sus dos copias
+### 4.8 · `NaethPersist` en sus dos copias · CERRADA EN LOCAL el 28/08/2026
 
-- [ ] El digest entra en la estructura del informe, para redactarlo **en la revisión** y no después →
-  `~/.claude/skills/NaethPersist/SKILL.md` y `userpreferences-naeth-claudeai.md` (divergen a mano)
+- [x] El digest entra en la **ficha del candidato** del informe, para que se redacte en la revisión
+  (que es lo único que Eneko mira antes de que se guarde) y no improvisado al escribir
+- [x] Y en las convenciones de escritura de las dos copias, con las tres reglas que muerden: se
+  rechaza por encima de 300 en vez de recortarse, no se hereda al superseder, y sin él la búsqueda
+  cae a un recorte marcado como `excerpt` → `~/.claude/skills/NaethPersist/SKILL.md` y
+  `userpreferences-naeth-claudeai.md`
+- [ ] **[Eneko]** **Pegar el `userPreferences` en la cuenta de claude.ai.** Escribir el fichero local
+  NO cuenta como actualizarlo, y esto no es celo: es exactamente lo que pasó el 12/08/2026, cuando
+  la copia viva siguió **cuatro días** con la URL y la convención muertas porque solo se había
+  escrito el fichero (memoria `32b78ec0`). Hasta que se pegue, claude.ai escribirá sin digest
+- [ ] **[Eneko]** Resubir `naethpersist` como `.skill` al store, por lo mismo
