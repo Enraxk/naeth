@@ -7,17 +7,21 @@ Las líneas marcadas **[Eneko]** son decisiones, no trabajo: bloquean la tarea q
 
 ---
 
-## Fase 1 · El alta de memoria sale a producción
+## Fase 1 · El alta de memoria sale a producción · CERRADA el 28/08/2026
 
-- [ ] **[Eneko]** Selector de ruta: plano o agrupado. 81 rutas, 26 proyectos, 30 con una sola memoria → [`views/Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte)
-- [ ] **[Eneko]** Vocabulario de `memory_type`: cerrar en 4 y migrar las 2 `reference`, o adoptar `reference` como quinto
-- [ ] **[Eneko]** El `.pen` borrado: se commitea el borrado o se restaura → `git status`
-- [ ] Aplicar la decisión del selector de ruta → [`views/Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte)
-- [ ] Alinear la lista de tipos en el visor de lectura: hoy ofrece 6, con `learning` y `error` a cero usos → [`views/Memoria.svelte:15`](../../naeth/web/src/views/Memoria.svelte)
-- [ ] Alinear la lista de tipos del alta con la decisión → [`views/Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte)
-- [ ] Actualizar la tabla "Alcance", que sigue diciendo que Nueva memoria es un stub → [`web/README.md`](../../naeth/web/README.md)
-- [ ] Commit del trabajo sin versionar: `Nueva.svelte`, `wikipick.ts`, `wikipick.test.ts` y el diff de `App.svelte`, `api.ts`, `Milkdown.svelte` y `Memoria.svelte`
-- [ ] Desplegar en el PC (`npm run build` + `up.ps1`) y en `finally` (`up.sh --build`), y poner el tag → [`web/README.md`](../../naeth/web/README.md)
+Desplegada en los dos nodos como **`2.2026.08.2`** (`ec54d3e` y `9d4fda4`).
+
+- [x] **[Eneko]** Selector de ruta: input libre con sugerencias, ni plano ni agrupado
+- [x] **[Eneko]** Vocabulario de `memory_type`: cerrar en 4 y migrar las 2 `reference`
+- [x] **[Eneko]** El `.pen` borrado: se commitea el borrado
+- [x] Ranking de rutas con 16 tests → [`lib/pathpick.ts`](../../naeth/web/src/lib/pathpick.ts)
+- [x] El campo con sugerencias, en las dos vistas que editan metadatos → [`components/PathField.svelte`](../../naeth/web/src/components/PathField.svelte)
+- [x] Cerrar la lista de tipos en cuatro, y retirar `learning` y `error` también del mapa de iconos → [`views/Memoria.svelte`](../../naeth/web/src/views/Memoria.svelte), [`lib/colors.ts`](../../naeth/web/src/lib/colors.ts)
+- [x] Actualizar la tabla "Alcance" y la estructura → [`web/README.md`](../../naeth/web/README.md)
+- [x] Commit, despliegue en los dos nodos y tag
+- [x] **Acotar el escaneo de Tailwind a `src/`**, que hacía que el CSS de producción dependiera de dos ficheros sin versionar y que los dos nodos sirvieran cosas distintas → [`src/app.css`](../../naeth/web/src/app.css)
+- [ ] **[Eneko]** Migrar las dos memorias de `reference` (`aa342087` en `cenit/infra` y `ded8a830` en `cenit/design`). Es escritura en Naeth: hay que leerlas antes para decidir a qué tipo pasan
+- [ ] **[Eneko]** Crear una memoria de verdad desde el móvil en `naeth-visor.enraxk.dev`, que es lo único de la verificación que no se puede hacer desde aquí
 
 ## Fase 2 · La marca y el movimiento entran en el visor
 
