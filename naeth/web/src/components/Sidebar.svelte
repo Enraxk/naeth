@@ -139,7 +139,8 @@
   .tree { overflow: auto; padding: 6px; flex: 1 1 auto; }
   .row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; width: 100%; text-align: left; color: var(--ink); line-height: 1.3; }
   .row:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-  .chev { flex: 0 0 auto; color: var(--dim); transition: transform .12s; display: inline-flex; }
+  /* Cambia de forma: el chevron gira sin ocupar mas ni recolocar nada a su alrededor. */
+  .chev { flex: 0 0 auto; color: var(--dim); transition: transform var(--t-fast); display: inline-flex; }
   .group.collapsed > .row .chev { transform: rotate(-90deg); }
   .group.collapsed > .children { display: none; }
   .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -164,7 +165,9 @@
 
   /* móvil: la sidebar es un cajón deslizante sobre el área de contenido */
   @media (max-width: 860px) {
-    .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: min(82vw, 320px); z-index: 41; transform: translateX(-100%); transition: transform .22s ease; box-shadow: 8px 0 28px rgba(0, 0, 0, .4); }
+    /* Entra o sale: el cajon pasa a estar y cambia lo que tienes disponible. `--t-mid` y no
+       `--t-over` porque viene de un borde de la pantalla (ver el porque en app.css). */
+    .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: min(82vw, 320px); z-index: 41; transform: translateX(-100%); transition: transform var(--t-mid); box-shadow: 8px 0 28px rgba(0, 0, 0, .4); }
     .sidebar.open { transform: translateX(0); }
     .resizer { display: none; }
   }

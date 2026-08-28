@@ -166,7 +166,10 @@
 
   .est-emb { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
   .est-bar { height: 8px; border-radius: 99px; background: var(--bg2); border: 1px solid var(--border); overflow: hidden; }
-  .est-bar > i { display: block; height: 100%; background: var(--ok); transition: width .4s ease; }
+  /* Cambia de valor: el recorrido de la barra es la unica forma de ver CUANTO ha cambiado, y por
+     eso es la duracion larga. `width` es la excepcion de la regla de animar solo transform y
+     opacity, y se admite porque es una barra, no un layout. */
+  .est-bar > i { display: block; height: 100%; background: var(--ok); transition: width var(--t-slow); }
   .est-emb-meta { display: flex; align-items: baseline; gap: 10px; }
   .est-emb-meta .v { font: 600 18px var(--font-mono); color: var(--ink); }
   .est-emb-meta .v.ok { color: var(--ok); }

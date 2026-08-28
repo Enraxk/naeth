@@ -121,6 +121,7 @@
           aria-selected={i === active}
           class="pf-item"
           class:on={i === active}
+          style="--i:{i}"
           onmousedown={(e) => e.preventDefault()}
           onclick={() => choose(i)}
         >
@@ -174,6 +175,15 @@
     padding: 4px;
     max-height: 260px;
     overflow-y: auto;
+    opacity: 1;
+    transform: none;
+    transition: opacity var(--t-mid), transform var(--t-over);
+  }
+  /* Mismo gesto que el popover de busqueda: las dos son capas flotantes ancladas, y si una se
+     comportara distinto de la otra no habria lenguaje, habria dos casos. Igual que alli, se monta
+     con `{#if}` y por eso no hay salida animada. */
+  @starting-style {
+    .pf-pop { opacity: 0; transform: translateY(10px) scale(.985); }
   }
   .pf-item {
     display: flex;
@@ -185,6 +195,13 @@
     border-radius: 6px;
     color: var(--ink);
     cursor: pointer;
+    opacity: 1;
+    transform: none;
+    transition: opacity var(--t-mid), transform var(--t-over);
+    transition-delay: calc(min(var(--i, 0), 5) * 45ms);
+  }
+  @starting-style {
+    .pf-item { opacity: 0; transform: translateY(6px); }
   }
   .pf-item:hover, .pf-item.on { background: var(--sel); }
   .pf-path {

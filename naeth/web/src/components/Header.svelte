@@ -90,7 +90,7 @@
         {#if qo.label}<div class="pop-hint">{qo.label}</div>{/if}
         {#if qo.hits.length}
           {#each qo.hits as h, i (i)}
-            <button class="qitem" class:active={i === qo.active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)}>
+            <button class="qitem" class:active={i === qo.active} style="--i:{i}" onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)}>
               {#if h.cmd}
                 <span class="ico">
                   {#if h.kind === 'type'}<Icon name={typeMeta(h.value).icon} color={typeColor(h.value)} />
@@ -138,9 +138,28 @@
   .kbd { font: 10px var(--font-mono); color: var(--dim); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; }
   .iconbtn { display: flex; align-items: center; justify-content: center; padding: 6px; border: 1px solid var(--border); border-radius: 6px; color: var(--dim); }
   .iconbtn:hover { color: var(--ink); border-color: var(--accent); }
-  .searchpop { position: fixed; top: 56px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 24px)); max-height: min(62vh, calc(100vh - 96px)); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; z-index: 50; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); }
+  .searchpop { position: fixed; top: 56px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 24px)); max-height: min(62vh, calc(100vh - 96px)); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; z-index: 50; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45); opacity: 1; transition: opacity var(--t-mid), transform var(--t-over); }
+
+  /* Capa flotante anclada: al abrir sube 10px y escala de .985 a 1, con rebasamiento. Se lo puede
+     permitir porque es lo unico que no estaba y ahora tapa lo que estabas leyendo: interrumpe de
+     todas formas, asi que mas vale que se anuncie bien.
+     La subida se COMPONE con el translateX(-50%) que ya centra el popover, no lo sustituye.
+
+     ⚠ DESVIACION CONSCIENTE del handoff, que pide cerrar con `--t-mid`: aqui NO hay salida
+     animada. El popover se monta con `{#if qo.open}`, asi que al cerrarse el nodo desaparece del
+     DOM y ninguna transicion de CSS puede correr sobre el. Animar la salida obligaria a tenerlo
+     montado siempre, y eso es mas estructura de la que vale el gesto. Cumple lo que el handoff
+     pedia de fondo (al cerrar NO rebasa) por otra via. */
+  @starting-style {
+    .searchpop { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.985); }
+  }
   .pop-hint { font: 11px var(--font-mono); color: var(--dim); padding: 8px 10px; }
-  .qitem { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border-radius: 6px; color: var(--ink); }
+  /* Las filas entran escalonadas 45ms. El tope de seis no es estetico: a partir de ahi la ultima
+     llega tarde y el escalonado deja de ser una entrada para ser una espera. */
+  .qitem { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border-radius: 6px; color: var(--ink); opacity: 1; transform: none; transition: opacity var(--t-mid), transform var(--t-over); transition-delay: calc(min(var(--i, 0), 5) * 45ms); }
+  @starting-style {
+    .qitem { opacity: 0; transform: translateY(6px); }
+  }
   .qitem:hover, .qitem.active { background: var(--sel); }
   .qt { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 13px var(--font-sans); }
   .qp { flex: 0 0 auto; font: 11px var(--font-mono); color: var(--dim); max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -54,6 +54,30 @@
      (rgb(242,242,240), que es --bg2 al 60% sobre --bg), --warn daba 4.49:1, a una centésima
      del 4.5:1 que pide WCAG AA. Con --code queda en 6.33:1, con margen. */
   --code: #e0a64b;
+
+  /* ===== Movimiento: TRES duraciones, y ni una mas =====
+     No son grados de intensidad, son categorias, y la duracion sale de que clase de cambio hay que
+     explicar. Si dudas entre dos, el gesto esta mal planteado.
+       --t-fast  cambia de FORMA     algo que ya esta y sigue en su sitio adopta otra forma
+       --t-mid   entra o SALE        algo que no estaba pasa a estar, o al reves
+       --t-slow  cambia de VALOR     una medida se mueve de una cifra a otra. Es la mas larga
+                                     porque es la unica que transporta informacion
+     La regla de fondo: el movimiento explica un cambio que si no habria que adivinar. Si no hay
+     nada que explicar, no hay movimiento.
+
+     LA CURVA VA DENTRO DEL TOKEN, a proposito: se escribe `transition: transform var(--t-fast)` y
+     nunca `... var(--t-fast) ease-in-out`, para que no quede sitio donde colar una cuarta.
+
+     `--t-over` NO es una duracion nueva: dura los mismos 220ms que --t-mid y solo cambia la curva.
+     Su dominio es UNO: la capa flotante anclada, y solo AL ABRIR. Al cerrar no rebasa, porque el
+     rebasamiento es un gesto de llegada y algo que se va no puede pasarse de largo de un sitio al
+     que no va. El cajon lateral queda fuera: viene de un borde, y una curva que rebasa en un borde
+     saca el objeto por el otro lado. */
+  --t-fast: .12s ease;
+  --t-mid: .22s ease;
+  --t-slow: .4s ease;
+  --t-over: .22s cubic-bezier(.34, 1.56, .64, 1);
+
   color-scheme: light dark;
 }
 :root[data-theme="light"] {
@@ -140,3 +164,58 @@ button { cursor: pointer; }
   border: 3px solid transparent; background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--dim); background-clip: padding-box; }
+
+/* ===== Movimiento reducido =====
+   Una sola consulta de medios, aqui y no repartida por los componentes.
+
+   LA POSTURA NO ES APAGARLO TODO. Lo que provoca malestar vestibular es el DESPLAZAMIENTO y el
+   GIRO: un objeto que recorre la pantalla o rota. Un fundido no. Asi que el fundido SE QUEDA,
+   porque es lo que evita que un aviso aparezca de golpe encima de lo que estas leyendo, y se va
+   todo lo que se mueve. El rebasamiento es lo primero que cae: una curva que se pasa de largo y
+   vuelve es, literalmente, un objeto cambiando de direccion en pantalla.
+
+   PRIMERO, POR LOS TOKENS, que cubre casi todo sin tocar un solo selector: el chevron deja de
+   girar y la barra salta a su cifra, porque sus dos duraciones pasan a cero; y `--t-over` pierde
+   la curva que rebasa conservando el tiempo del fundido. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0s;
+    --t-slow: 0s;
+    --t-over: .22s ease;
+  }
+
+  /* Y DESPUES, LO QUE LOS TOKENS NO ALCANZAN: los desplazamientos de entrada, que viven en el
+     `transform` y no en la duracion.
+
+     ⚠ Las clases van REPETIDAS a proposito. Svelte hashea los selectores de cada componente
+     (`.searchpop` alli es en realidad `.searchpop.svelte-xxxx`, especificidad 0-2-0), asi que una
+     regla global de una sola clase pierde. Repetirla iguala o supera sin recurrir a `!important`,
+     que es la misma tecnica y el mismo motivo que `.label-wrapper.label-wrapper` de mas arriba. */
+  .searchpop.searchpop,
+  .pf-pop.pf-pop { transform: none; }
+  .searchpop.searchpop { transform: translateX(-50%); }
+  .qitem.qitem,
+  .pf-item.pf-item { transform: none; transition-delay: 0s; }
+}
+
+/* El estado del que arrancan las capas flotantes al aparecer: sin subida ni escala, solo el
+   fundido. Va en su propio bloque porque `@starting-style` no se hereda del de arriba. */
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .searchpop.searchpop { transform: translateX(-50%); }
+    .pf-pop.pf-pop { transform: none; }
+    .qitem.qitem,
+    .pf-item.pf-item { transform: none; }
+  }
+}
+
+/* El cajon lateral deja de deslizarse desde el borde y funde en su sitio. Solo existe en movil. */
+@media (prefers-reduced-motion: reduce) and (max-width: 860px) {
+  .sidebar.sidebar {
+    transform: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--t-mid);
+  }
+  .sidebar.sidebar.open { opacity: 1; pointer-events: auto; }
+}
