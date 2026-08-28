@@ -1,7 +1,13 @@
 // Formas de los datos de /api/* (Paso 2: capa tipada).
 
+/**
+ * Los cuatro tipos de la convencion. El `(string & {})` no es decorativo: mantiene el autocompletado
+ * de los cuatro y a la vez deja pasar cualquier cadena, que es lo que permite que una nota escrita
+ * con un tipo que ya no se ofrece (hoy, las dos de `reference`) siga siendo legible y editable en
+ * vez de romper el tipado del arbol entero.
+ */
 export type MemType =
-  | 'fact' | 'observation' | 'decision' | 'preference' | 'learning' | 'error'
+  | 'fact' | 'observation' | 'decision' | 'preference'
   | (string & {})
 
 export interface TreeRow {

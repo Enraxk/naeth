@@ -105,8 +105,11 @@ las 24 horas. Si vuelve a saltar `version-naeth`, esto es lo que hay que ejecuta
 - `src/lib/`: capa de datos tipada (`api.ts`, `types.ts`), utilidades (`icons`, `colors`, `format`,
   `wikilinks`) y *stores* reactivos (`*.svelte.ts`: `theme`, `router`, `prefs`, `data`, `search`,
   `ui`). Los `*.test.ts` viven junto a lo que prueban.
-- `src/components/`: `Header`, `Sidebar`, `Rail`, `Crumbs`, `Footer`, `Icon`, `Milkdown`.
-- `src/views/`: `Inicio`, `Estado`, `Memoria`, `Stub`.
+  Dos rankings hermanos y con tests, que ordenan una lista larga con lo que se va tecleando:
+  `wikipick` (candidatos de `[[wikilink]]`, desempata la memoria más reciente) y `pathpick` (rutas,
+  desempata la que más memorias tiene). `pathpick` importa `fold` de `wikipick`.
+- `src/components/`: `Header`, `Sidebar`, `Rail`, `Crumbs`, `Footer`, `Icon`, `Milkdown`, `PathField`.
+- `src/views/`: `Inicio`, `Estado`, `Memoria`, `Nueva`, `Stub`.
 - `src/app.css`: tokens de diseño (Tailwind `@theme` y CSS vars, tema claro y oscuro).
 
 ## Alcance
@@ -116,12 +119,18 @@ las 24 horas. Si vuelve a saltar `version-naeth`, esto es lo que hay que ejecuta
 | Inicio | Implementada |
 | Estado del nodo | Implementada |
 | Memoria (lectura y edición) | Implementada |
+| Nueva memoria | Implementada |
 | Grafo | Stub |
-| Nueva memoria | Stub (`POST /api/memory` ya existe: falta el front) |
 | Ajustes | Stub (el tema se cambia en el rail) |
 
-Las tres stub degradan con icono, explicación y badge. Lo pendiente está en
-[`../../docs/plan/visor-v2-cierre.md`](../../docs/plan/visor-v2-cierre.md).
+Las dos stub degradan con icono, explicación y badge. Lo pendiente está en
+[`../../docs/plan/pendientes.md`](../../docs/plan/pendientes.md), con el porqué de cada fase en
+[`../../docs/plan/plan-fases-2026-08-28.md`](../../docs/plan/plan-fases-2026-08-28.md).
+
+**El campo de ruta de las dos vistas que editan metadatos** es un input libre con sugerencias
+(`components/PathField.svelte`, ranking en `lib/pathpick.ts`). Ordena las rutas que ya existen por
+número de memorias, pero **no restringe**: escribir una ruta nueva es el caso normal, no la
+excepción, y por eso no hay `<select>` ni validación.
 
 ## Trampas del editor
 

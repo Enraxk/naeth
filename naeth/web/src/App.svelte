@@ -8,6 +8,7 @@
   import Inicio from './views/Inicio.svelte'
   import Estado from './views/Estado.svelte'
   import Memoria from './views/Memoria.svelte'
+  import Nueva from './views/Nueva.svelte'
   import Stub from './views/Stub.svelte'
   import { route } from './lib/router.svelte'
   import { prefs } from './lib/prefs.svelte'
@@ -30,6 +31,8 @@
           <Inicio />
         {:else if route.view === 'estado'}
           <Estado />
+        {:else if route.view === 'nueva'}
+          <Nueva />
         {:else}
           <Stub view={route.view} />
         {/if}

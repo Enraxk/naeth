@@ -9,15 +9,19 @@ export const TYPE: Record<string, Meta> = {
   observation: { icon: 'eye', c: ['#e0b84b', '#b45309'] },
   decision: { icon: 'git-commit-horizontal', c: ['#b58cff', '#7c3aed'] },
   preference: { icon: 'heart', c: ['#f48fb1', '#db2777'] },
-  // El verde claro #16a34a se quedaba en 2.86:1 sobre la sidebar, bajo el 3:1 de elementos
-  // graficos. #15803d (el mismo que --ok en claro) sube a 4.3 sin cambiar de familia.
-  learning: { icon: 'lightbulb', c: ['#5ad17e', '#15803d'] },
-  error: { icon: 'triangle-alert', c: ['#f0686b', '#dc2626'] },
+  // Aqui vivian `learning` y `error`, retirados el 28/08/2026 al cerrar el vocabulario en los
+  // cuatro de la convencion: se ofrecian en el editor y tenian CERO uso en 462 memorias. Es el
+  // mismo caso que `ORIGIN_ICON`, retirado el 22/08 por ofrecer un mapa que nadie acertaba.
+  // Un tipo que no este aqui cae al icono de `fact` por el `??` de `typeMeta`, asi que las dos
+  // notas de `reference` que quedan vivas se siguen pintando, no desaparecen.
 }
 
 export const PROJECT: Record<string, Meta> = {
   naeth: { icon: 'database', c: ['#38d3c9', '#0d9488'] },
-  gridwatch: { icon: 'zap', c: ['#5ad17e', '#15803d'] },   // ver la nota en TYPE.learning
+  // El verde claro #16a34a se quedaba en 2.86:1 sobre la sidebar, bajo el 3:1 que piden los
+  // elementos graficos. #15803d (el mismo que --ok en claro) sube a 4.3 sin cambiar de familia.
+  // (Esta nota vivia en TYPE.learning, que se retiro el 28/08/2026.)
+  gridwatch: { icon: 'zap', c: ['#5ad17e', '#15803d'] },
   infra: { icon: 'server', c: ['#e0a64b', '#b45309'] },
   personal: { icon: 'users', c: ['#f48fb1', '#db2777'] },
   yogin: { icon: 'sparkles', c: ['#b58cff', '#7c3aed'] },

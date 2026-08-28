@@ -1,9 +1,11 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import Milkdown, { type EditorApi, type WikiState } from '../components/Milkdown.svelte'
+  import PathField from '../components/PathField.svelte'
   import { getMemory, supersede, getRelations, addRelation } from '../lib/api'
   import type { MemoryDetail, Relation } from '../lib/types'
   import { navigate } from '../lib/router.svelte'
+  import { rankWikiCandidates } from '../lib/wikipick'
   import { data } from '../lib/data.svelte'
   import { typeMeta, typeColor } from '../lib/colors'
   import { fmtDate, fmtAuthor } from '../lib/format'
@@ -11,7 +13,13 @@
 
   let { id }: { id: string } = $props()
 
-  const ALL_TYPES = ['fact', 'observation', 'decision', 'preference', 'learning', 'error']
+  // El vocabulario cerrado de la convencion, y solo ese (ver CLAUDE.md). Hasta el 28/08/2026 esta
+  // lista ofrecia ademas `learning` y `error`, que nunca se usaron: cero apariciones en 462
+  // memorias vigentes. Ofrecer un tipo que nadie escribe invita a estrenarlo, y cada estreno
+  // separa un poco mas lo que el visor ofrece de lo que la convencion dice.
+  // `typeOptions` (abajo) sigue anteponiendo el tipo de la nota abierta si no esta en la lista,
+  // asi que una nota con un tipo viejo se puede editar sin perderlo.
+  const ALL_TYPES = ['fact', 'observation', 'decision', 'preference']
 
   let detail = $state<MemoryDetail | null>(null)
   let notFound = $state(false)
@@ -57,33 +65,11 @@
   let wikiActive = $state(0)
   let wikiDismissed = $state<number | null>(null)   // posición del `[[` que se cerró con Esc
 
-  /** Sin acentos y en minúsculas: los títulos van llenos de tildes y de `·`. */
-  const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-
-  const wikiHits = $derived.by(() => {
-    if (!wiki) return []
-    const q = fold(wiki.query.trim())
-    // Por PALABRAS, no por cadena literal: escribir "CENIT vigilancia" tiene que encontrar
-    // "CENIT · vigilancia de hostnames", y con un `includes` del texto entero no lo encuentra
-    // porque el `· ` de en medio rompe la coincidencia.
-    const tokens = q.split(/\s+/).filter(Boolean)
-    const rows = (data.tree ?? []).filter((r) => r.id !== id && r.title)
-    const scored = rows
-      .map((r) => {
-        const t = fold(r.title ?? '')
-        // Empezar por lo tecleado vale más que contenerlo: al escribir "cenit" interesa antes
-        // el título que arranca así que uno que lo menciona a mitad.
-        const rank = !tokens.length ? 2 : t.startsWith(q) ? 0 : tokens.every((k) => t.includes(k)) ? 1 : -1
-        return { r, rank }
-      })
-      .filter((x) => x.rank >= 0)
-    scored.sort(
-      (a, b) =>
-        a.rank - b.rank ||
-        String(b.r.created_at || '').localeCompare(String(a.r.created_at || '')),
-    )
-    return scored.slice(0, 8).map((x) => x.r)
-  })
+  // El ranking vive en `lib/wikipick.ts`, con tests: la vista de alta necesita el mismo,
+  // y duplicarlo obligaria a arreglar cada fallo futuro dos veces.
+  const wikiHits = $derived.by(() =>
+    wiki ? rankWikiCandidates(wiki.query, data.tree ?? [], { excludeId: id }) : [],
+  )
 
   const wikiOpen = $derived(!!wiki && wikiHits.length > 0 && wiki.from !== wikiDismissed)
 
@@ -375,9 +361,7 @@
             {#each typeOptions as t}<option value={t}>{t}</option>{/each}
           </select>
         </label>
-        <label class="grow">ruta
-          <input bind:value={dPath} oninput={() => (dirty = true)} placeholder="proyecto/subtema" />
-        </label>
+        <PathField bind:value={dPath} onDirty={() => (dirty = true)} />
       </div>
       <div class="e-tags">
         {#each dTags as t (t)}
@@ -579,9 +563,10 @@
   .e-title:focus { border-color: var(--accent); }
   .e-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .e-row label { display: flex; flex-direction: column; gap: 4px; font: 10px var(--font-mono); letter-spacing: .5px; text-transform: uppercase; color: var(--dim); }
-  .e-row .grow { flex: 1 1 auto; min-width: 160px; }
-  .e-row select, .e-row input { font: 13px var(--font-mono); color: var(--ink); background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; outline: none; }
-  .e-row select:focus, .e-row input:focus { border-color: var(--accent); }
+  /* El campo de ruta se fue a PathField.svelte con su propio estilo, asi que aqui solo queda el
+     desplegable de tipo. Los valores estan repetidos alli: si cambian, cambian en los dos. */
+  .e-row select { font: 13px var(--font-mono); color: var(--ink); background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; outline: none; }
+  .e-row select:focus { border-color: var(--accent); }
   .e-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 16px; }
   .chip { display: inline-flex; align-items: center; gap: 5px; font: 11px var(--font-mono); color: var(--ink); background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px 2px 8px; }
   .chip button { color: var(--dim); font: 13px var(--font-mono); padding: 0 4px; border-radius: 3px; }

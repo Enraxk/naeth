@@ -120,7 +120,17 @@
         }),
     )
 
-    crepe = new Crepe({ root: host, defaultValue: value })
+    // El placeholder por defecto de Crepe es "Please enter…", en inglés. No se veía porque hasta
+    // ahora el editor solo se abría sobre notas que ya tenían texto; con la vista de alta, que
+    // arranca vacía, es lo primero que se lee. `mode: 'doc'` lo muestra solo con el documento
+    // entero vacío: con 'block' reaparecería en cada párrafo vacío mientras se escribe.
+    crepe = new Crepe({
+      root: host,
+      defaultValue: value,
+      featureConfigs: {
+        [Crepe.Feature.Placeholder]: { text: 'Escribe la memoria. Con [[ enlazas otra.', mode: 'doc' },
+      },
+    })
     crepe.editor.use(wikiProse)
     await crepe.create()
     // Aquí está la carrera: si murió durante el create(), lo recién creado no tiene contenedor
