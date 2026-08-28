@@ -20,7 +20,7 @@ Desplegada en los dos nodos como **`2.2026.08.2`** (`ec54d3e` y `9d4fda4`).
 - [x] Actualizar la tabla "Alcance" y la estructura → [`web/README.md`](../../naeth/web/README.md)
 - [x] Commit, despliegue en los dos nodos y tag
 - [x] **Acotar el escaneo de Tailwind a `src/`**, que hacía que el CSS de producción dependiera de dos ficheros sin versionar y que los dos nodos sirvieran cosas distintas → [`src/app.css`](../../naeth/web/src/app.css)
-- [ ] **[Eneko]** Migrar las dos memorias de `reference` (`aa342087` en `cenit/infra` y `ded8a830` en `cenit/design`). Es escritura en Naeth: hay que leerlas antes para decidir a qué tipo pasan
+- [x] Migrar las dos memorias de `reference` a `fact` (28/08). `aa342087` → `68a36b57` (`cenit/infra`) y `ded8a830` → `3fa1c3a0` (`cenit/design`). El corpus vigente ya usa **solo** los cuatro tipos de la convención
 - [ ] **[Eneko]** Crear una memoria de verdad desde el móvil en `naeth-visor.enraxk.dev`, que es lo único de la verificación que no se puede hacer desde aquí
 
 ## Fase 2 · La marca y el movimiento entran en el visor
