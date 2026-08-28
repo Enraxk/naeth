@@ -470,3 +470,17 @@ def test_una_palabra_larguisima_sin_espacios_se_corta_igual():
     from app.mcp_server import _resumen
     texto, _ = _resumen({"digest": None, "content": "z" * 1000})
     assert len(texto) == core.DIGEST_MAX + 3
+
+
+def test_hygiene_mide_el_avance_del_backfill_del_digest():
+    """El marcador de la fase 4: sin el, cuanto queda del backfill se lleva a mano y no se sabe
+    cuando cierra. Va como AVANCE y no como lista de ids, al reves que el resto del modo higiene:
+    hoy faltan casi todas, asi que una muestra de quince no diria nada util."""
+    core.add("con resumen", title="d1", path="naeth/core", digest="Lo dice.")
+    core.add("sin resumen uno", title="d2", path="naeth/core")
+    core.add("sin resumen dos", title="d3", path="cenit/build")
+    d = core.stats("hygiene")["sin_digest"]
+    assert (d["hechos"], d["faltan"], d["de"]) == (1, 2, 3)
+    assert d["pct_hecho"] == 33
+    # y dice DONDE falta, que es lo que ordena las tandas
+    assert {x["k"]: x["n"] for x in d["por_proyecto"]["top"]} == {"naeth": 1, "cenit": 1}

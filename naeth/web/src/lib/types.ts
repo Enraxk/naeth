@@ -36,10 +36,18 @@ export interface Author {
   model_source?: string | null
 }
 
+/** Tope del digest, el mismo que el CHECK de la columna y el `DIGEST_MAX` del backend. */
+export const DIGEST_MAX = 300
+
 export interface MemoryRow {
   id: string
   title: string | null
   content: string
+  /**
+   * Resumen corto escrito a mano (fase 4). Es lo que `memory_search` devuelve por MCP en vez del
+   * contenido entero. `null` en todo lo anterior al backfill, que va por tandas.
+   */
+  digest?: string | null
   memory_type: MemType
   tags: string[]
   path: string | null

@@ -150,15 +150,35 @@ Informe con la medición completa en [`fase-4-0-tope-y-prioridad.md`](fase-4-0-t
   se recargó aquí. Si el respaldo liderara ahora, `memory_search` allí devolvería el contenido entero.
   No es una rotura (es el comportamiento anterior), y lo cierra el despliegue de 4.6
 
-### 4.4 · El visor no pierde el digest
+### 4.4 · El visor no pierde el digest · CERRADA el 28/08/2026
 
-- [ ] Campo editable con contador, en las dos vistas que escriben → [`Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte), [`Memoria.svelte`](../../naeth/web/src/views/Memoria.svelte), [`types.ts`](../../naeth/web/src/lib/types.ts), [`api.ts`](../../naeth/web/src/lib/api.ts)
-- [ ] ⚠ **No es cosmético, es integridad**: `Memoria.svelte` manda todos los campos al superseder
-  porque el core no hereda. Sin el digest ahí, editar desde el visor lo borra
+- [x] Campo editable con contador, en las dos vistas que escriben → [`Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte), [`Memoria.svelte`](../../naeth/web/src/views/Memoria.svelte), [`types.ts`](../../naeth/web/src/lib/types.ts), [`api.ts`](../../naeth/web/src/lib/api.ts)
+- [x] ⚠ **No es cosmético, es integridad**: `Memoria.svelte` manda todos los campos al superseder
+  porque el core no hereda. Sin el digest ahí, editar desde el visor lo borra.
+  **Verificado en el navegador** interceptando el `fetch`: al cambiar solo el título, el POST lleva
+  el digest con sus 257 caracteres intactos. Sin escribir nada
+- [x] El campo va en un componente compartido y no duplicado, como `PathField`: el contador y su
+  umbral tienen que ser los mismos en el alta y en la edición → [`DigestField.svelte`](../../naeth/web/src/components/DigestField.svelte)
+- [x] Cuenta con `[...s].length` y no con `s.length`, que cuenta unidades UTF-16: un emoji fuera del
+  BMP contaría 2 y el aviso mentiría respecto al `CHECK`. Postgres y Python cuentan caracteres
+- [x] El digest se pinta también en lectura, como entradilla: quien abre la nota tiene que poder
+  juzgar si el resumen la representa
+- [x] **De paso, `Memoria.svelte` no tenía forma de avisar de un error**: el `catch` del guardado solo
+  apagaba `saving` y el botón se quedaba mudo. Con una guarda que puede parar el guardado hacía
+  falta, así que ahora hay aviso y el `catch` lo usa
 
-### 4.5 · `memory_stats` mide el avance
+### 4.5 · `memory_stats` mide el avance · CERRADA el 28/08/2026
 
-- [ ] "Vigentes sin digest", por proyecto y por grupo. Es el marcador de 4.7 → [`core.py:354`](../../naeth/app/core.py)
+- [x] "Vigentes sin digest", con el avance y el reparto por proyecto. Va como AVANCE y no como lista
+  de ids al revés que el resto del modo higiene: hoy faltan casi todas, así que una muestra de quince
+  no diría nada → [`core.py`](../../naeth/app/core.py)
+- [x] **Verificado en producción**: `faltan 469, hechos 1, de 470`, con el reparto por proyecto
+- [x] ⚠ **La vista `memory_current` hubo que redefinirla**, y costó un `column digest does not exist`
+  en producción: está declarada como `SELECT m.*` y Postgres **expande ese asterisco al crearla**, así
+  que una columna añadida después con `ALTER TABLE` no entra sola. **Los tests no pueden coger esto**:
+  la base de test nace de `schema.sql`, donde `digest` ya está en el `CREATE TABLE`, así que allí la
+  vista sí la tiene. El fallo solo existe en una base migrada, o sea en las dos de producción.
+  Añadido a la migración 006 y aplicado en los dos nodos
 
 ### 4.6 · Suite, despliegue y tag
 

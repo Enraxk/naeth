@@ -492,6 +492,20 @@ def _stats_hygiene(c, limit: int) -> dict:
         {"lim": limit},
     ).fetchall()
 
+    # AVANCE DEL BACKFILL DEL DIGEST (fase 4). No va como los demas apartados, y es a proposito:
+    # los otros listan ids porque son pocos y hay que ir a arreglarlos uno a uno. Aqui hoy faltan
+    # casi todas, asi que una muestra de quince no diria nada. Lo que hace falta es CUANTO QUEDA Y
+    # DONDE, que es lo unico que responde cuando cierra la fase.
+    dg = c.execute(
+        """SELECT count(*) FILTER (WHERE digest IS NULL) AS faltan,
+                  count(digest) AS hechos, count(*) AS total
+           FROM memory_current"""
+    ).fetchone()
+    dg_proj = _top(c, """SELECT split_part(coalesce(path, '(sin path)'), '/', 1) AS k,
+                                count(*) AS n
+                         FROM memory_current WHERE digest IS NULL
+                         GROUP BY 1 ORDER BY 2 DESC""", limit)
+
     return {
         "mode": "hygiene",
         "sin_titulo": ids("""SELECT id, title, path FROM memory_current
@@ -515,6 +529,11 @@ def _stats_hygiene(c, limit: int) -> dict:
                           "higiene no depende de ella"},
         "cadenas_largas": [{"id": str(r["id"]), "title": r["title"], "path": r["path"],
                             "versiones": r["versiones"]} for r in cadenas],
+        "sin_digest": {
+            "faltan": dg["faltan"], "hechos": dg["hechos"], "de": dg["total"],
+            "pct_hecho": round(100.0 * dg["hechos"] / dg["total"]) if dg["total"] else 0,
+            "por_proyecto": dg_proj,
+        },
     }
 
 

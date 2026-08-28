@@ -2,8 +2,9 @@
   import Icon from '../components/Icon.svelte'
   import Milkdown, { type EditorApi, type WikiState } from '../components/Milkdown.svelte'
   import PathField from '../components/PathField.svelte'
+  import DigestField from '../components/DigestField.svelte'
   import { getMemory, supersede, getRelations, addRelation } from '../lib/api'
-  import type { MemoryDetail, Relation } from '../lib/types'
+  import { DIGEST_MAX, type MemoryDetail, type Relation } from '../lib/types'
   import { navigate } from '../lib/router.svelte'
   import { rankWikiCandidates } from '../lib/wikipick'
   import { data } from '../lib/data.svelte'
@@ -36,6 +37,11 @@
   let dType = $state('observation')
   let dTags = $state<string[]>([])
   let dPath = $state('')
+  let dDigest = $state('')
+  // Hasta la fase 4 esta vista no tenia forma de decir que algo habia salido mal: el catch del
+  // guardado solo apagaba `saving` y el boton se quedaba mudo. Con una guarda que puede parar el
+  // guardado hacia falta, asi que el catch la usa tambien.
+  let error = $state('')
   let tagInput = $state('')
   let draftAvail = $state(false)
 
@@ -182,7 +188,7 @@
   })
 
   // ---- borrador (localStorage por id) -----------------------------------
-  type Draft = { title: string; memory_type: string; tags: string[]; path: string; content: string }
+  type Draft = { title: string; memory_type: string; tags: string[]; path: string; content: string; digest?: string }
   const draftKey = (mid: string) => `naeth-draft-${mid}`
   function readDraft(mid: string): Draft | null {
     try { const s = localStorage.getItem(draftKey(mid)); return s ? JSON.parse(s) : null } catch { return null }
@@ -214,6 +220,7 @@
   function isDirtyNow(content: string) {
     const m = detail!.memory
     return content !== baseMd
+      || dDigest !== (m.digest ?? '')
       || dTitle !== (m.title ?? '')
       || dType !== m.memory_type
       || dPath !== (m.path ?? '')
@@ -223,7 +230,7 @@
     if (!editing || !mdRef || !detail) return
     const content = mdRef.getMarkdown()
     if (isDirtyNow(content)) {
-      const d: Draft = { title: dTitle, memory_type: dType, tags: dTags, path: dPath, content }
+      const d: Draft = { title: dTitle, memory_type: dType, tags: dTags, path: dPath, content, digest: dDigest }
       try { localStorage.setItem(draftKey(id), JSON.stringify(d)) } catch { /* noop */ }
       dirty = true
     } else {
@@ -235,6 +242,7 @@
   function startEdit() {
     const m = detail!.memory
     dTitle = m.title ?? ''; dType = m.memory_type; dTags = [...(m.tags ?? [])]; dPath = m.path ?? ''
+    dDigest = m.digest ?? ''
     // La base la captura `captureBase()` cuando el editor termine de montar; hasta entonces
     // sirve el contenido crudo, que solo se usaria si el editor no llegara a montar.
     baseMd = m.content; baseReady = false
@@ -244,6 +252,7 @@
     const d = readDraft(id); if (!d) return
     dTitle = d.title ?? ''; dType = d.memory_type ?? detail!.memory.memory_type
     dTags = d.tags ?? []; dPath = d.path ?? ''
+    dDigest = d.digest ?? (detail!.memory.digest ?? '')
     mdValue = d.content ?? detail!.memory.content
     mdKey++           // remonta Milkdown con el contenido del borrador
     // Aqui NO se recaptura la base: lo que se monta es el borrador, no el original, asi que
@@ -283,6 +292,13 @@
 
   async function doSave() {
     if (!detail || saving) return
+    // Se para AQUI y no en el backend: el POST fallaria igual (el CHECK de la columna), pero con un
+    // error de servidor en vez de con el numero delante y el texto todavia en pantalla.
+    if ([...dDigest.trim()].length > DIGEST_MAX) {
+      error = `El digest pasa de ${DIGEST_MAX} caracteres. Reescríbelo más corto.`
+      return
+    }
+    error = ''
     saving = true
     const md = mdRef ? mdRef.getMarkdown() : detail.memory.content
     // Si el cuerpo no cambio respecto a la base, se guarda el ORIGINAL tal cual. Asi un guardado
@@ -291,6 +307,9 @@
     try {
       const r = await supersede(id, {
         content,
+        // Viaja SIEMPRE, se haya tocado o no: `core.supersede` no hereda del padre, asi que sin
+        // esta linea editar cualquier otra cosa de la memoria le borraria el digest de paso.
+        digest: dDigest.trim() || null,
         title: dTitle || null,
         memory_type: dType,
         tags: dTags,
@@ -307,6 +326,7 @@
         navigate('memoria', newId)
       }
     } catch {
+      error = 'No se pudo guardar. ¿Sigue viva la pila?'
       saving = false
     }
   }
@@ -354,6 +374,9 @@
     {/if}
 
     {#if editing}
+      {#if error}
+        <div class="aviso err"><span>{error}</span></div>
+      {/if}
       <input class="e-title" bind:value={dTitle} oninput={() => (dirty = true)} placeholder="Título" />
       <div class="e-row">
         <label>tipo
@@ -363,6 +386,7 @@
         </label>
         <PathField bind:value={dPath} onDirty={() => (dirty = true)} />
       </div>
+      <DigestField bind:value={dDigest} onDirty={() => (dirty = true)} />
       <div class="e-tags">
         {#each dTags as t (t)}
           <span class="chip">{t}<button onclick={() => removeTag(t)} aria-label="quitar">×</button></span>
@@ -383,6 +407,9 @@
         {/if}
         <span class="sep">·</span><span title={m.id}>id {String(m.id).slice(0, 8)}</span>
       </div>
+      {#if m.digest}
+        <p class="d-digest">{m.digest}</p>
+      {/if}
       {#if m.tags?.length}
         <div class="d-tags">{#each m.tags as t}<span class="tag">{t}</span>{/each}</div>
       {/if}
@@ -525,6 +552,14 @@
   /* --dim y no --border: un separador tiene que leerse. Con --border daba 1.2:1. */
   .d-meta .sep { color: var(--dim); }
   .d-type { display: inline-flex; align-items: center; gap: 5px; }
+  /* El digest en lectura. Se pinta como una entradilla y no como un campo mas: es lo que la
+     busqueda ve de esta nota, asi que quien la abre tiene que poder juzgar si representa bien lo
+     que hay debajo. */
+  .d-digest {
+    margin: 10px 0 0; padding-left: 12px;
+    border-left: 2px solid var(--accent);
+    font: 13px/1.55 var(--font-sans); color: var(--dim);
+  }
   .d-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
   .tag { font: 11px var(--font-mono); color: var(--dim); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; }
   .d-body { font: 14px/1.65 var(--font-sans); color: var(--ink); margin-top: 4px; }
@@ -586,6 +621,13 @@
   .hint { font: 11px var(--font-mono); color: var(--dim); margin-left: auto; }
 
   .draft-banner { display: flex; align-items: center; gap: 10px; font: 12px var(--font-mono); color: var(--ink); background: color-mix(in srgb, var(--warn) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border)); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; }
+  .aviso {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 10px; padding: 8px 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font: 12px var(--font-sans);
+  }
+  .aviso.err { color: var(--warn); border-color: var(--warn); }
   .draft-banner .lnk { font: 12px var(--font-mono); color: var(--accent); padding: 2px 6px; border-radius: 4px; }
   .draft-banner .lnk.dim { color: var(--dim); margin-left: auto; }
   .draft-banner .lnk:hover { text-decoration: underline; }

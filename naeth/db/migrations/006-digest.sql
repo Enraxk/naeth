@@ -37,6 +37,19 @@ ALTER TABLE memory DROP CONSTRAINT IF EXISTS memory_digest_len;
 ALTER TABLE memory ADD CONSTRAINT memory_digest_len
     CHECK (digest IS NULL OR length(digest) <= 300);
 
+-- ⚠ Y LA VISTA HAY QUE REDEFINIRLA, que es lo que falto en la primera pasada del 28/08 y costo un
+-- "column digest does not exist" en produccion. `memory_current` esta declarada como `SELECT m.*`,
+-- y Postgres EXPANDE ese asterisco AL CREAR LA VISTA: la lista de columnas queda congelada ahi, asi
+-- que una columna anadida despues con ALTER TABLE no entra sola.
+--
+-- Los tests NO pueden coger esto, y conviene saber por que: la base de test se crea desde
+-- schema.sql, donde `digest` ya esta dentro del CREATE TABLE, asi que alli la vista nace con ella.
+-- El fallo solo existe en una base MIGRADA, o sea justo en las dos de produccion.
+CREATE OR REPLACE VIEW memory_current AS
+SELECT m.* FROM memory m
+WHERE NOT EXISTS (SELECT 1 FROM tombstone t WHERE t.target_id = m.id AND t.target_kind = 'memory')
+  AND NOT EXISTS (SELECT 1 FROM supersession s WHERE s.parent_id = m.id);
+
 -- Sin indice a proposito: el corpus son ~800 filas y la unica consulta que filtra por digest es el
 -- recuento de "vigentes sin digest" del modo higiene. Un indice aqui seria deuda sin beneficio.
 

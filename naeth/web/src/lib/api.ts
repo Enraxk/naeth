@@ -24,6 +24,7 @@ export interface NewMemoryBody {
   memory_type?: string
   tags?: string[]
   path?: string | null
+  digest?: string | null
 }
 export const addMemory = (body: NewMemoryBody) =>
   fetch('/api/memory', {
@@ -40,6 +41,11 @@ export interface SupersedeBody {
   tags?: string[]
   path?: string | null
   metadata?: Record<string, unknown>
+  /**
+   * ⚠ Va SIEMPRE, aunque no se haya tocado. `core.supersede` no hereda del padre, así que si este
+   * campo no viajara, editar cualquier cosa de una memoria le borraría el digest de paso.
+   */
+  digest?: string | null
 }
 export const supersede = (id: string, body: SupersedeBody) =>
   fetch('/api/memory/' + id + '/supersede', {

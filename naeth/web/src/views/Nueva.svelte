@@ -4,6 +4,8 @@
   import Milkdown, { type EditorApi, type WikiState } from '../components/Milkdown.svelte'
   import PathField from '../components/PathField.svelte'
   import { addMemory, addRelation } from '../lib/api'
+  import { DIGEST_MAX } from '../lib/types'
+  import DigestField from '../components/DigestField.svelte'
   import { navigate } from '../lib/router.svelte'
   import { rankWikiCandidates } from '../lib/wikipick'
   import { buildIndex, extractLinkedIds } from '../lib/wikilinks'
@@ -42,6 +44,7 @@
   let dTitle = $state('')
   let dType = $state(TYPE_DEFAULT)
   let dPath = $state('')
+  let dDigest = $state('')
   let dTags = $state<string[]>([])
   let tagInput = $state('')
 
@@ -56,7 +59,7 @@
   let draftAvail = $state(false)
 
   // ---- borrador -----------------------------------------------------------------------------
-  type Draft = { title: string; memory_type: string; tags: string[]; path: string; content: string }
+  type Draft = { title: string; memory_type: string; tags: string[]; path: string; content: string; digest?: string }
   function readDraft(): Draft | null {
     try { const s = localStorage.getItem(DRAFT_KEY); return s ? JSON.parse(s) : null } catch { return null }
   }
@@ -85,6 +88,7 @@
       || dTitle !== ''
       || dType !== TYPE_DEFAULT
       || dPath !== ''
+      || dDigest !== ''
       || dTags.length > 0
   }
 
@@ -92,7 +96,7 @@
     if (!mdRef) return
     const content = mdRef.getMarkdown()
     if (isDirtyNow(content)) {
-      const d: Draft = { title: dTitle, memory_type: dType, tags: dTags, path: dPath, content }
+      const d: Draft = { title: dTitle, memory_type: dType, tags: dTags, path: dPath, content, digest: dDigest }
       try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)) } catch { /* noop */ }
       dirty = true
     } else {
@@ -106,6 +110,7 @@
     dType = d.memory_type ?? TYPE_DEFAULT
     dTags = d.tags ?? []
     dPath = d.path ?? ''
+    dDigest = d.digest ?? ''
     mdValue = d.content ?? ''
     mdKey++                       // remonta el editor con el texto del borrador
     baseMd = ''; baseReady = true // lo montado ES el borrador, asi que hay cambios por definicion
@@ -176,6 +181,12 @@
     if (!mdRef || saving) return
     const content = mdRef.getMarkdown().trim()
     if (!content) { error = 'Una memoria sin contenido no se guarda.'; return }
+    // Se para AQUI y no en el backend: el POST fallaria igual (el CHECK de la columna), pero con un
+    // error de servidor en vez de con el numero delante y el texto todavia en pantalla.
+    if ([...dDigest.trim()].length > DIGEST_MAX) {
+      error = `El digest pasa de ${DIGEST_MAX} caracteres. Reescríbelo más corto.`
+      return
+    }
 
     saving = true; error = ''; yaExistia = ''
     try {
@@ -185,6 +196,7 @@
         memory_type: dType,
         tags: dTags,
         path: dPath.trim() || null,
+        digest: dDigest.trim() || null,
       })
       const nuevo = r.memory?.id
       if (!nuevo) { error = 'El servidor no devolvió la memoria creada.'; saving = false; return }
@@ -208,7 +220,7 @@
   }
 
   function limpiar() {
-    dTitle = ''; dType = TYPE_DEFAULT; dPath = ''; dTags = []; tagInput = ''
+    dTitle = ''; dType = TYPE_DEFAULT; dPath = ''; dTags = []; tagInput = ''; dDigest = ''
     mdValue = ''; mdKey++
     baseReady = false; dirty = false; error = ''; yaExistia = ''
     clearDraft()
@@ -267,6 +279,8 @@
       </label>
       <PathField bind:value={dPath} onDirty={() => (dirty = true)} />
     </div>
+
+    <DigestField bind:value={dDigest} onDirty={() => (dirty = true)} />
 
     <div class="e-tags">
       {#each dTags as t (t)}
