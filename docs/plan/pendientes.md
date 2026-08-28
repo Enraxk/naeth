@@ -21,7 +21,7 @@ Desplegada en los dos nodos como **`2.2026.08.2`** (`ec54d3e` y `9d4fda4`).
 - [x] Commit, despliegue en los dos nodos y tag
 - [x] **Acotar el escaneo de Tailwind a `src/`**, que hacía que el CSS de producción dependiera de dos ficheros sin versionar y que los dos nodos sirvieran cosas distintas → [`src/app.css`](../../naeth/web/src/app.css)
 - [x] Migrar las dos memorias de `reference` a `fact` (28/08). `aa342087` → `68a36b57` (`cenit/infra`) y `ded8a830` → `3fa1c3a0` (`cenit/design`). El corpus vigente ya usa **solo** los cuatro tipos de la convención
-- [ ] **[Eneko]** Crear una memoria de verdad desde el móvil en `naeth-visor.enraxk.dev`, que es lo único de la verificación que no se puede hacer desde aquí
+- [x] **[Eneko]** Crear una memoria de verdad desde el móvil en `naeth-visor.enraxk.dev` (28/08). El alta llegó entera; de paso destapó el defecto del selector de wikilinks, corregido en `2.2026.08.4`
 
 ## Fase 2 · La marca y el movimiento entran en el visor · CERRADA el 28/08/2026
 
@@ -53,7 +53,7 @@ Suite de pytest de 28 a 48.
 - [x] `memory_stats`, modo recuento: agrupa por proyecto, path, tipo, tag, autor y mes, con recuentos y el **resto declarado**, nunca listas completas
 - [x] `memory_stats`, modo higiene: sin título, sin tags, sin path, huérfanas, cadenas largas, wikilinks rotos y erratas de ruta por distancia de edición ≤ 2 → [`core.py`](../../naeth/app/core.py)
 - [x] La higiene **degrada** si falta `fuzzystrmatch`: en el nodo de respaldo no se puede crear porque está en `read_only`, y ese read-only es la protección del failover
-- [ ] **Crear `fuzzystrmatch` en `finally`** la próxima vez que ese nodo lidere. Hasta entonces la detección de erratas solo corre en el PC, y allí avisa en vez de fallar
+- [x] **`fuzzystrmatch` creada en `finally`** (28/08), sin esperar a que lidere y **sin desarmar la protección**: se levantó el `read_only` solo para esa sentencia con `PGOPTIONS`, porque el `CREATE EXTENSION` es DDL aditivo y no un dato que pueda entrar en conflicto en el merge. Verificado después que el `read_only` sigue en `on` y que un `CREATE TABLE` normal sigue fallando. Los dos nodos dan ya la higiene completa y las mismas cifras
 
 ### Lo que salió de fuera del plan
 
