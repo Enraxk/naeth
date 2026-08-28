@@ -37,7 +37,9 @@ Desplegada en los dos nodos como **`2.2026.08.3`** (`01a586f` la marca, `fe38975
 - [x] Desplegar en los dos nodos y poner el tag. Los hashes de los assets vuelven a coincidir entre nodos
 - [x] La marca en el README de la raíz: **el lockup entero, y el lockup ES el H1**. Dos ficheros por pieza (un SVG cargado por `<img>` no hereda `currentColor`), servidos por `<picture>` según el tema. Verificado en el render real de GitHub → [`README.md`](../../README.md), [`docs/img/`](../img/)
   - ⚠ **Coste aceptado el 28/08, medido y no supuesto**: un heading cuyo único contenido es una imagen se queda **sin `id` y sin ancla**, y **no sale en el Outline** de GitHub, porque ambos se generan del texto. El `alt="Naeth"` sí cubre a los lectores de pantalla. Si algún día molesta, la vuelta atrás es poner el lockup encima y recuperar el `# Naeth` debajo
-- [ ] **[Eneko]** Mirar el visor desde el móvil tras el SSO, que es lo único que no se puede comprobar desde aquí
+- [x] **[Eneko]** Mirar el visor desde el móvil tras el SSO (28/08). El alta funcionó; salió un defecto visual, ya corregido y desplegado como `2.2026.08.4`
+- [x] El selector de wikilinks se salía de la pantalla en móvil: 212 px fuera en un viewport de 375. Clamp en CSS, `max-height` en `dvh` por el teclado, y dos líneas de título por debajo de 600 px → [`Nueva.svelte`](../../naeth/web/src/views/Nueva.svelte), [`Memoria.svelte`](../../naeth/web/src/views/Memoria.svelte)
+- [ ] **[Eneko]** Qué hacer con **`naeth/stets`** (`5e0b4862`, "Test en móvil"), la memoria de la prueba: su ruta lleva una errata de `status`. Es escritura en Naeth, así que no la toco sin decisión
 
 ## Fase 3 · Camino de lectura, la parte aditiva
 
