@@ -23,7 +23,15 @@
    * mide 2 px reales y el ojo de la «e», 3).
    */
 
-  /** Rejilla de 24, montantes de 3x20 en x=2 y x=19, diagonal de grosor 3 partida por la junta. */
+  /**
+   * Rejilla de 24, montantes de 3x20 en x=2 y x=19, diagonal de grosor 3 partida por la junta.
+   *
+   * ⚠ ESTE PATH VIVE EN TRES SITIOS, y no hay forma de evitarlo: aqui, en el data URI del favicon
+   * (`index.html`, que no puede referenciar un fichero porque la raiz de `dist/` no se sirve) y en
+   * `docs/img/naeth-symbol*.svg`, que el README necesita como ficheros de verdad porque un SVG
+   * cargado por `<img>` no hereda `currentColor`. Si el dibujo cambia, cambian los tres.
+   * Comprobado el 28/08/2026 que los tres son identicos caracter a caracter.
+   */
   const SYMBOL = 'M2 2h3v20H2zM19 2h3v20h-3zM2 2h3l7.65 9H9.65zM11.35 13h3L22 22h-3z'
 
   /** La N del lockup: redibujada en la rejilla, NO escalada, para que su trazo siga siendo 3. */

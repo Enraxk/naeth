@@ -1,3 +1,13 @@
+<!--
+  Two files and a <picture> instead of one file with `currentColor`: an SVG loaded through <img>
+  does not inherit the document's colour, so the mark cannot take the ink of the text the way it
+  does inside the viewer. These are the same two values that ink resolves to.
+-->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/naeth-symbol-dark.svg">
+  <img src="docs/img/naeth-symbol.svg" alt="" width="40" height="40">
+</picture>
+
 # Naeth
 
 Portable, append-only memory for AI agents, exposed over the Model Context Protocol.
