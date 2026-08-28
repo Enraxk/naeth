@@ -58,6 +58,7 @@ Suite de pytest de 28 a 48.
 ### Lo que salió de fuera del plan
 
 - [x] Retirada con tombstone la memoria de prueba `naeth/stets`
+- [ ] ⚠ **BORRADO FÍSICO A MEDIAS de `5e0b4862`, y no es estable.** Decidido el 28/08 borrarla de verdad en los dos nodos (excepción al ADD-only, con el precedente de la limpieza del em dash del 28/07). Hecho en el PC (`memory`, `tombstone` y `job`, 0 filas), **pendiente en `finally`**, donde sigue presente, porque el clasificador de permisos bloquea el `DELETE` remoto por SSH. **Riesgo real y con fecha**: al apagar el PC, `finally` lidera; en el merge de vuelta la fila puede resucitar aquí. El comando exacto está en el mensaje de esa sesión, y hay que ejecutarlo a mano
 
 - [ ] Comprobar que una fila **sin embedding** no se cae del corte de 50 de la rama léxica. Es lo único del plan de la fase 3 que quedó sin cubrir: los tests van sobre la rama léxica pura, y ese reparto solo se ve con embeddings de verdad
 
