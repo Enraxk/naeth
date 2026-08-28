@@ -109,26 +109,46 @@ Informe con la medición completa en [`fase-4-0-tope-y-prioridad.md`](fase-4-0-t
   `MONOTONIC_MERGE_RULES` (`CENIT/core/reconciler/src/cenit_core/sync.py:119`). Una línea que haría
   converger el digest solo. Es otro repo
 
-### 4.2 · Escritura: el digest en las dos tools
+### 4.2 · Escritura: el digest en las dos tools · CERRADA el 28/08/2026
 
-- [ ] `digest` en `core.add` y `core.supersede` → [`core.py:63`](../../naeth/app/core.py), [`:91`](../../naeth/app/core.py)
-- [ ] Y en las dos tools que escriben contenido → [`mcp_server.py:235`](../../naeth/app/mcp_server.py), [`:292`](../../naeth/app/mcp_server.py)
-- [ ] Y en las dos rutas del visor que escriben → [`mcp_server.py:407`](../../naeth/app/mcp_server.py), [`:425`](../../naeth/app/mcp_server.py)
-- [ ] `NAETH_DIGEST_ENFORCE=warn|strict`, calcado de `_enforce_model` ([`:220`](../../naeth/app/mcp_server.py)).
+- [x] `digest` en `core.add` y `core.supersede` → [`core.py:63`](../../naeth/app/core.py), [`:91`](../../naeth/app/core.py)
+- [x] Y en las dos tools que escriben contenido → [`mcp_server.py:235`](../../naeth/app/mcp_server.py), [`:292`](../../naeth/app/mcp_server.py)
+- [x] Y en las dos rutas del visor que escriben → [`mcp_server.py:407`](../../naeth/app/mcp_server.py), [`:425`](../../naeth/app/mcp_server.py)
+- [x] `NAETH_DIGEST_ENFORCE=warn|strict`, calcado de `_enforce_model` ([`:220`](../../naeth/app/mcp_server.py)).
   **Nace en `warn`**, decidido por el precedente medido: `AUTHORSHIP_ENFORCE` lleva un mes pidiendo
   `agent_model` sin obligarlo y se cumple (julio 119/129, **agosto 343/343**). Y la asimetría:
   `strict` pierde la escritura entera, `warn` deja un NULL rellenable
-- [ ] ⚠ **El digest NO se hereda del padre al superseder**: describiría la versión anterior, o sea
+- [x] ⚠ **El digest NO se hereda del padre al superseder**: describiría la versión anterior, o sea
   mentiría con la firma de un resumen bueno. Mejor NULL
+- [x] El tope **rechaza en vez de recortar** (`core._digest`): un resumen cortado a mitad de frase
+  sigue firmando como resumen entero y nadie se entera. El error dice cuánto ocupaba y cuál es el tope
+- [x] ⚠ **La idempotencia de `add` no adopta el digest de una segunda llamada**: el `content_hash` es
+  de (title, content) y el digest no entra. Es coherente pero silencioso, y va en un test con su porqué
+- [x] Siete tests nuevos → [`test_core.py`](../../naeth/app/tests/test_core.py)
 
-### 4.3 · Lectura: `memory_search` deja de devolver el contenido
+### 4.3 · Lectura: `memory_search` deja de devolver el contenido · CERRADA el 28/08/2026
 
-- [ ] Devuelve `digest`, `path` y `created_at`; deja de devolver `content` → [`mcp_server.py:258-267`](../../naeth/app/mcp_server.py)
-- [ ] ⚠ **`core.search` NO cambia**: `/api/search` del visor consume la fila entera y se rompería
-- [ ] Mientras queden NULL, recorte del contenido **marcado como recorte**, para que el ahorro empiece
+- [x] Devuelve `digest`, `path` y `created_at`; deja de devolver `content` → [`mcp_server.py:258-267`](../../naeth/app/mcp_server.py)
+- [x] ⚠ **`core.search` NO cambia**: `/api/search` del visor consume la fila entera y se rompería
+- [x] Mientras queden NULL, recorte del contenido **marcado como recorte**, para que el ahorro empiece
   el día del despliegue y el agente sepa que le falta algo
-- [ ] ⚠ **El riesgo mayor de la fase**: si el agente no pide `memory_get` cuando el digest no le basta,
-  la memoria queda peor que antes. Va en la descripción de la tool y se comprueba en 4.6
+- [x] ⚠ **El riesgo mayor de la fase**: si el agente no pide `memory_get` cuando el digest no le basta,
+  la memoria queda peor que antes. La descripción de la tool ya lo dice de forma explícita
+- [x] `digest_source` (`written` / `excerpt`), calcado de `model_source` del Paso 10 y por lo mismo:
+  un valor escrito a mano y uno derivado por la máquina no son lo mismo, y quien lee tiene que poder
+  distinguirlos sin adivinar
+- [x] La composición del resultado se extrajo a `_hit()`, para que "ya no devuelve content" sea un
+  test y no una inspección
+- [x] Cinco tests más, y la suite acumulada pasa de 48 a **60 en verde**
+- [x] **Verificado en producción** con una búsqueda real: sin `content`, con `digest_source: excerpt`,
+  y el recorte cortando en el espacio. **De 6.753 caracteres a unos 780** en esos tres resultados;
+  en proyección `k=10`, de **26.858 a unos 3.000: un 89% menos**, ya antes del backfill
+- [ ] ⚠ **La descripción nueva no llega a las sesiones MCP ya abiertas**: el cliente cachea el schema
+  del handshake, así que el aviso de "llama a `memory_get`" solo entra en sesiones nuevas. No es un
+  fallo, pero conviene saberlo al medir si el aviso funciona
+- [ ] ⚠ **`finally` sigue con el código viejo**: los dos nodos tienen la columna, pero el módulo solo
+  se recargó aquí. Si el respaldo liderara ahora, `memory_search` allí devolvería el contenido entero.
+  No es una rotura (es el comportamiento anterior), y lo cierra el despliegue de 4.6
 
 ### 4.4 · El visor no pierde el digest
 

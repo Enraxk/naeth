@@ -135,6 +135,8 @@ def _embed_query(q: str) -> list[float] | None:
 # claude.ai anuncia un clientInfo distinto a Claude Code; el mapeo normaliza lo conocido y
 # preserva lo demas crudo en client_raw para poder corregir sin perder nada.
 AUTHORSHIP_ENFORCE = os.environ.get("AUTHORSHIP_ENFORCE", "warn").strip().lower()  # warn|strict
+# Fase 4. Mismo interruptor y mismo ciclo de vida que el de arriba, a proposito.
+DIGEST_ENFORCE = os.environ.get("NAETH_DIGEST_ENFORCE", "warn").strip().lower()    # warn|strict
 
 # Autoria de las escrituras del visor: eres TU, a mano. Sin modelo (un humano no tiene).
 _HUMAN_AUTHOR = {"product": "naeth-web", "surface": "visor", "zone": "public",
@@ -225,24 +227,85 @@ def _enforce_model(author: dict[str, Any]) -> None:
             "(p. ej. agent_model='claude-opus-4-8') en la llamada.")
 
 
+def _enforce_digest(digest: str | None) -> None:
+    """En 'strict' rechaza (instructivo) si no se paso digest. En 'warn' pasa.
+
+    NACE EN 'warn' Y NO EN 'strict', y lo decide el precedente medido de arriba, no el gusto:
+    AUTHORSHIP_ENFORCE lleva un mes pidiendo agent_model SIN obligarlo, y se cumple (julio
+    119/129, agosto 343/343). Un parametro opcional que la descripcion de la tool pide se cumple.
+    Y la asimetria remata: en 'strict' una llamada sin digest PIERDE LA ESCRITURA, que es un dato
+    perdido; en 'warn' deja un NULL, que el backfill recoge. Se endurece cuando 4.7 termine.
+    """
+    if DIGEST_ENFORCE == "strict" and not (digest or "").strip():
+        raise ValueError(
+            "Naeth exige un digest: dos o tres frases (300 caracteres como maximo) que digan QUE "
+            "AFIRMA la nota, no de que va. Es lo que devuelve memory_search.")
+
+
 # ================================================================ herramientas MCP
 @mcp.tool(name="memory_add",
           description="Save / store / remember a new persistent memory in Naeth "
                       "(append-only). Queues its embedding. Idempotent by content. Use "
                       "when asked to remember or note a fact, decision, observation or "
                       "preference. Pass agent_model with the model you are running as "
-                      "(e.g. 'claude-opus-4-8') so Naeth records who wrote it.")
+                      "(e.g. 'claude-opus-4-8') so Naeth records who wrote it. ALWAYS pass "
+                      "digest: 2-3 sentences, 300 characters max, saying what the note "
+                      "ASSERTS, not what it is about. memory_search returns the digest "
+                      "instead of the full text, so a note without one is much harder to "
+                      "find and judge later.")
 async def memory_add(content: str, title: str | None = None,
                memory_type: str = "observation", tags: list[str] | None = None,
                path: str | None = None, agent_model: str | None = None,
-               agent_vendor: str | None = None) -> dict[str, Any]:
+               agent_vendor: str | None = None,
+               digest: str | None = None) -> dict[str, Any]:
     author = _authorship(agent_model, agent_vendor)
     _enforce_model(author)
+    _enforce_digest(digest)
     r = core.add(content, title=title, memory_type=memory_type, tags=tags,
-                 path=path, source_client=_source_client(author), author=author)
+                 path=path, source_client=_source_client(author), author=author,
+                 digest=digest)
     m = r["memory"]
     return {"id": str(m["id"]), "created": r["created"], "title": m["title"],
-            "memory_type": m["memory_type"], "author": m.get("author")}
+            "memory_type": m["memory_type"], "author": m.get("author"),
+            "digest": m.get("digest")}
+
+
+def _resumen(h: dict[str, Any]) -> tuple[str | None, str]:
+    """(texto, procedencia) del resumen de un resultado. `written` o `excerpt`.
+
+    El par campo + procedencia esta calcado de `model`/`model_source` del Paso 10, y por lo mismo:
+    un valor escrito a mano y uno derivado por la maquina NO son la misma cosa, y quien los lee
+    tiene que poder distinguirlos SIN adivinar. Un recorte se corta a mitad de idea pero sigue
+    pareciendo un resumen; si viajara como `digest` a secas, mentiria por omision.
+
+    El recorte es la red MIENTRAS dura el backfill de las vigentes: sin el, el ahorro de contexto
+    no empezaria hasta el final de la ultima tanda. Se retira cuando no queden digests a NULL.
+    """
+    d = (h.get("digest") or "").strip()
+    if d:
+        return d, "written"
+    txt = (h.get("content") or "").strip()
+    if len(txt) <= core.DIGEST_MAX:
+        return (txt or None), "excerpt"
+    # Se corta en el ultimo espacio para no partir una palabra por la mitad.
+    corte = txt[:core.DIGEST_MAX]
+    esp = corte.rfind(" ")
+    return (corte[:esp] if esp > core.DIGEST_MAX // 2 else corte).rstrip() + "...", "excerpt"
+
+
+def _hit(h: dict[str, Any]) -> dict[str, Any]:
+    """Un resultado de busqueda tal como sale por MCP. SIN `content`, que es el cambio de la fase 4.
+
+    ⚠ Quien recorta es ESTA capa, no `core.search`, que sigue devolviendo la fila entera: la ruta
+    /api/search del visor la consume tal cual y se romperia. El coste de contexto que la fase viene
+    a bajar esta aqui, en lo que cruza al agente, no en lo que la base devuelve.
+    """
+    texto, origen = _resumen(h)
+    return {"id": str(h["id"]), "title": h["title"],
+            "digest": texto, "digest_source": origen,
+            "path": h.get("path"), "memory_type": h["memory_type"], "tags": h["tags"],
+            "created_at": str(h["created_at"]) if h.get("created_at") else None,
+            "score": float(h["score"]) if h.get("score") else None}
 
 
 @mcp.tool(name="memory_search",
@@ -254,17 +317,22 @@ async def memory_add(content: str, title: str | None = None,
                       "narrow the search BEFORE ranking, which is the cheapest way to "
                       "improve recall: path_prefix ('naeth/' or 'naeth/core'), tags "
                       "(must have ALL of them), memory_type (fact|decision|observation|"
-                      "preference) and since (ISO date, only memories created after).")
+                      "preference) and since (ISO date, only memories created after). "
+                      "RETURNS A SHORT DIGEST, NOT THE FULL TEXT: this is a map, not the "
+                      "ground. When a result looks like the answer, or when the digest "
+                      "is not enough to be sure, CALL memory_get WITH ITS id to read the "
+                      "whole note before relying on it -- do not answer from the digest "
+                      "alone on anything that matters. digest_source tells you what you "
+                      "are reading: 'written' is a hand-written summary; 'excerpt' is the "
+                      "first ~300 characters of the note, cut off mid-idea, so it is a "
+                      "much weaker signal and memory_get is nearly always needed.")
 def memory_search(query: str, k: int = 10, path_prefix: str | None = None,
                   tags: list[str] | None = None, memory_type: str | None = None,
                   since: str | None = None) -> list[dict[str, Any]]:
     hits = core.search(query, k=k, q_embedding=_embed_query(query),
                        path_prefix=path_prefix, tags=tags,
                        memory_type=memory_type, since=since)
-    return [{"id": str(h["id"]), "title": h["title"],
-             "content": h["content"], "memory_type": h["memory_type"],
-             "tags": h["tags"], "score": float(h["score"]) if h.get("score") else None}
-            for h in hits]
+    return [_hit(h) for h in hits]
 
 
 @mcp.tool(name="memory_get",
@@ -288,19 +356,25 @@ def memory_get(memory_id: str) -> dict[str, Any]:
                       "version replacing the previous one (append-only); the old stays "
                       "but is no longer current. Editing without destroying. Pass "
                       "agent_model with the model you are running as (e.g. "
-                      "'claude-opus-4-8') so Naeth records who wrote it.")
+                      "'claude-opus-4-8') so Naeth records who wrote it. ALWAYS pass a "
+                      "digest describing the NEW content (2-3 sentences, 300 chars max): "
+                      "it is NOT inherited from the parent on purpose, because a digest "
+                      "written for the old text would describe the wrong version.")
 async def memory_supersede(parent_id: str, content: str, title: str | None = None,
                      memory_type: str = "observation",
                      tags: list[str] | None = None, path: str | None = None,
                      agent_model: str | None = None,
-                     agent_vendor: str | None = None) -> dict[str, Any]:
+                     agent_vendor: str | None = None,
+                     digest: str | None = None) -> dict[str, Any]:
     author = _authorship(agent_model, agent_vendor)
     _enforce_model(author)
+    _enforce_digest(digest)
     r = core.supersede(parent_id, content, title=title, memory_type=memory_type,
                        tags=tags, path=path, source_client=_source_client(author),
-                       author=author)
+                       author=author, digest=digest)
     m = r["memory"]
-    return {"id": str(m["id"]), "supersedes": parent_id, "title": m["title"]}
+    return {"id": str(m["id"]), "supersedes": parent_id, "title": m["title"],
+            "digest": m.get("digest")}
 
 
 @mcp.tool(name="memory_tombstone",
@@ -412,7 +486,7 @@ async def api_add(request: Request) -> Response:
     r = core.add(b["content"], title=b.get("title"),
                  memory_type=b.get("memory_type", "observation"),
                  tags=b.get("tags"), path=b.get("path"), source_client="web",
-                 author=_HUMAN_AUTHOR)
+                 author=_HUMAN_AUTHOR, digest=b.get("digest"))
     return JSONResponse(_json(r))
 
 
@@ -435,6 +509,9 @@ async def api_supersede(request: Request) -> Response:
         tags=b.get("tags"),
         path=b.get("path"),
         metadata=b.get("metadata"),
+        # El editor lo manda SIEMPRE, incluso sin tocarlo: `core.supersede` no hereda del padre,
+        # asi que si no viajara aqui, editar una memoria desde el visor le borraria el digest.
+        digest=b.get("digest"),
         source_client="web",
         author=_HUMAN_AUTHOR,
     )

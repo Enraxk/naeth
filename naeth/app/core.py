@@ -60,13 +60,44 @@ def content_hash(title: str | None, content: str) -> str:
 # ============================================================
 # Escrituras ADD-only
 # ============================================================
+#: Tope del digest, en caracteres. El mismo numero que el CHECK de la columna (migracion 006).
+#: MEDIDO, no elegido: 24 digests reales sobre notas de 590 a 7.569 caracteres quedaron en 212-296.
+#: Ver docs/plan/fase-4-0-tope-y-prioridad.md.
+DIGEST_MAX = 300
+
+
+def _digest(d: str | None) -> str | None:
+    """Normaliza el digest y RECHAZA el que pasa del tope, en vez de recortarlo.
+
+    Recortar produciria un resumen cortado a mitad de frase que sigue firmando como resumen entero,
+    y nadie se enteraria. Un error le dice a quien escribe que lo reescriba mas corto, que es lo que
+    de verdad hay que hacer. Es el mismo criterio instructivo de `_enforce_model` en el MCP.
+    """
+    if d is None:
+        return None
+    d = d.strip()
+    if not d:
+        return None
+    if len(d) > DIGEST_MAX:
+        raise ValueError(
+            f"el digest ocupa {len(d)} caracteres y el tope son {DIGEST_MAX}. Reescribelo mas "
+            f"corto: es un resumen de dos o tres afirmaciones, no un extracto.")
+    return d
+
+
 def add(content: str, *, title: str | None = None, memory_type: str = "observation",
         tags: list[str] | None = None, path: str | None = None,
         metadata: dict | None = None, source_client: str = "web",
-        author: dict | None = None) -> dict:
+        author: dict | None = None, digest: str | None = None) -> dict:
     """Alta de memoria (sincrona). Encola el embedding. Idempotente: si ya existe una
     fila vigente con el mismo content_hash, la devuelve sin duplicar.
-    `author` (Paso 10) = autoria explicita (product/surface/zone/actor/vendor/model...)."""
+    `author` (Paso 10) = autoria explicita (product/surface/zone/actor/vendor/model...).
+    `digest` (fase 4) = resumen corto escrito a mano; es lo que devuelve `memory_search`.
+
+    ⚠ EL DIGEST NO ENTRA EN EL content_hash, que sigue siendo de (title, content). O sea que
+    reenviar el MISMO contenido con digest devuelve la fila existente SIN el digest: la
+    idempotencia es de la memoria, no del metadato. Para ponerselo a una fila que ya existe,
+    `supersede` (o el backfill), nunca un UPDATE por la puerta de atras."""
     ch = content_hash(title, content)
     with conn() as c:
         existing = c.execute(
@@ -77,12 +108,12 @@ def add(content: str, *, title: str | None = None, memory_type: str = "observati
 
         row = c.execute(
             """INSERT INTO memory (content_hash, title, content, memory_type, tags, path,
-                                   metadata, source_client, author)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                   metadata, source_client, author, digest)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING *""",
             (ch, title, content, memory_type, tags or [], path,
              psycopg.types.json.Jsonb(metadata or {}), source_client,
-             psycopg.types.json.Jsonb(author or {})),
+             psycopg.types.json.Jsonb(author or {}), _digest(digest)),
         ).fetchone()
         c.execute("INSERT INTO job (kind, memory_id) VALUES ('embed', %s)", (row["id"],))
         return {"memory": row, "created": True}
@@ -91,17 +122,22 @@ def add(content: str, *, title: str | None = None, memory_type: str = "observati
 def supersede(parent_id: str, content: str, *, title: str | None = None,
               memory_type: str = "observation", tags: list[str] | None = None,
               path: str | None = None, metadata: dict | None = None,
-              source_client: str = "web", author: dict | None = None) -> dict:
-    """Nueva version que reemplaza a parent_id. La vieja permanece (is_current=false)."""
+              source_client: str = "web", author: dict | None = None,
+              digest: str | None = None) -> dict:
+    """Nueva version que reemplaza a parent_id. La vieja permanece (is_current=false).
+
+    ⚠ EL DIGEST NO SE HEREDA DEL PADRE, y es deliberado (como el resto de campos, que tampoco).
+    Aqui hay ademas una razon propia: un digest heredado describe el contenido ANTERIOR, o sea
+    que mentiria con la firma de un resumen bueno. Un NULL es honesto y el backfill lo recoge."""
     ch = content_hash(title, content)
     with conn() as c:
         row = c.execute(
             """INSERT INTO memory (content_hash, title, content, memory_type, tags, path,
-                                   metadata, source_client, author)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                                   metadata, source_client, author, digest)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
             (ch, title, content, memory_type, tags or [], path,
              psycopg.types.json.Jsonb(metadata or {}), source_client,
-             psycopg.types.json.Jsonb(author or {})),
+             psycopg.types.json.Jsonb(author or {}), _digest(digest)),
         ).fetchone()
         c.execute(
             "INSERT INTO supersession (child_id, parent_id, source_client) VALUES (%s, %s, %s)",

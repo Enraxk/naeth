@@ -351,3 +351,122 @@ def test_hygiene_degrada_si_falta_fuzzystrmatch_en_vez_de_reventar():
     with core.conn() as c:
         c.execute("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch")
     assert [r["ruta"] for r in core.stats("hygiene")["rutas_sospechosas"]] == ["naeth/stets"]
+
+
+# ============================================================
+# Fase 4 - el digest (2026-08-28)
+# ============================================================
+def test_add_guarda_el_digest():
+    m = core.add("contenido con digest", title="t", digest="Dice esto y aquello.")["memory"]
+    assert m["digest"] == "Dice esto y aquello."
+
+
+def test_add_sin_digest_lo_deja_a_null():
+    """Nace nullable a proposito: el backfill de las vigentes va por tandas y tarda, asi que una
+    columna obligatoria habria bloqueado el despliegue hasta terminarlo."""
+    m = core.add("contenido sin digest", title="t")["memory"]
+    assert m["digest"] is None
+
+
+def test_el_digest_se_normaliza_y_el_vacio_es_null():
+    """Un digest de solo espacios no es un digest corto: es la ausencia de digest. Guardarlo como
+    cadena vacia lo haria indistinguible de uno escrito para el recuento del modo higiene."""
+    assert core.add("uno", title="t", digest="   ")["memory"]["digest"] is None
+    assert core.add("dos", title="t", digest="  ceñido  ")["memory"]["digest"] == "ceñido"
+
+
+def test_el_digest_que_pasa_del_tope_se_rechaza_en_vez_de_recortarse():
+    """RECHAZAR y no recortar: un resumen cortado a mitad de frase sigue firmando como resumen
+    entero y nadie se entera. El error le dice a quien escribe que lo reescriba, que es lo que hay
+    que hacer de verdad."""
+    largo = "x" * (core.DIGEST_MAX + 1)
+    try:
+        core.add("contenido", title="t", digest=largo)
+    except ValueError as e:
+        assert str(core.DIGEST_MAX) in str(e)          # el mensaje dice cual es el tope
+        assert str(len(largo)) in str(e)               # y cuanto ocupaba lo que se mando
+    else:
+        raise AssertionError("un digest por encima del tope tenia que fallar")
+    # y el de justo el tope si entra: el limite es inclusivo
+    m = core.add("contenido", title="t", digest="y" * core.DIGEST_MAX)["memory"]
+    assert len(m["digest"]) == core.DIGEST_MAX
+
+
+def test_supersede_guarda_su_digest_y_NO_lo_hereda_del_padre():
+    """No heredarlo es la decision, no un olvido: un digest escrito para el texto viejo describiria
+    la version anterior, o sea que mentiria con la firma de un resumen bueno. NULL es honesto."""
+    a = core.add("version A del texto", title="t", digest="Resume la version A.")["memory"]
+    b = core.supersede(str(a["id"]), "version B del texto", title="t",
+                       digest="Resume la version B.")["memory"]
+    assert b["digest"] == "Resume la version B."
+    c = core.supersede(str(b["id"]), "version C del texto", title="t")["memory"]
+    assert c["digest"] is None                          # no arrastra el de B
+
+
+def test_la_idempotencia_de_add_no_adopta_el_digest_de_la_segunda_llamada():
+    """El content_hash es de (title, content) y el digest NO entra. Reenviar el mismo contenido con
+    digest devuelve la fila que ya habia, sin el. Es coherente (la identidad de la memoria es su
+    contenido), pero es silencioso: para ponerselo a una fila existente, supersede o backfill."""
+    r1 = core.add("mismo texto exacto", title="t")
+    r2 = core.add("mismo texto exacto", title="t", digest="Un digest que llega tarde.")
+    assert r2["created"] is False
+    assert r2["memory"]["id"] == r1["memory"]["id"]
+    assert r2["memory"]["digest"] is None
+
+
+def test_el_digest_no_cambia_lo_que_devuelve_la_busqueda():
+    """La busqueda sigue trayendo la fila entera: quien recorta es la tool MCP, no `core.search`.
+    Si `core.search` dejara de traer `content`, la ruta /api/search del visor se romperia."""
+    a = core.add("higado de bacalao azul", title="t", digest="Sobre el bacalao.")["memory"]
+    hit = [h for h in core.search("bacalao") if h["id"] == a["id"]][0]
+    assert hit["content"] == "higado de bacalao azul"
+    assert hit["digest"] == "Sobre el bacalao."
+
+
+# ============================================================
+# Fase 4 - lo que `memory_search` deja de devolver (2026-08-28)
+# ============================================================
+def test_el_resultado_de_busqueda_ya_NO_lleva_el_contenido():
+    """El cambio que rompe contrato. Una busqueda de k=10 volcaba unos 27.000 caracteres (media de
+    2.686 por nota) para que el agente decidiera cuales de las diez le servian."""
+    from app.mcp_server import _hit
+    a = core.add("texto entero de la nota", title="t", path="naeth/core",
+                 digest="Dice una cosa concreta.")["memory"]
+    h = _hit(dict(a) | {"score": 0.5})
+    assert "content" not in h
+    assert h["digest"] == "Dice una cosa concreta."
+    assert h["digest_source"] == "written"
+    assert h["path"] == "naeth/core"          # el path entra: situa la nota sin abrirla
+    assert h["created_at"]
+
+
+def test_sin_digest_cae_a_un_recorte_MARCADO_como_recorte():
+    """`digest_source` esta calcado de `model_source` del Paso 10 y por lo mismo: un valor escrito a
+    mano y uno derivado por la maquina no son la misma cosa, y quien lee tiene que distinguirlos sin
+    adivinar. Un recorte se corta a mitad de idea pero sigue pareciendo un resumen."""
+    from app.mcp_server import _resumen
+    largo = "palabra " * 200                                  # 1.600 caracteres
+    texto, origen = _resumen({"digest": None, "content": largo})
+    assert origen == "excerpt"
+    assert len(texto) <= core.DIGEST_MAX + 3                  # el tope, mas los puntos suspensivos
+    assert texto.endswith("...")
+    assert not texto[:-3].endswith("palabr")                  # no parte una palabra por la mitad
+
+
+def test_un_digest_de_solo_espacios_no_cuenta_como_escrito():
+    from app.mcp_server import _resumen
+    assert _resumen({"digest": "   ", "content": "el contenido"}) == ("el contenido", "excerpt")
+
+
+def test_un_contenido_mas_corto_que_el_tope_viaja_entero_y_sin_puntos():
+    from app.mcp_server import _resumen
+    texto, origen = _resumen({"digest": None, "content": "una nota muy breve"})
+    assert (texto, origen) == ("una nota muy breve", "excerpt")
+
+
+def test_una_palabra_larguisima_sin_espacios_se_corta_igual():
+    """El corte busca el ultimo espacio, y si no hay ninguno util corta en seco. Sin este caso, un
+    volcado sin espacios (un base64, un hash largo) devolveria la nota entera."""
+    from app.mcp_server import _resumen
+    texto, _ = _resumen({"digest": None, "content": "z" * 1000})
+    assert len(texto) == core.DIGEST_MAX + 3
