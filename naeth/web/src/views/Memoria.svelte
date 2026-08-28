@@ -432,7 +432,7 @@
     {/key}
 
     {#if wikiOpen && wiki}
-      <div class="wikipop" style="left: {wiki.left}px; top: {wiki.bottom + 6}px">
+      <div class="wikipop" style="--wx: {wiki.left}px; top: {wiki.bottom + 6}px">
         <div class="wp-head">Enlazar memoria</div>
         {#each wikiHits as h, i (h.id)}
           <button
@@ -530,10 +530,14 @@
   .d-body { font: 14px/1.65 var(--font-sans); color: var(--ink); margin-top: 4px; }
 
   /* Selector de `[[`: fixed porque se posiciona con coordenadas de viewport (coordsAtPos). */
+  /* Mismos valores y mismo motivo que en `Nueva.svelte`, donde está explicado: el popover se salía
+     por la derecha en móvil y los títulos quedaban cortados. Si cambian allí, cambian aquí. */
   .wikipop {
     position: fixed; z-index: 60; width: min(460px, 90vw);
+    left: clamp(8px, var(--wx, 8px), 100vw - min(460px, 90vw) - 8px);
+    max-height: min(46dvh, 320px); overflow-y: auto; overscroll-behavior: contain;
     background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .35); padding: 4px; overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35); padding: 4px;
   }
   .wp-head {
     font: 10px var(--font-mono); letter-spacing: .5px; text-transform: uppercase;
@@ -609,5 +613,18 @@
     .memoria { padding: 22px 18px; }
     .d-title, .e-title { font-size: 20px; }
     .note-inner, .memoria.editing .note-inner { max-width: none; }
+
+    /* Dos líneas para el título del candidato, por lo mismo que en `Nueva.svelte`: con el prefijo
+       compartido de tantas memorias, a una línea varios candidatos se ven idénticos. */
+    .wp-item { align-items: flex-start; }
+    .wp-title {
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.35;
+    }
+    .wp-ico, .wp-path { margin-top: 2px; }
   }
 </style>

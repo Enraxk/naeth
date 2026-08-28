@@ -29,8 +29,8 @@
    */
 
   // El vocabulario canonico (ver CLAUDE.md), y desde el 28/08/2026 el unico: ese dia se cerro en
-  // estos cuatro, y el editor de `Memoria.svelte` dejo de ofrecer `learning` y `error`, que tenian
-  // cero uso. Quedan vivas dos notas de `reference`, pendientes de migrar.
+  // estos cuatro, el editor de `Memoria.svelte` dejo de ofrecer `learning` y `error` (cero uso) y
+  // las dos notas que quedaban en `reference` se migraron a `fact`. El corpus ya no usa ningun otro.
   const TYPES = ['fact', 'observation', 'decision', 'preference']
 
   // El mismo por defecto que aplica el backend cuando no se manda `memory_type`, para que crear
@@ -307,7 +307,7 @@
     {/key}
 
     {#if wikiOpen && wiki}
-      <div class="wikipop" style="left: {wiki.left}px; top: {wiki.bottom + 6}px">
+      <div class="wikipop" style="--wx: {wiki.left}px; top: {wiki.bottom + 6}px">
         <div class="wp-head">Enlazar memoria</div>
         {#each wikiHits as h, i (h.id)}
           <button
@@ -370,10 +370,20 @@
 
   .d-body { font: 14px/1.65 var(--font-sans); color: var(--ink); margin-top: 4px; }
 
+  /* El popover se ancla a la x del cursor (`--wx`), pero NO puede empezar donde le dé la gana: sin
+     tope se salía por la derecha y en móvil los títulos quedaban cortados. Medido el 28/08/2026 en
+     un viewport de 375 px: arrancaba en 249, medía 338 y terminaba en 587, o sea 212 px fuera.
+     El `clamp` lo empuja hacia dentro sin JS ni medir nada: si no cabe alineado con el cursor, se
+     pega al margen y se ve entero, que es lo que importa. Cuando la pantalla es tan estrecha que el
+     máximo cae por debajo del mínimo, `clamp` devuelve el mínimo, así que degrada a los 8 px.
+     El `max-height` va en `dvh` y no en `vh` a propósito: con el teclado abierto en móvil, `vh`
+     sigue midiendo la pantalla entera y la lista se metía debajo del teclado. */
   .wikipop {
     position: fixed; z-index: 60; width: min(460px, 90vw);
+    left: clamp(8px, var(--wx, 8px), 100vw - min(460px, 90vw) - 8px);
+    max-height: min(46dvh, 320px); overflow-y: auto; overscroll-behavior: contain;
     background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, .35); padding: 4px; overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35); padding: 4px;
   }
   .wp-head { font: 10px var(--font-mono); letter-spacing: .5px; text-transform: uppercase; color: var(--dim); padding: 5px 8px 4px; }
   .wp-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 8px; border-radius: 6px; color: var(--ink); min-width: 0; }
@@ -394,5 +404,20 @@
     .nueva { padding: 22px 18px; }
     .e-title { font-size: 20px; }
     .note-inner { max-width: none; }
+
+    /* Dos líneas para el título del candidato, y aquí sí importa cuál es el corpus: muchísimas
+       memorias empiezan por "Naeth · " o "CENIT · ", así que a una línea y 336 px de ancho varios
+       candidatos se ven EXACTAMENTE IGUAL y la lista deja de servir para elegir. Con dos, se
+       distinguen. En escritorio sobra: ahí caben enteros. */
+    .wp-item { align-items: flex-start; }
+    .wp-title {
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      line-height: 1.35;
+    }
+    .wp-ico, .wp-path { margin-top: 2px; }
   }
 </style>
