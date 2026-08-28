@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2 99 24" width="99" height="24" role="img" aria-label="Naeth">
+  <title>Naeth</title>
+  <g fill="#1f2329">
+    <g transform="translate(-2,0)"><path d="M2 -2h3v24H2zM23 -2h3v24h-3zM2 -2h3l9.63 11H11.63zM13.38 11h3L26 22h-3z"/></g>
+    <g transform="translate(4,0)"><path d="M36 7h3v15h-3zM26 7h10v3H26zM26 12h10v3H26zM26 12h3v10H26zM26 19h13v3H26zM45 7h3v15h-3zM45 7h13v3H45zM55 7h3v6h-3zM45 13h13v3H45zM45 19h13v3H45zM64 7h12v3H64zM68.5 2h3v20h-3zM82 2h3v20h-3zM92 7h3v15h-3zM82 7h13v3H82z"/></g>
+  </g>
+</svg>

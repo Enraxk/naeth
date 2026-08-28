@@ -24,14 +24,20 @@
    */
 
   /**
-   * Rejilla de 24, montantes de 3x20 en x=2 y x=19, diagonal de grosor 3 partida por la junta.
+   * ⚠ LOS PATHS ESTAN DUPLICADOS FUERA DE AQUI, y no hay forma limpia de evitarlo. Si el dibujo
+   * cambia, hay que cambiarlo en todos estos sitios:
    *
-   * ⚠ ESTE PATH VIVE EN TRES SITIOS, y no hay forma de evitarlo: aqui, en el data URI del favicon
-   * (`index.html`, que no puede referenciar un fichero porque la raiz de `dist/` no se sirve) y en
-   * `docs/img/naeth-symbol*.svg`, que el README necesita como ficheros de verdad porque un SVG
-   * cargado por `<img>` no hereda `currentColor`. Si el dibujo cambia, cambian los tres.
-   * Comprobado el 28/08/2026 que los tres son identicos caracter a caracter.
+   *   simbolo  este fichero · el data URI del favicon (`index.html`, que no puede referenciar un
+   *            fichero porque la raiz de `dist/` no la sirve nadie) · `docs/img/naeth-symbol*.svg`
+   *   lockup   este fichero · `docs/img/naeth-lockup*.svg`, que es lo que el README pinta como H1
+   *
+   * Los `.svg` de `docs/img/` existen por partida doble (claro y oscuro) porque un SVG cargado a
+   * traves de `<img>` NO hereda `currentColor`: fuera del visor la marca no puede tomar la tinta
+   * del texto y hay que escribirle los dos valores a los que esa tinta resuelve.
+   * Comprobado el 28/08/2026 que todas las copias son identicas caracter a caracter.
    */
+
+  /** Rejilla de 24, montantes de 3x20 en x=2 y x=19, diagonal de grosor 3 partida por la junta. */
   const SYMBOL = 'M2 2h3v20H2zM19 2h3v20h-3zM2 2h3l7.65 9H9.65zM11.35 13h3L22 22h-3z'
 
   /** La N del lockup: redibujada en la rejilla, NO escalada, para que su trazo siga siendo 3. */

@@ -1,14 +1,13 @@
 <!--
+  The lockup IS the heading, so it carries `alt="Naeth"`: GitHub's outline and any screen reader
+  still read the name, and the H1 stays a real H1. Dropping the word in text is the point, since
+  the lockup is not an icon beside a title, it is the word itself.
+
   Two files and a <picture> instead of one file with `currentColor`: an SVG loaded through <img>
   does not inherit the document's colour, so the mark cannot take the ink of the text the way it
   does inside the viewer. These are the same two values that ink resolves to.
 -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/naeth-symbol-dark.svg">
-  <img src="docs/img/naeth-symbol.svg" alt="" width="40" height="40">
-</picture>
-
-# Naeth
+# <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/naeth-lockup-dark.svg"><img src="docs/img/naeth-lockup.svg" alt="Naeth" height="38"></picture>
 
 Portable, append-only memory for AI agents, exposed over the Model Context Protocol.
 
