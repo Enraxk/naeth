@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
+  import Brand from './Brand.svelte'
   import { navigate } from '../lib/router.svelte'
   import { toggleDrawer } from '../lib/ui.svelte'
   import { loadTree, loadStatus } from '../lib/data.svelte'
@@ -55,7 +56,18 @@
 <header>
   <div class="h-left">
     <button class="hamb" title="Menú" aria-label="Abrir menú" onclick={toggleDrawer}><Icon name="menu" size={18} /></button>
-    <button class="wordmark" title="Ir al inicio" aria-label="Ir al inicio" onclick={() => navigate('inicio')}>NAETH</button>
+    <!--
+      El lockup sustituye al texto `NAETH` desde el 28/08/2026. Se pintan las dos variantes y manda
+      el CSS: por debajo de 460 px, donde antes no quedaba marca ninguna, se queda el simbolo solo.
+      Son dos paths, asi que tenerlas las dos en el DOM no cuesta nada y evita meter `matchMedia`
+      para una decision que es puramente de ancho.
+      El boton conserva su `aria-label`, y los SVG entran decorativos: para un lector de pantalla
+      esto no ha cambiado.
+    -->
+    <button class="wordmark" title="Ir al inicio" aria-label="Ir al inicio" onclick={() => navigate('inicio')}>
+      <span class="bd"><Brand variant="lockup" height={24} /></span>
+      <span class="bm"><Brand variant="symbol" height={20} /></span>
+    </button>
   </div>
 
   <div class="search" role="search">
@@ -112,8 +124,12 @@
   .h-left, .h-right { flex: 1 1 0; display: flex; align-items: center; min-width: 0; }
   .h-right { justify-content: flex-end; gap: 8px; }
   .h-left { gap: 14px; }
-  .wordmark { font: 600 15px var(--font-mono); letter-spacing: 1.5px; color: var(--ink); padding: 2px 0; }
+  /* El color ya no es del texto sino del dibujo: los SVG llevan `fill="currentColor"`, asi que
+     heredan esto y el hover sin una linea mas. */
+  .wordmark { display: flex; align-items: center; color: var(--ink); padding: 2px 0; }
   .wordmark:hover { color: var(--accent); }
+  .bd { display: block; }
+  .bm { display: none; }
   .search { flex: 0 0 440px; max-width: 46vw; display: flex; align-items: center; gap: 8px; position: relative; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
   .search:focus-within { border-color: var(--accent); }
   .search input { flex: 1 1 auto; min-width: 0; background: none; border: 0; color: var(--ink); font: 13px var(--font-mono); outline: none; }
@@ -146,7 +162,11 @@
     .search { flex: 1 1 auto; max-width: none; }
   }
   @media (max-width: 460px) {
-    .wordmark { display: none; }
+    /* Aqui el lockup no cabe junto al buscador, pero antes se ocultaba la marca ENTERA y el visor
+       se quedaba sin ninguna justo en el movil, que es desde donde mas se entra por el tunel.
+       Se queda el simbolo, que aguanta de sobra a este tamano (su suelo son 16 px). */
+    .bd { display: none; }
+    .bm { display: block; }
     .kbd { display: none; }
   }
 </style>
