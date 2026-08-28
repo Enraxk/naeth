@@ -23,18 +23,20 @@ Desplegada en los dos nodos como **`2.2026.08.2`** (`ec54d3e` y `9d4fda4`).
 - [x] Migrar las dos memorias de `reference` a `fact` (28/08). `aa342087` → `68a36b57` (`cenit/infra`) y `ded8a830` → `3fa1c3a0` (`cenit/design`). El corpus vigente ya usa **solo** los cuatro tipos de la convención
 - [ ] **[Eneko]** Crear una memoria de verdad desde el móvil en `naeth-visor.enraxk.dev`, que es lo único de la verificación que no se puede hacer desde aquí
 
-## Fase 2 · La marca y el movimiento entran en el visor
+## Fase 2 · La marca y el movimiento entran en el visor · CERRADA el 28/08/2026
 
-- [ ] **[Eneko]** Dónde va la marca: si el lockup sustituye al texto de la cabecera, si el símbolo va al rail, o si solo entra por la pestaña y el README
-- [ ] Versionar los tres SVG canónicos (símbolo 24×24, wordmark, lockup 99×24) con `currentColor` y `<title>` → origen en [`docs/handoff/`](../handoff/)
-- [ ] Añadir el favicon, que hoy no existe: el `<head>` no declara ninguno → [`web/index.html`](../../naeth/web/index.html)
-- [ ] Colocar el lockup en el chrome del visor según la decisión
-- [ ] Tokenizar las tres duraciones y añadir `--t-over` → [`src/app.css`](../../naeth/web/src/app.css)
-- [ ] Sustituir las tres duraciones escritas a mano → [`Sidebar.svelte:142`](../../naeth/web/src/components/Sidebar.svelte), [`:167`](../../naeth/web/src/components/Sidebar.svelte), [`Estado.svelte:169`](../../naeth/web/src/views/Estado.svelte)
-- [ ] Animar el popover de búsqueda, que hoy aparece de golpe, componiendo con su `translateX(-50%)` → [`Header.svelte`](../../naeth/web/src/components/Header.svelte)
-- [ ] Respetar `prefers-reduced-motion`, que hoy no aparece en ningún fichero del visor → [`src/app.css`](../../naeth/web/src/app.css)
-- [ ] Poner el símbolo en el README de la raíz → [`README.md`](../../README.md)
-- [ ] Desplegar en los dos nodos y poner el tag
+Desplegada en los dos nodos como **`2.2026.08.3`** (`01a586f` la marca, `fe38975` el movimiento).
+
+- [x] **[Eneko]** Dónde va la marca: el lockup sustituye al texto de la cabecera, y el símbolo solo por debajo de 460 px
+- [x] Los SVG versionados, con `currentColor` y sin un color escrito → [`components/Brand.svelte`](../../naeth/web/src/components/Brand.svelte)
+- [x] Favicon inline como data URI, porque un fichero suelto daría 404: la raíz de `dist/` no la sirve nadie → [`web/index.html`](../../naeth/web/index.html)
+- [x] El lockup a 24 px (su suelo) en la cabecera, y el símbolo en móvil → [`Header.svelte`](../../naeth/web/src/components/Header.svelte)
+- [x] Tokenizar las tres duraciones y añadir `--t-over`, con la curva dentro del token → [`src/app.css`](../../naeth/web/src/app.css)
+- [x] Las dos capas flotantes con el mismo gesto, vía `@starting-style` porque se montan con `{#if}` → [`Header.svelte`](../../naeth/web/src/components/Header.svelte), [`PathField.svelte`](../../naeth/web/src/components/PathField.svelte)
+- [x] Respetar `prefers-reduced-motion`, con las clases repetidas para ganar al hash de Svelte → [`src/app.css`](../../naeth/web/src/app.css)
+- [x] Desplegar en los dos nodos y poner el tag. Los hashes de los assets vuelven a coincidir entre nodos
+- [ ] **Poner el símbolo en el README de la raíz.** Quedó fuera del plan de la fase 2 al reescribirlo, y sigue abierto. GitHub no admite SVG inline en markdown, así que pide versionar un `.svg` y enlazarlo con `<img>` → [`README.md`](../../README.md)
+- [ ] **[Eneko]** Mirar el visor desde el móvil tras el SSO, que es lo único que no se puede comprobar desde aquí
 
 ## Fase 3 · Camino de lectura, la parte aditiva
 
