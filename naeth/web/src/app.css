@@ -1,4 +1,13 @@
-@import "tailwindcss";
+/* `source(none)` apaga la deteccion automatica, que escanea el proyecto ENTERO buscando clases,
+   y deja el escaneo acotado a `src/`. No es cosmetico: el 28/08/2026 el visor de este PC estaba
+   sirviendo 2 kB mas de CSS que el del VPS, y la diferencia entera venia de dos ficheros de
+   DOCUMENTACION sin versionar (`DESIGN.md` y `design_handoff_lenguaje_movimiento/`), cuyo texto
+   Tailwind leia como si fueran clases. O sea que el CSS de produccion dependia de que hubiera o
+   no un .md en el disco, y por eso los dos nodos dejaron de servir lo mismo.
+   Comprobado apartando esos dos ficheros: el build del PC pasaba a dar los hashes exactos del
+   VPS. Con esta linea da los mismos con los ficheros en su sitio. */
+@import "tailwindcss" source(none);
+@source "./";
 
 /* ===== Design DNA "Terminal × Notion" · tokens migrados del visor v1 =====
    Los tokens viven como CSS vars (cambian con [data-theme]); @theme los expone
