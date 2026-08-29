@@ -194,10 +194,23 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-- [ ] **G1, 96 notas.** Las 24 de [`digests-g1.tsv`](digests-g1.tsv) ya están escritas
+**Avance al 29/08/2026, 15:20: 48 de 477 vigentes.** Por grupo: **G1 39/97**, G2 3/209, G3 6/171.
+El material aplicado se acumula en [`digests-g1.tsv`](digests-g1.tsv), y el `UPDATE` lleva
+`AND digest IS NULL`, así que relanzarlo entero es idempotente.
+
+- [ ] **G1: 58 pendientes de 97.** Dos tandas aplicadas el 29/08 (22 + 12), en los dos nodos
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
-- [ ] **G2, 209 notas**
-- [ ] **G3, 165 notas**
+- [ ] **G2, 209 notas**: 206 pendientes
+- [ ] **G3, 171 notas**: 165 pendientes
+- [x] ⚠ **EL MATERIAL DEL BACKFILL CADUCA, y hay que redactar y aplicar en la misma sesión.**
+  `1e9675f8` (el historial de pagos de Yogin) se quedó obsoleto entre que se le escribió el digest
+  y que se iba a aplicar: otra sesión lo superseded esa misma noche, y su versión viva `10f0a07a`
+  nació ya con el suyo. Acumular un lote grande de digests sin escribir es trabajo que se pierde
+  en silencio
+- [x] ⚠ **NO se crea la tabla `_digest_backup` que este plan proponía.** `classify()` en `sync.py`
+  lanza `SyncError` ante cualquier tabla del esquema `memory` sin clasificar, y `unknown_tables()`
+  aborta el sync: crearla sin tocar CENIT lo habría roto. Y no aporta, porque los valores previos
+  son todos NULL y el rollback es `UPDATE ... SET digest = NULL`
 - [ ] ⚠ **Cada tanda son DOS ejecuciones, una por nodo** (`sync.py:119-127`: el merge solo reconcilia
   `is_current` y `embedding`, en el resto manda la fila local). Verificar recuentos iguales al cerrar
 - [ ] ⚠ **`UPDATE` directo, no `supersede`**: por supersession serían 470 versiones nuevas para
