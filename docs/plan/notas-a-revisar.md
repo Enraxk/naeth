@@ -23,6 +23,8 @@ DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decis
 
 | `df2e3996` · Posicionamiento competitivo en DSOs españoles | `gridwatch/commercial` | Trata a los cuatro DSOs españoles como **objetivo comercial vivo** y da por abierta la ventana del RD 997/2025, con un score de presencia a mejorar. Ese encuadre ya no existe | `730c44ab`, el mismo que tumba a `998bd8ba`: GridWatch **desaparece como marca**, MAC cierra en diciembre y no se habla con distribuidoras. ⚠ Su **inteligencia de mercado sigue valiendo** (quién está atrincherado en cada DSO es un hecho, no un plan), así que lo caducado es el encuadre, no el dato |
 
+| `9f5bef85` · Vault deprecado, Naeth como fuente de verdad | `naeth/conventions` | Lo que AFIRMA sigue siendo cierto (el vault está deprecado desde el 25/06), pero **da la dirección de Naeth como `naeth-local.enraxk.dev`**, que está muerta desde el cutover a CENIT del 17/07/2026. Quien la lea y la siga no llega a ninguna parte | El cutover del 17/07: hoy se entra por `memory.enraxk.dev/mcp?s=web` y por loopback `127.0.0.1:8801/mcp?s=code`. ⚠ **Caso distinto a los demás del registro**: aquí no caduca la afirmación, caduca un DATO OPERATIVO dentro de ella, y eso se arregla con un supersede corto |
+
 
 ## Un patrón, no solo casos sueltos: la ruta muerta
 

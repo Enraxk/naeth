@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 20:24: 236 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 131/209, G3 6/171.
+**Avance al 29/08/2026, 20:34: 256 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 151/209, G3 6/171.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -210,7 +210,12 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
   leer cada nota entera. Se apuntan en [`notas-a-revisar.md`](notas-a-revisar.md) y **no se tocan sin
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van diez
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
-- [ ] **G2, 209 notas**: 78 pendientes. Diez tandas aplicadas el 29/08
+- [ ] **G2, 209 notas**: 58 pendientes. Once tandas aplicadas el 29/08
+- [x] ⚠ **El sesgo de anclaje del tope vuelve en cada lote, y hay que medirlo cada vez.** En la
+  undécima tanda diez digests salieron en 289-305, o sea escritos hasta llenar los 300. Comprimidos
+  a mano bajaron a **media 274, máximo 282, sin perder ni una afirmación**. Es el mismo hallazgo que
+  la calibración del tope, pero se repite: **medir el lote entero, no solo los que rebotan**, porque
+  un digest de 299 que cabe en 270 lleva 30 caracteres de grasa que nadie va a detectar luego
 - [x] **La tanda sube a 20 a partir de la décima, y no por optimismo**: el ranking de G2 ya va por notas
   de **372 a 1.150 caracteres**, contra los ~3.400 de la tanda anterior, así que veinte de estas cuestan
   menos leerlas que doce de aquellas. El tamaño baja por construcción (la media por grupo desciende
