@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 20:34: 256 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 151/209, G3 6/171.
+**Avance al 29/08/2026, 20:37: 276 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 171/209, G3 6/171.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -210,7 +210,11 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
   leer cada nota entera. Se apuntan en [`notas-a-revisar.md`](notas-a-revisar.md) y **no se tocan sin
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van diez
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
-- [ ] **G2, 209 notas**: 58 pendientes. Once tandas aplicadas el 29/08
+- [ ] **G2, 209 notas**: 38 pendientes. Doce tandas aplicadas el 29/08
+- [x] **Hay notas que se corrigen a sí mismas, y esas NO van al registro de caducadas.** 
+  (el inventario de ) lleva dentro un bloque que dice qué parte suya dejó de ser cierta y
+  desde cuándo. Es el patrón que las demás deberían seguir, y sirve de modelo para cuando toque
+  decidir qué hacer con las del registro
 - [x] ⚠ **El sesgo de anclaje del tope vuelve en cada lote, y hay que medirlo cada vez.** En la
   undécima tanda diez digests salieron en 289-305, o sea escritos hasta llenar los 300. Comprimidos
   a mano bajaron a **media 274, máximo 282, sin perder ni una afirmación**. Es el mismo hallazgo que

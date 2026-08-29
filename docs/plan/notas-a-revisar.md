@@ -25,6 +25,9 @@ DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decis
 
 | `9f5bef85` · Vault deprecado, Naeth como fuente de verdad | `naeth/conventions` | Lo que AFIRMA sigue siendo cierto (el vault está deprecado desde el 25/06), pero **da la dirección de Naeth como `naeth-local.enraxk.dev`**, que está muerta desde el cutover a CENIT del 17/07/2026. Quien la lea y la siga no llega a ninguna parte | El cutover del 17/07: hoy se entra por `memory.enraxk.dev/mcp?s=web` y por loopback `127.0.0.1:8801/mcp?s=code`. ⚠ **Caso distinto a los demás del registro**: aquí no caduca la afirmación, caduca un DATO OPERATIVO dentro de ella, y eso se arregla con un supersede corto |
 
+| `82af06a7` · Limpieza C: y cajón `_legacy_C` | `infra/cleanup` | El borrado que narra es histórico y correcto, pero afirma en presente que **lo canónico vive en `E:\Documentos\Eneko\Proyectos`** | La mudanza a `F:\src`. ⚠ Mismo tipo que `9f5bef85`: no caduca la afirmación, caduca un dato dentro. Es además el primer caso CONFIRMADO del patrón de la ruta muerta, y confirma que hay que leerlas una a una: sus dos hermanas de `infra/cleanup` sí eran falsos positivos |
+| `97422bc4` · Investigación de financiación: 30+ instrumentos | `gridwatch/commercial` | Su plan es un calendario de 2026 con fechas ya pasadas ("Inmediato: mar-mayo 2026") y trata a GridWatch como aplicante vivo | Caduca por dos vías a la vez: **el calendario** y `730c44ab`, que retira la marca. ⚠ Pero el **catálogo de instrumentos es material de referencia** que sobrevive al encuadre, así que aquí retirar sería perder trabajo caro |
+
 
 ## Un patrón, no solo casos sueltos: la ruta muerta
 
