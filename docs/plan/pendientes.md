@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 20:10: 216 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 111/209, G3 6/171.
+**Avance al 29/08/2026, 20:32: 236 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 131/209, G3 6/171.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -210,7 +210,14 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
   leer cada nota entera. Se apuntan en [`notas-a-revisar.md`](notas-a-revisar.md) y **no se tocan sin
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van diez
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
-- [ ] **G2, 209 notas**: 98 pendientes. Nueve tandas aplicadas el 29/08
+- [ ] **G2, 209 notas**: 78 pendientes. Diez tandas aplicadas el 29/08
+- [x] **La tanda sube a 20 a partir de la décima, y no por optimismo**: el ranking de G2 ya va por notas
+  de **372 a 1.150 caracteres**, contra los ~3.400 de la tanda anterior, así que veinte de estas cuestan
+  menos leerlas que doce de aquellas. El tamaño baja por construcción (la media por grupo desciende
+  monótonamente), así que las tandas pueden seguir creciendo conforme se avanza
+- [ ] ⚠ **En notas de menos de 500 caracteres el digest aporta poco**, y conviene saberlo: el recorte
+  automático de 300 ya sería casi la nota entera. Se escriben igual, porque el excerpt coge el PRINCIPIO
+  y el digest dice lo que AFIRMA, pero ahí la ganancia es de precisión, no de contexto ahorrado
 - [ ] **G3, 171 notas**: 165 pendientes
 - [x] ⚠ **EL MATERIAL DEL BACKFILL CADUCA, y hay que redactar y aplicar en la misma sesión.**
   `1e9675f8` (el historial de pagos de Yogin) se quedó obsoleto entre que se le escribió el digest
