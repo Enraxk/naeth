@@ -211,8 +211,8 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van diez
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
 - [ ] **G2, 209 notas**: 38 pendientes. Doce tandas aplicadas el 29/08
-- [x] **Hay notas que se corrigen a sí mismas, y esas NO van al registro de caducadas.** 
-  (el inventario de ) lleva dentro un bloque que dice qué parte suya dejó de ser cierta y
+- [x] **Hay notas que se corrigen a sí mismas, y esas NO van al registro de caducadas.** `29bf8ebe`
+  (el inventario de `finally`) lleva dentro un bloque que dice qué parte suya dejó de ser cierta y
   desde cuándo. Es el patrón que las demás deberían seguir, y sirve de modelo para cuando toque
   decidir qué hacer con las del registro
 - [x] ⚠ **El sesgo de anclaje del tope vuelve en cada lote, y hay que medirlo cada vez.** En la
