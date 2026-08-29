@@ -194,11 +194,11 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 15:45: 60 de 477 vigentes.** Por grupo: **G1 51/97**, G2 3/209, G3 6/171.
+**Avance al 29/08/2026, 16:50: 72 de 477 vigentes.** Por grupo: **G1 63/97**, G2 3/209, G3 6/171.
 El material aplicado se acumula en [`digests-g1.tsv`](digests-g1.tsv), y el `UPDATE` lleva
 `AND digest IS NULL`, así que relanzarlo entero es idempotente.
 
-- [ ] **G1: 46 pendientes de 97.** Tres tandas aplicadas el 29/08 (22 + 12 + 12), en los dos nodos
+- [ ] **G1: 34 pendientes de 97.** Cuatro tandas aplicadas el 29/08 (22 + 12 + 12 + 12), en los dos nodos
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
 - [ ] **G2, 209 notas**: 206 pendientes
 - [ ] **G3, 171 notas**: 165 pendientes
