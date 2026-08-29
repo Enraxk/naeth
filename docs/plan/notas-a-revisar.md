@@ -17,6 +17,7 @@ DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decis
 | `dd587628` · UCraftEngine | `ucraftengine/status` | Misma ruta muerta. Por lo demás la nota es correcta: el proyecto sigue en pausa total | Ídem |
 | `f3b318ee` · GTFU | `gtfu/status` | Misma ruta muerta, y dice que el README marca "sprint en curso" cuando está parado | Ídem |
 | `0c660017` · situación fiscal y ventana de regularización | `fiscal/research` | Su bloque **PLAN ACORDADO** manda buscar asesor "esta semana" y trata el reloj del art. 27 LGT como activo. Ese plan está retirado | `aa8c700a`, del 19/08: Eneko **cierra el caso por decisión** y retira el plan, las cinco preguntas y el reloj. ⚠ Caso distinto a los demás: esa misma nota dice que la investigación **sigue valiendo como material**, solo se retira la obligación de actuar. No es candidata a tombstone |
+| `e08c5a95` · perfil profesional para búsqueda de empleo | `job-search/profile` | Da un rango salarial de **28-40k al año** y un título objetivo de frontend. Ambos desfasados | `f0b13f09` (jul-2026) lo sitúa en **45-70k** y reencuadra el perfil como remoto para extranjero con seguridad y AI-infra. El digest lleva el aviso dentro |
 
 ## Un patrón, no solo casos sueltos: la ruta muerta
 
