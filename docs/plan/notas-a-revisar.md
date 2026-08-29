@@ -28,6 +28,8 @@ DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decis
 | `82af06a7` · Limpieza C: y cajón `_legacy_C` | `infra/cleanup` | El borrado que narra es histórico y correcto, pero afirma en presente que **lo canónico vive en `E:\Documentos\Eneko\Proyectos`** | La mudanza a `F:\src`. ⚠ Mismo tipo que `9f5bef85`: no caduca la afirmación, caduca un dato dentro. Es además el primer caso CONFIRMADO del patrón de la ruta muerta, y confirma que hay que leerlas una a una: sus dos hermanas de `infra/cleanup` sí eran falsos positivos |
 | `97422bc4` · Investigación de financiación: 30+ instrumentos | `gridwatch/commercial` | Su plan es un calendario de 2026 con fechas ya pasadas ("Inmediato: mar-mayo 2026") y trata a GridWatch como aplicante vivo | Caduca por dos vías a la vez: **el calendario** y `730c44ab`, que retira la marca. ⚠ Pero el **catálogo de instrumentos es material de referencia** que sobrevive al encuadre, así que aquí retirar sería perder trabajo caro |
 
+| `d84ed061` · Yogin · vistas previas ENTREGADAS el 26/8 | `yogin/tech` | Afirma que **la fase 3, la foto propia, queda FUERA a propósito**. Se entregó al día siguiente | `dba2d913`, que describe esa fase 3 entregada el 27/8. ⚠ **Tipo nuevo aquí: no caduca por calendario ni por un dato, la desmiente otra nota VIGENTE que no la superseded.** Las dos salen juntas en una búsqueda y se contradicen. Es el coste que Naeth asume por no detectar conflictos: una contradicción que nadie marca es una que nadie ve |
+
 
 ## Un patrón, no solo casos sueltos: la ruta muerta
 

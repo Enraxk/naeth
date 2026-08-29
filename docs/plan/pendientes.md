@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 20:37: 276 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 171/209, G3 6/171.
+**Avance al 29/08/2026, 20:43: 296 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 183.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -210,7 +210,13 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
   leer cada nota entera. Se apuntan en [`notas-a-revisar.md`](notas-a-revisar.md) y **no se tocan sin
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van diez
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
-- [ ] **G2, 209 notas**: 38 pendientes. Doce tandas aplicadas el 29/08
+- [x] **G2 CERRADO**, verificado corriendo la propia regla contra la base: **G1 sin digest 0, G2 sin
+  digest 0**. Trece tandas el 29/08, las cuatro últimas de 20 en vez de 12
+- [x] ⚠ **El reparto por grupos NO es una lista congelada, es una regla que se reevalúa.** Al ir a
+  cerrar G2 quedaban **20 y no 38**, porque el ranking se recalcula sobre el corpus de hoy: una nota
+  que otra sesión cita cambia de grupo, y las nuevas nacen ya con digest. Llevar la cuenta restando
+  de los 209 del 28/08 iba acumulando error. **El número bueno sale de correr la regla**, no de la
+  contabilidad
 - [x] **Hay notas que se corrigen a sí mismas, y esas NO van al registro de caducadas.** `29bf8ebe`
   (el inventario de `finally`) lleva dentro un bloque que dice qué parte suya dejó de ser cierta y
   desde cuándo. Es el patrón que las demás deberían seguir, y sirve de modelo para cuando toque
@@ -227,7 +233,7 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
 - [ ] ⚠ **En notas de menos de 500 caracteres el digest aporta poco**, y conviene saberlo: el recorte
   automático de 300 ya sería casi la nota entera. Se escriben igual, porque el excerpt coge el PRINCIPIO
   y el digest dice lo que AFIRMA, pero ahí la ganancia es de precisión, no de contexto ahorrado
-- [ ] **G3, 171 notas**: 165 pendientes
+- [ ] **G3: 183 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
 - [x] ⚠ **EL MATERIAL DEL BACKFILL CADUCA, y hay que redactar y aplicar en la misma sesión.**
   `1e9675f8` (el historial de pagos de Yogin) se quedó obsoleto entre que se le escribió el digest
   y que se iba a aplicar: otra sesión lo superseded esa misma noche, y su versión viva `10f0a07a`
