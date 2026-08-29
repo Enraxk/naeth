@@ -92,7 +92,7 @@ Informe con la medición completa en [`fase-4-0-tope-y-prioridad.md`](fase-4-0-t
 - [x] **La frecuencia de consulta no es medible**: ninguna de las 15 tablas del esquema registra
   accesos. No se sustituye por un proxy inventado
 - [x] Top-30 verificado a ojo, que es lo que la fase 3 enseñó a no saltarse: ni una nota irreconocible
-- [x] Los 24 digests calibrados quedan en [`digests-g1.tsv`](digests-g1.tsv), como primera tanda de G1
+- [x] Los 24 digests calibrados quedan en [`digests-backfill.tsv`](digests-backfill.tsv), como primera tanda de G1
 
 ### 4.1 · La columna y la migración · CERRADA el 28/08/2026
 
@@ -194,8 +194,8 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 17:10: 106 de 477 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 3/209, G3 6/171.
-El material aplicado se acumula en [`digests-g1.tsv`](digests-g1.tsv), y el `UPDATE` lleva
+**Avance al 29/08/2026, 18:30: 118 de 477 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 15/209, G3 6/171.
+El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv), y el `UPDATE` lleva
 `AND digest IS NULL`, así que relanzarlo entero es idempotente.
 
 - [x] **G1 CERRADO: 97 de 97.** Siete tandas el 29/08 (22 + 12 x 5 + 10), todas en los dos nodos y con
@@ -204,7 +204,7 @@ El material aplicado se acumula en [`digests-g1.tsv`](digests-g1.tsv), y el `UPD
   leer cada nota entera. Se apuntan en [`notas-a-revisar.md`](notas-a-revisar.md) y **no se tocan sin
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van tres
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
-- [ ] **G2, 209 notas**: 206 pendientes. Es el grupo siguiente
+- [ ] **G2, 209 notas**: 194 pendientes. Primera tanda aplicada el 29/08
 - [ ] **G3, 171 notas**: 165 pendientes
 - [x] ⚠ **EL MATERIAL DEL BACKFILL CADUCA, y hay que redactar y aplicar en la misma sesión.**
   `1e9675f8` (el historial de pagos de Yogin) se quedó obsoleto entre que se le escribió el digest
