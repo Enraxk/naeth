@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 18:25: 166 de 477 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 63/209, G3 6/171.
+**Avance al 29/08/2026, 18:29: 178 de 477 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 75/209, G3 6/171.
 El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv), y el `UPDATE` lleva
 `AND digest IS NULL`, así que relanzarlo entero es idempotente.
 
@@ -204,7 +204,7 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
   leer cada nota entera. Se apuntan en [`notas-a-revisar.md`](notas-a-revisar.md) y **no se tocan sin
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van tres
 - [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
-- [ ] **G2, 209 notas**: 146 pendientes. Cinco tandas aplicadas el 29/08
+- [ ] **G2, 209 notas**: 134 pendientes. Seis tandas aplicadas el 29/08
 - [ ] **G3, 171 notas**: 165 pendientes
 - [x] ⚠ **EL MATERIAL DEL BACKFILL CADUCA, y hay que redactar y aplicar en la misma sesión.**
   `1e9675f8` (el historial de pagos de Yogin) se quedó obsoleto entre que se le escribió el digest
