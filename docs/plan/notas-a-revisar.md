@@ -1,0 +1,29 @@
+# Notas vigentes que describen un estado ya superado
+
+Lista que se va llenando **durante el backfill del digest**, no una auditoría aparte. Sale sola:
+escribir un digest obliga a leer la nota entera, y ahí se ve si lo que afirma sigue siendo verdad.
+
+**Nada de esto se toca sin decisión de Eneko**: retirar o superseder es escritura de conocimiento,
+no metadato. Lo que sí se hace al encontrarlas es **datar el digest de forma explícita** ("estado al
+DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decisión.
+
+| Memoria | Path | Qué afirma que ya no es cierto | Qué la contradice |
+|---|---|---|---|
+| `ac5b0ac1` · Naeth · visor (Paso 4/5) · estado al 01/07/2026 | `naeth/viewer` | Describe el visor **v1** (el HTML único sin build, `app/viewer/index.html`) como el estado del visor, con su "próximo paso". El v1 se conserva solo como rollback | `ba209da7`, que declara el **v2 desplegado en los dos nodos** desde el 22/08/2026 |
+| `998bd8ba` · ESB Networks: cliente ancla de GridWatch | `gridwatch/commercial` | Presenta a ESB como **cliente ancla** y da un estado comercial de junio de 2026. El encuadre entero ha caducado | `730c44ab`: GridWatch **desaparece como marca**, MAC cierra en diciembre y no se habla con distribuidoras. `bd8acf3c` ya declara la pregunta de ESB "cerrada como irrelevante" |
+| `bd8acf3c` · GridWatch · follow-up con Ed | `gridwatch/comms` | Su estado operativo es "**todo parado hasta mediados de agosto**" y el único hito con fecha es el 4 de agosto. Estamos a finales de agosto y esa ventana pasó | Nada la contradice: simplemente **caducó por calendario**. Es el caso más leve de los tres |
+
+## Qué hacer con ellas, cuando toque decidirlo
+
+Tres salidas posibles, y no tiene por qué ser la misma para todas:
+
+1. **Superseder** con una versión que diga "esto fue el estado en tal fecha, hoy manda X". Conserva
+   el contenido histórico y deja de mentir. Es lo más caro pero lo más fiel.
+2. **Tombstone**, si lo que cuenta ya no aporta nada y su sucesora lo cubre entero.
+3. **Dejarla y confiar en el digest fechado**, si el valor está en el detalle histórico y el riesgo
+   de confusión es bajo.
+
+⚠ Ojo con la 1 y la 2: **hay 40 pares de supersession correctivos medidos en el corpus** (el hijo
+desmiente al padre), así que el histórico ya se consulta sabiendo que puede estar refutado. El
+problema de estas notas no es que existan, es que **son vigentes** y la búsqueda las devuelve como
+verdad actual.
