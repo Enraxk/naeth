@@ -13,6 +13,28 @@ DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decis
 | `998bd8ba` · ESB Networks: cliente ancla de GridWatch | `gridwatch/commercial` | Presenta a ESB como **cliente ancla** y da un estado comercial de junio de 2026. El encuadre entero ha caducado | `730c44ab`: GridWatch **desaparece como marca**, MAC cierra en diciembre y no se habla con distribuidoras. `bd8acf3c` ya declara la pregunta de ESB "cerrada como irrelevante" |
 | `bd8acf3c` · GridWatch · follow-up con Ed | `gridwatch/comms` | Su estado operativo es "**todo parado hasta mediados de agosto**" y el único hito con fecha es el 4 de agosto. Estamos a finales de agosto y esa ventana pasó | Nada la contradice: simplemente **caducó por calendario**. Es el caso más leve de los tres |
 
+| `71cab2cf` · FPlibre: mapa y estado | `fplibre/status` | Ruta del proyecto en `E:\Documentos\Eneko\Proyectos`, que ya no existe. Último commit de mayo de 2026 | La mudanza a `F:\src`, que otras notas ya recogen |
+| `dd587628` · UCraftEngine | `ucraftengine/status` | Misma ruta muerta. Por lo demás la nota es correcta: el proyecto sigue en pausa total | Ídem |
+| `f3b318ee` · GTFU | `gtfu/status` | Misma ruta muerta, y dice que el README marca "sprint en curso" cuando está parado | Ídem |
+
+## Un patrón, no solo casos sueltos: la ruta muerta
+
+Medido el 29/08/2026: **22 memorias vigentes citan `E:\Documentos\Eneko\Proyectos`**, y **18 de ellas
+no mencionan la ruta nueva `F:\src`** en ningún sitio.
+
+⚠ **18 es el TECHO, no el número de notas rotas.** El filtro es automático y no distingue por qué se
+cita la ruta. Al menos tres son legítimas: `1b993e86` va precisamente **sobre** esa ruta (es su tema),
+y las dos de `infra/cleanup` describen limpiezas **históricas** donde esa era la ruta correcta en su
+momento. Separar unas de otras exige leerlas, que es justo lo que el backfill hace de todas formas.
+
+La consulta que las saca, para repetirla:
+
+```sql
+SELECT id, path, title FROM memory_current
+WHERE strpos(content,'Documentos')>0 AND strpos(content,'Eneko')>0 AND strpos(content,'Proyectos')>0
+  AND strpos(content, 'F:' || chr(92) || 'src') = 0;
+```
+
 ## Qué hacer con ellas, cuando toque decidirlo
 
 Tres salidas posibles, y no tiene por qué ser la misma para todas:
