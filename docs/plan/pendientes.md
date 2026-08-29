@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 20:43: 296 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 183.
+**Avance al 29/08/2026, 20:48: 316 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 163.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -233,7 +233,12 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
 - [ ] ⚠ **En notas de menos de 500 caracteres el digest aporta poco**, y conviene saberlo: el recorte
   automático de 300 ya sería casi la nota entera. Se escriben igual, porque el excerpt coge el PRINCIPIO
   y el digest dice lo que AFIRMA, pero ahí la ganancia es de precisión, no de contexto ahorrado
-- [ ] **G3: 183 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
+- [ ] **G3: 163 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
+- [x] **G3 se ordena por LONGITUD DESCENDENTE**, y hay que justificarlo porque dentro de G3 no hay
+  señal de citas ni de versiones: todas valen cero, así que el ranking de G1 y G2 no discrimina. Lo
+  que queda como criterio es cuánto contexto ahorra el digest, y eso es proporcional a lo que
+  sustituye. Reparto medido: **40 notas por debajo de 800 caracteres** (media 562) y **24 por encima
+  de 3.000** (media 3.986). Las grandes primero; las cortas al final, donde la ganancia es marginal
 - [x] ⚠ **EL MATERIAL DEL BACKFILL CADUCA, y hay que redactar y aplicar en la misma sesión.**
   `1e9675f8` (el historial de pagos de Yogin) se quedó obsoleto entre que se le escribió el digest
   y que se iba a aplicar: otra sesión lo superseded esa misma noche, y su versión viva `10f0a07a`
