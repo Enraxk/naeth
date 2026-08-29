@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 20:32: 236 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 131/209, G3 6/171.
+**Avance al 29/08/2026, 20:24: 236 de 479 vigentes.** Por grupo: **G1 97/97 CERRADO**, G2 131/209, G3 6/171.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
