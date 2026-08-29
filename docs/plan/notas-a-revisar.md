@@ -16,6 +16,7 @@ DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decis
 | `71cab2cf` · FPlibre: mapa y estado | `fplibre/status` | Ruta del proyecto en `E:\Documentos\Eneko\Proyectos`, que ya no existe. Último commit de mayo de 2026 | La mudanza a `F:\src`, que otras notas ya recogen |
 | `dd587628` · UCraftEngine | `ucraftengine/status` | Misma ruta muerta. Por lo demás la nota es correcta: el proyecto sigue en pausa total | Ídem |
 | `f3b318ee` · GTFU | `gtfu/status` | Misma ruta muerta, y dice que el README marca "sprint en curso" cuando está parado | Ídem |
+| `0c660017` · situación fiscal y ventana de regularización | `fiscal/research` | Su bloque **PLAN ACORDADO** manda buscar asesor "esta semana" y trata el reloj del art. 27 LGT como activo. Ese plan está retirado | `aa8c700a`, del 19/08: Eneko **cierra el caso por decisión** y retira el plan, las cinco preguntas y el reloj. ⚠ Caso distinto a los demás: esa misma nota dice que la investigación **sigue valiendo como material**, solo se retira la obligación de actuar. No es candidata a tombstone |
 
 ## Un patrón, no solo casos sueltos: la ruta muerta
 
