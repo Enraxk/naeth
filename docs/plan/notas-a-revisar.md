@@ -30,6 +30,9 @@ DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decis
 
 | `d84ed061` · Yogin · vistas previas ENTREGADAS el 26/8 | `yogin/tech` | Afirma que **la fase 3, la foto propia, queda FUERA a propósito**. Se entregó al día siguiente | `dba2d913`, que describe esa fase 3 entregada el 27/8. ⚠ **Tipo nuevo aquí: no caduca por calendario ni por un dato, la desmiente otra nota VIGENTE que no la superseded.** Las dos salen juntas en una búsqueda y se contradicen. Es el coste que Naeth asume por no detectar conflictos: una contradicción que nadie marca es una que nadie ve |
 
+| `f4a42ea3` · Limpieza de DNS de enraxk.dev | `infra/cleanup` | Lista `naeth-local.enraxk.dev` entre los registros **que se mantienen porque Naeth está vivo ahí**. Murió en el cutover del 17/07/2026 | El cutover a CENIT. ⚠ Mismo tipo que `9f5bef85`: caduca un dato operativo dentro de una nota cuyo relato es correcto. Además deja dos registros **pendientes de verificar y sin borrar** (`auth`, `fplibre-deploy`), que siguen pendientes hasta donde consta |
+| `88879486` · Protocolo de escritura de prosa de Inkerlum | `inkerlum/prose` | Manda consultar el canon en el path **`inkerlum/chat`**, un esquema retirado el 21/07/2026 | `a4b58024`, el esquema canónico vigente. ⚠ El protocolo en sí es correcto entero: lo caducado es la instrucción de dónde buscar, que es justo la primera que se ejecuta. Un lector que la siga no encuentra el canon |
+
 
 ## Un patrón, no solo casos sueltos: la ruta muerta
 

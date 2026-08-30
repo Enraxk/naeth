@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 30/08/2026, 10:53: 390 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 89.
+**Avance al 30/08/2026, 11:00: 426 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 53.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -233,7 +233,7 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
 - [ ] ⚠ **En notas de menos de 500 caracteres el digest aporta poco**, y conviene saberlo: el recorte
   automático de 300 ya sería casi la nota entera. Se escriben igual, porque el excerpt coge el PRINCIPIO
   y el digest dice lo que AFIRMA, pero ahí la ganancia es de precisión, no de contexto ahorrado
-- [ ] **G3: 89 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
+- [ ] **G3: 53 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
 - [ ] ⚠ **`f94961e3` (el PoC del sync del Paso 8.1) NO TIENE TÍTULO.** Sale en el modo higiene de
   `memory_stats`, pero conviene anotarlo aquí porque el backfill lo destapa una a una: sin título, lo
   único que la nombra en una búsqueda es su digest, así que el digest carga con todo el peso
