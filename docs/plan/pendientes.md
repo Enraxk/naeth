@@ -194,7 +194,10 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 30/08/2026, 11:00: 426 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 53.
+**BACKFILL CERRADO el 30/08/2026 a las 11:07: 479 de 479 vigentes, 0 sin digest en los dos nodos.**
+Diecinueve tandas, del 29 al 30 de agosto. El TSV con todo lo escrito queda en
+[`digests-backfill.tsv`](digests-backfill.tsv), 464 líneas, y el `UPDATE` lleva `AND digest IS NULL`,
+así que relanzarlo entero sigue siendo idempotente.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -209,7 +212,10 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
 - [ ] **Notas vigentes que describen un estado superado**, que el backfill va destapando al obligar a
   leer cada nota entera. Se apuntan en [`notas-a-revisar.md`](notas-a-revisar.md) y **no se tocan sin
   decisión de Eneko**; lo que sí se hace es datar su digest de forma explícita. Van diez
-- [ ] ⚠ Revisar `1112a864` antes de escribirlo: su digest salió de una lectura **parcial**
+- [x] **`1112a864` rehecho** tras leer sus 7.569 caracteres enteros. El digest viejo afirmaba que los
+  hooks "solo se leen al arrancar", y **la propia nota se corrige más abajo**: el SCRIPT se relee en
+  cada ejecución y solo el registro de `settings.json` exige reiniciar. Es justo el daño que hace una
+  lectura parcial: se resume la primera mitad y se pierde la corrección que viene después
 - [x] **G2 CERRADO**, verificado corriendo la propia regla contra la base: **G1 sin digest 0, G2 sin
   digest 0**. Trece tandas el 29/08, las cuatro últimas de 20 en vez de 12
 - [x] ⚠ **El reparto por grupos NO es una lista congelada, es una regla que se reevalúa.** Al ir a
@@ -233,7 +239,8 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
 - [ ] ⚠ **En notas de menos de 500 caracteres el digest aporta poco**, y conviene saberlo: el recorte
   automático de 300 ya sería casi la nota entera. Se escriben igual, porque el excerpt coge el PRINCIPIO
   y el digest dice lo que AFIRMA, pero ahí la ganancia es de precisión, no de contexto ahorrado
-- [ ] **G3: 53 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
+- [x] **G3 CERRADO**: las 53 últimas en una sola tanda, porque por debajo de 1.100 caracteres el coste
+  de lectura por nota cae y la tanda puede crecer sin perder cuidado
 - [ ] ⚠ **`f94961e3` (el PoC del sync del Paso 8.1) NO TIENE TÍTULO.** Sale en el modo higiene de
   `memory_stats`, pero conviene anotarlo aquí porque el backfill lo destapa una a una: sin título, lo
   único que la nombra en una búsqueda es su digest, así que el digest carga con todo el peso
