@@ -88,11 +88,8 @@ services:
       # 30/08/2026, al cerrar el backfill de las 479 vigentes. Mismo aviso que arriba: un
       # cliente con el schema viejo cacheado no podra escribir hasta reconectar.
       #
-      # EL DEFAULT ES `strict` A PROPOSITO, y no `warn` como AUTHORSHIP_ENFORCE. Motivo medido
-      # el 30/08/2026: aquel vive en el `.env` del PC, que `finally` NO tiene (alli las
-      # variables salen de SOPS via up.sh), asi que corre en `warn` desde el 21/07 y con el
-      # respaldo liderando se puede escribir sin declarar modelo. Una regla de escritura que
-      # solo aplica en un nodo no es una regla. El compose es lo unico que los dos comparten.
+      # EL DEFAULT ES `strict` A PROPOSITO, por el mismo motivo que el de arriba y descubierto
+      # al ponerlo: las dos reglas vivian solo en el `.env` del PC, y el respaldo no tiene.
       NAETH_DIGEST_ENFORCE: ${NAETH_DIGEST_ENFORCE:-strict}
       # Visor v2 (Vite + Svelte). Sin esta variable se sirve el v1 de `app/viewer/`, que se
       # conserva justo para eso: el rollback es quitar estas dos lineas y recrear, sin tocar
