@@ -278,8 +278,13 @@ def _resumen(h: dict[str, Any]) -> tuple[str | None, str]:
     tiene que poder distinguirlos SIN adivinar. Un recorte se corta a mitad de idea pero sigue
     pareciendo un resumen; si viajara como `digest` a secas, mentiria por omision.
 
-    El recorte es la red MIENTRAS dura el backfill de las vigentes: sin el, el ahorro de contexto
-    no empezaria hasta el final de la ultima tanda. Se retira cuando no queden digests a NULL.
+    EL RECORTE SE QUEDA, y el plan de la fase decia retirarlo al cerrar el backfill (hecho el
+    30/08/2026, 479 de 479). Se conserva porque su razon de ser CAMBIO: nacio como muleta del
+    backfill y hoy es la DEGRADACION de una nota que llegue sin digest. Con
+    NAETH_DIGEST_ENFORCE=strict eso ya no puede pasar por MCP, pero el visor escribe por /api,
+    donde el campo es opcional: sin recorte, una nota guardada ahi con el campo vacio saldria en
+    memory_search sin digest Y sin content, o sea invisible. Con recorte sale un extracto marcado
+    como `excerpt`, que no engana a nadie. Cambiar un hueco por una nota invisible es peor.
     """
     d = (h.get("digest") or "").strip()
     if d:

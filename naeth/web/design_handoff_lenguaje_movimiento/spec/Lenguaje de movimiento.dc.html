@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/tokens/colors.css">
+<link rel="stylesheet" href="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/tokens/semantic-color.css">
+<link rel="stylesheet" href="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/tokens/typography.css">
+<link rel="stylesheet" href="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/tokens/shape.css">
+<link rel="stylesheet" href="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/tokens/base.css">
+<link rel="stylesheet" href="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/styles.css">
+<script src="_ds/naeth-design-system-245c975a-2e3e-4da2-b3ad-3ec8dd9acc7a/_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: #1e2022; }
+  @keyframes naeth-blink { 0%, 50% { opacity: 1 } 50.01%, 100% { opacity: 0 } }
+  @media (prefers-reduced-motion: reduce) { [style*="naeth-blink"] { animation: none !important } }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--ink); }
+</style>
+</helmet>
+
+<div style="background:var(--bg);color:var(--ink);font:14px/1.5 var(--font-sans);padding:56px 56px 80px;min-height:100vh;box-sizing:border-box">
+<div style="max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:56px">
+
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <span style="font:11px var(--font-mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)">Naeth · fundamentos</span>
+    <h1 style="margin:0;font:600 40px var(--font-sans);color:var(--ink)">Lenguaje de movimiento</h1>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">El visor tiene tres animaciones y ninguna librería. No hay una escala que inventar: <span style="font:13px var(--font-mono);color:var(--ink)">--t-fast</span>, <span style="font:13px var(--font-mono);color:var(--ink)">--t-mid</span> y <span style="font:13px var(--font-mono);color:var(--ink)">--t-slow</span> ya existen en <span style="font:13px var(--font-mono);color:var(--ink)">tokens/shape.css</span> con las duraciones que ya se usan. Lo que faltaba es decir qué significa cada una, para que lo que se añada mañana caiga en la que le toca en vez de traer una duración nueva.</p>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">La regla de fondo: <span style="color:var(--ink)">el movimiento explica un cambio que si no habría que adivinar</span>. Si no hay nada que explicar, no hay movimiento.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <h2 style="margin:0;font:600 20px var(--font-sans);color:var(--ink);flex:1 1 auto">El comparador</h2>
+      <button type="button" onClick="{{ toggleReduced }}" style="font:12px var(--font-mono);color:{{ reducedInk }};background:none;border:1px solid {{ reducedBorder }};border-radius:6px;padding:8px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ reducedDot }};display:inline-block"></span>
+        <span>{{ reducedLabel }}</span>
+      </button>
+      <button type="button" onClick="{{ play }}" style="font:13px var(--font-mono);color:#fff;background:var(--accent);border:0;border-radius:6px;padding:9px 18px;cursor:pointer">Disparar las tres</button>
+    </div>
+
+    <p style="margin:0;max-width:760px;color:var(--dim);font:13px/1.6 var(--font-sans)">Las tres salen en el mismo instante. Lo que se compara no es la distancia, es cuánto tarda cada una en llegar.</p>
+
+
+
+    <div style="display:flex;flex-direction:column;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:18px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="width:104px;flex:0 0 auto;font:11px var(--font-mono);color:var(--dim)">--t-fast</span>
+        <span style="flex:1 1 auto;height:8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;overflow:hidden;display:block">
+          <span style="display:block;height:100%;background:var(--accent);border-radius:99px;width: {{ rulerW }}; transition: {{ tRulerFast }}"></span>
+        </span>
+        <span style="width:52px;flex:0 0 auto;text-align:right;font:11px var(--font-mono);color:var(--dim)">120ms</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="width:104px;flex:0 0 auto;font:11px var(--font-mono);color:var(--dim)">--t-mid</span>
+        <span style="flex:1 1 auto;height:8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;overflow:hidden;display:block">
+          <span style="display:block;height:100%;background:var(--accent);border-radius:99px;width: {{ rulerW }}; transition: {{ tRulerMid }}"></span>
+        </span>
+        <span style="width:52px;flex:0 0 auto;text-align:right;font:11px var(--font-mono);color:var(--dim)">220ms</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <span style="width:104px;flex:0 0 auto;font:11px var(--font-mono);color:var(--dim)">--t-slow</span>
+        <span style="flex:1 1 auto;height:8px;background:var(--bg);border:1px solid var(--border);border-radius:99px;overflow:hidden;display:block">
+          <span style="display:block;height:100%;background:var(--accent);border-radius:99px;width: {{ rulerW }}; transition: {{ tRulerSlow }}"></span>
+        </span>
+        <span style="width:52px;flex:0 0 auto;text-align:right;font:11px var(--font-mono);color:var(--dim)">400ms</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+
+      <div style="display:flex;flex-direction:column;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px">
+        <span style="font:10px var(--font-mono);letter-spacing:.5px;text-transform:uppercase;color:var(--dim)">Forma · 120ms</span>
+        <div style="height:112px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+          <span style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;line-height:1.3">
+            <span style="display:inline-flex;color:var(--dim);transform: {{ chevT }}; transition: {{ tChev }}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+            </span>
+            <span style="display:inline-flex"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--proj-fallback)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg></span>
+            <span style="font:600 12px var(--font-mono);color:var(--ink)">eneko</span>
+          </span>
+        </div>
+        <button type="button" onClick="{{ fireChev }}" style="font:12px var(--font-mono);color:var(--dim);background:none;border:1px solid var(--border);border-radius:6px;padding:7px 12px;cursor:pointer" style-hover="color:var(--ink);border-color:var(--accent)">Plegar el grupo</button>
+        <p style="margin:0;color:var(--dim);font:12px/1.6 var(--font-sans)">El chevron gira. La fila no se mueve ni cambia de tamaño: lo único que cambia es la forma de una cosa que ya estaba ahí.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px">
+        <span style="font:10px var(--font-mono);letter-spacing:.5px;text-transform:uppercase;color:var(--dim)">Presencia · 220ms</span>
+        <div style="height:112px;position:relative;overflow:hidden;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+          <span style="position:absolute;inset:0;display:flex;flex-direction:column;gap:6px;padding:10px">
+            <span style="height:7px;width:70%;background:var(--bg2);border-radius:3px"></span>
+            <span style="height:7px;background:var(--bg2);border-radius:3px"></span>
+            <span style="height:7px;width:55%;background:var(--bg2);border-radius:3px"></span>
+          </span>
+          <span style="position:absolute;inset:0;background:var(--backdrop);opacity: {{ drawO }}; transition: {{ tDrawFade }}"></span>
+          <span style="position:absolute;top:0;bottom:0;left:0;width:58%;background:var(--bg2);border-right:1px solid var(--border);box-shadow:0 12px 32px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:5px;padding:10px 8px;transform: {{ drawX }}; opacity: {{ drawO }}; transition: {{ tDraw }}">
+            <span style="height:6px;background:var(--panel);border-radius:2px"></span>
+            <span style="height:6px;background:var(--panel);border-radius:2px"></span>
+            <span style="height:6px;background:var(--sel);border-radius:2px"></span>
+            <span style="height:6px;background:var(--panel);border-radius:2px"></span>
+          </span>
+        </div>
+        <button type="button" onClick="{{ fireDraw }}" style="font:12px var(--font-mono);color:var(--dim);background:none;border:1px solid var(--border);border-radius:6px;padding:7px 12px;cursor:pointer" style-hover="color:var(--ink);border-color:var(--accent)">Abrir el cajón</button>
+        <p style="margin:0;color:var(--dim);font:12px/1.6 var(--font-sans)">Algo entra en el campo de visión y tapa lo que había. El movimiento dice de dónde ha salido y, al revés, adónde vuelve.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px">
+        <span style="font:10px var(--font-mono);letter-spacing:.5px;text-transform:uppercase;color:var(--dim)">Valor · 400ms</span>
+        <div style="height:112px;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:0 14px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font:10px var(--font-mono);letter-spacing:.5px;text-transform:uppercase;color:var(--dim)">embebidas</span>
+            <span style="font:600 15px var(--font-mono);color:var(--ink)">{{ barPct }}</span>
+          </div>
+          <span style="height:8px;background:var(--bg2);border:1px solid var(--border);border-radius:99px;overflow:hidden;display:block">
+            <span style="display:block;height:100%;background:var(--ok);border-radius:99px;width: {{ barW }}; transition: {{ tBar }}"></span>
+          </span>
+        </div>
+        <button type="button" onClick="{{ fireBar }}" style="font:12px var(--font-mono);color:var(--dim);background:none;border:1px solid var(--border);border-radius:6px;padding:7px 12px;cursor:pointer" style-hover="color:var(--ink);border-color:var(--accent)">Recalcular</button>
+        <p style="margin:0;color:var(--dim);font:12px/1.6 var(--font-sans)">Un dato cambia de valor. Es la más lenta a propósito: el recorrido es la magnitud del cambio, y si salta no se lee.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:600 24px var(--font-sans);color:var(--ink)">La escala</h2>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">Tres duraciones, tres clases de gesto. No es una escala de intensidad: son categorías distintas, y la duración sale de qué clase de cambio hay que explicar. Elegir la duración es elegir la categoría; si dudas entre dos, es que el gesto está mal planteado.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <span style="font:600 26px var(--font-mono);color:var(--accent)">120<span style="font:600 14px var(--font-mono);color:var(--dim)">ms</span></span>
+        <span style="font:12px var(--font-mono);color:var(--ink)">--t-fast</span>
+        <h3 style="margin:0;font:600 16px var(--font-sans);color:var(--ink)">Cambia de forma</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Un elemento que ya está en pantalla y sigue en su sitio adopta otra forma. No ocupa más ni menos, no aparece ni se va, nada se recoloca a su alrededor.</p>
+        <span style="height:1px;background:var(--border)"></span>
+        <span style="font:11px var(--font-mono);color:var(--dim)">hoy</span>
+        <p style="margin:0;color:var(--ink);font:13px/1.6 var(--font-sans)">El chevron del árbol al plegar un grupo.</p>
+        <span style="font:11px var(--font-mono);color:var(--dim)">y también, cuando llegue</span>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">El chevron del selector al elegir proyecto. Un icono que cambia de estado, como el ojo de una nota oculta. Nada más.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <span style="font:600 26px var(--font-mono);color:var(--accent)">220<span style="font:600 14px var(--font-mono);color:var(--dim)">ms</span></span>
+        <span style="font:12px var(--font-mono);color:var(--ink)">--t-mid</span>
+        <h3 style="margin:0;font:600 16px var(--font-sans);color:var(--ink)">Entra o sale</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Algo que no estaba pasa a estar, o al revés. Cambia lo que tienes disponible, y por eso merece que se note: aparecer de golpe encima de lo que estabas leyendo se siente como un fallo.</p>
+        <span style="height:1px;background:var(--border)"></span>
+        <span style="font:11px var(--font-mono);color:var(--dim)">hoy</span>
+        <p style="margin:0;color:var(--ink);font:13px/1.6 var(--font-sans)">El cajón lateral entrando en móvil.</p>
+        <span style="font:11px var(--font-mono);color:var(--dim)">y también, cuando llegue</span>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">La hoja inferior en móvil, con <span style="font:12px var(--font-mono);color:var(--ink)">ease</span>. El desplegable del selector, el acuse y un tag que entra, con <span style="font:12px var(--font-mono);color:var(--ink)">--t-over</span>: misma duración, curva que rebasa.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px">
+        <span style="font:600 26px var(--font-mono);color:var(--accent)">400<span style="font:600 14px var(--font-mono);color:var(--dim)">ms</span></span>
+        <span style="font:12px var(--font-mono);color:var(--ink)">--t-slow</span>
+        <h3 style="margin:0;font:600 16px var(--font-sans);color:var(--ink)">Cambia de valor</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Una medida se mueve de una cifra a otra. Aquí el recorrido no es decoración: es la única forma de ver cuánto ha cambiado y en qué dirección. Es la más larga porque es la única que transporta información.</p>
+        <span style="height:1px;background:var(--border)"></span>
+        <span style="font:11px var(--font-mono);color:var(--dim)">hoy</span>
+        <p style="margin:0;color:var(--ink);font:13px/1.6 var(--font-sans)">La barra de progreso de embebidas al cambiar el dato.</p>
+        <span style="font:11px var(--font-mono);color:var(--dim)">y también, cuando llegue</span>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Cualquier barra de un panel de estado. Nada que no sea una magnitud: esta duración no se presta para abrir cosas.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h2 style="margin:0;font:600 24px var(--font-sans);color:var(--ink)">La capa flotante, y solo ella</h2>
+      <span style="font:11px var(--font-mono);color:var(--ink);border:1px solid var(--accent);border-radius:4px;padding:2px 8px">--t-over</span>
+    </div>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">Es la única excepción del sistema, y está acotada a una cosa: <span style="color:var(--ink)">lo que aparece flotando encima del contenido y anclado a un elemento</span>. El desplegable del selector, el aviso del acuse, un tag que entra. Llegan a los mismos <span style="font:13px var(--font-mono);color:var(--ink)">220ms</span> pero con una curva que rebasa: suben 10px, pasan un punto de largo y vuelven, y las filas de dentro entran escalonadas 45ms.</p>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">Se lo puede permitir porque es lo único del visor que <span style="color:var(--ink)">no estaba y ahora tapa lo que estabas leyendo</span>: interrumpe de todas formas, así que más vale que se anuncie bien. Y porque lo abres tú, una vez, cuando has decidido elegir una ruta.</p>
+    <p style="margin:0;max-width:760px;color:var(--warn);font:14px/1.6 var(--font-mono);text-wrap:pretty">Dónde NO llega el rebasamiento: el cajón y la hoja inferior. Vienen de un borde de la pantalla, y una curva que rebasa en un borde significa que el objeto se sale por el otro lado. Ahí, <span style="color:var(--ink)">ease</span> y nada más.</p>
+
+    <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+      <div style="width:420px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px">
+        <div style="position:relative;height:190px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px">
+          <label style="display:flex;flex-direction:column;gap:4px;font:10px var(--font-mono);letter-spacing:.5px;text-transform:uppercase;color:var(--dim)">ruta
+            <span style="display:flex;align-items:center;gap:8px;font:13px var(--font-mono);color:var(--dim);background:var(--bg2);border:1px solid {{ popBorder }};border-radius:6px;padding:7px 10px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+              <span style="flex:1 1 auto">proyecto/subtema</span>
+            </span>
+          </label>
+          <span style="position:absolute;left:14px;right:14px;top:76px;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:0 12px 32px rgba(0,0,0,.45);padding:4px;display:flex;flex-direction:column;opacity: {{ popO }}; transform: {{ popT }}; transition: {{ tPop }}">
+            <span style="font:10px var(--font-mono);letter-spacing:.5px;text-transform:uppercase;color:var(--dim);padding:6px 8px 4px">Recientes</span>
+            <span style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;background:var(--sel);box-shadow:inset 2px 0 0 var(--accent);opacity: {{ rowO }}; transform: {{ rowY }}; transition: {{ tRow1 }}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--proj-fallback)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+              <span style="flex:1 1 auto;font:13px var(--font-mono);color:var(--dim)">eneko/<span style="color:var(--ink)">method</span></span>
+              <span style="font:10px var(--font-mono);color:var(--dim)">37</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;opacity: {{ rowO }}; transform: {{ rowY }}; transition: {{ tRow2 }}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--proj-naeth)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+              <span style="flex:1 1 auto;font:13px var(--font-mono);color:var(--dim)">naeth/<span style="color:var(--ink)">security</span></span>
+            </span>
+          </span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" onClick="{{ firePop }}" style="font:12px var(--font-mono);color:#fff;background:var(--accent);border:0;border-radius:6px;padding:8px 14px;cursor:pointer">Abrir el selector</button>
+          <button type="button" onClick="{{ toggleRebote }}" style="font:12px var(--font-mono);color:{{ reboteInk }};background:{{ reboteBg }};border:1px solid {{ reboteBd }};border-radius:6px;padding:8px 14px;cursor:pointer">{{ reboteLabel }}</button>
+        </div>
+      </div>
+
+      <div style="flex:1 1 300px;min-width:280px;display:flex;flex-direction:column;gap:14px;padding-top:4px">
+        <p style="margin:0;color:var(--dim);font:13px/1.7 var(--font-sans);text-wrap:pretty"><span style="color:var(--ink)">Se anima la opacidad y el transform, nunca la altura.</span> Un desplegable que crece empujando el contenido de debajo obliga a la página a recalcular el hueco mientras dura, y con ochenta filas eso se ve. La caja llega con su tamaño final; lo que se mueve son 10px de <span style="font:12px var(--font-mono);color:var(--ink)">translateY</span> y un 1,5% de escala, que no recolocan nada.</p>
+        <p style="margin:0;color:var(--dim);font:13px/1.7 var(--font-sans);text-wrap:pretty"><span style="color:var(--ink)">Al cerrarse, la misma duración pero sin rebasar.</span> El rebasamiento es un gesto de llegada: algo que se va no puede pasarse de largo de un sitio al que no va. Cierra con <span style="font:12px var(--font-mono);color:var(--ink)">--t-mid</span> normal.</p>
+        <p style="margin:0;color:var(--dim);font:13px/1.7 var(--font-sans);text-wrap:pretty"><span style="color:var(--ink)">El borde del campo no funde.</span> Pasa a <span style="font:12px var(--font-mono);color:var(--ink)">--accent</span> de golpe, porque es la respuesta a que acabas de pulsar. Lo que responde a tu dedo no se hace esperar.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:600 24px var(--font-sans);color:var(--ink)">Las reglas</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+      <div style="display:flex;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <span style="font:600 15px var(--font-mono);color:var(--accent);flex:0 0 auto">1</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Tres duraciones, ni una más</h3>
+          <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Un valor nuevo no se añade: se elige la categoría que corresponde. Si ninguna encaja, revisa el gesto antes que la escala.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <span style="font:600 15px var(--font-mono);color:var(--accent);flex:0 0 auto">2</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Dos curvas, cada una con su dominio</h3>
+          <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)"><span style="font:12px var(--font-mono);color:var(--ink)">ease</span> en todo el chrome. El rebasamiento vive en un token propio, <span style="font:12px var(--font-mono);color:var(--ink)">--t-over</span>, y solo lo usa la capa flotante anclada. La curva va dentro del token, así que no queda sitio donde colar una tercera.</p>
+          <pre style="margin:4px 0 0;font:11px/1.6 var(--font-mono);color:var(--ink);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;overflow-x:auto">--t-over:.22s cubic-bezier(.34,1.56,.64,1);</pre>
+          <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Los mismos 220ms de <span style="font:12px var(--font-mono);color:var(--ink)">--t-mid</span>. No es una duración nueva: siguen siendo tres.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <span style="font:600 15px var(--font-mono);color:var(--accent);flex:0 0 auto">3</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Una propiedad, dos como mucho</h3>
+          <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Preferiblemente <span style="font:12px var(--font-mono);color:var(--ink)">transform</span> y <span style="font:12px var(--font-mono);color:var(--ink)">opacity</span>. Nunca <span style="font:12px var(--font-mono);color:var(--ink)">height</span>, <span style="font:12px var(--font-mono);color:var(--ink)">top</span> ni <span style="font:12px var(--font-mono);color:var(--ink)">margin</span>: recolocan la página entera mientras dura. <span style="font:12px var(--font-mono);color:var(--ink)">width</span> es la excepción de la barra, y es una barra, no un layout.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <span style="font:600 15px var(--font-mono);color:var(--accent);flex:0 0 auto">4</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Nada se anima al cargar</h3>
+          <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">La aplicación aparece montada. Una entrada escalonada al abrir la página son trescientos milisegundos antes de poder leer, cada vez, para siempre.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <span style="font:600 15px var(--font-mono);color:var(--accent);flex:0 0 auto">5</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Toda transición se puede interrumpir</h3>
+          <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Si pulsas dos veces seguidas, va al estado nuevo desde donde esté, sin esperar a terminar y sin encolarse. Es gratis: es lo que hace <span style="font:12px var(--font-mono);color:var(--ink)">transition</span> por defecto, y es la razón de no usar otra cosa.</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px">
+        <span style="font:600 15px var(--font-mono);color:var(--accent);flex:0 0 auto">6</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Ninguna librería</h3>
+          <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Todo esto es <span style="font:12px var(--font-mono);color:var(--ink)">transition</span> de CSS sobre un estado de Svelte. Si un gesto pide una librería de animación, el gesto está fuera del sistema.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:24px">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <span style="font:600 15px var(--font-mono);color:var(--accent)">7</span>
+      <h2 style="margin:0;font:600 24px var(--font-sans);color:var(--ink)">prefers-reduced-motion</h2>
+      <span style="font:10px var(--font-mono);letter-spacing:.5px;text-transform:uppercase;color:var(--warn);border:1px solid var(--border);border-radius:4px;padding:2px 7px">hoy no se respeta en ninguna parte</span>
+    </div>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">La postura no es apagarlo todo. Lo que provoca malestar vestibular es el <span style="color:var(--ink)">desplazamiento</span> y el <span style="color:var(--ink)">giro</span>: un objeto que recorre la pantalla o rota. Un fundido no. Así que el fundido se queda, porque es lo que evita que un aviso aparezca de golpe encima de lo que estás leyendo, y se va todo lo que se mueve.</p>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">En la práctica: el chevron cambia de orientación sin girar, el cajón aparece en su sitio fundiendo en vez de deslizarse, la barra salta a su nueva cifra, y el desplegable pierde el rebasamiento, la subida y el escalonado, pero conserva el fundido. <span style="color:var(--ink)">Púlsalo en el comparador de arriba y compara.</span></p>
+    <p style="margin:0;max-width:760px;color:var(--warn);font:14px/1.6 var(--font-mono);text-wrap:pretty">El rebasamiento es lo primero que cae: una curva que se pasa de largo y vuelve es, literalmente, un objeto cambiando de dirección en pantalla.</p>
+    <pre style="margin:0;font:12px/1.7 var(--font-mono);color:var(--ink);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto">@media (prefers-reduced-motion: reduce) {
+  /* se va el movimiento */
+  .chev, .sidebar, .est-bar > i { transition: none; }
+  .sidebar { transform: none; }
+
+  /* la capa flotante pierde el rebasamiento y la subida, conserva el fundido */
+  .popover, .banner, .sheet { transform: none; transition: opacity var(--t-mid); }
+  .popover > * { transition: none; }   /* sin escalonado */
+
+  /* se queda el fundido */
+  .sidebar, .backdrop { transition: opacity var(--t-mid); }
+}</pre>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:13px/1.6 var(--font-sans)">Va en <span style="font:12px var(--font-mono);color:var(--ink)">src/app.css</span>, junto al bloque de tokens, no repartido por los componentes. Una consulta de medios, una vez.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:600 24px var(--font-sans);color:var(--ink)">Lo que no se anima</h2>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">Esta lista es la mitad del lenguaje. Un sistema con tres animaciones no se define por las tres, se define por todo lo demás.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">El hover</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">El lavado de fila y el borde que pasa a accent cambian de golpe. Es la respuesta a dónde está tu puntero: un fundido de 120ms la convierte en una opinión sobre dónde estaba hace un momento.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">El foco</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">El anillo tiene que estar dibujado cuando llegas con el tabulador, no llegando. Quien navega con teclado va más rápido que cualquier transición.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">El color del texto</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">De <span style="font:12px var(--font-mono);color:var(--ink)">--dim</span> a <span style="font:12px var(--font-mono);color:var(--ink)">--ink</span>, instantáneo. Un texto que cambia de color despacio se lee como si todavía estuviera cargando.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">La fila seleccionada</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">El <span style="font:12px var(--font-mono);color:var(--ink)">inset 2px</span> de accent aparece ya puesto. Es una marca de estado, no un movimiento, y deslizarla entre filas sería inventar un objeto que no existe.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Navegar entre notas</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Abrir una nota no funde ni desliza: la nota está. Una transición de página son cuatrocientos milisegundos antes de poder leer, y el visor existe para leer rápido.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Una lista al filtrar</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Las coincidencias se sustituyen; las filas no se reordenan a la vista ni la caja crece. Con ochenta rutas, animar el filtrado es un baile que impide leer mientras escribes.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">El árbol al revelar una ruta</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">La rama se abre con su chevron a 120ms, pero el desplazamiento hasta la fila es instantáneo. Un scroll suave en una columna larga te deja mirando cómo pasan cosas que no te importan.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-bottom:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Los recuentos</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">417 pasa a 418 saltando. No hay contador incremental: la cifra es un dato, y verla subir de una en una la convierte en un espectáculo.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px;border-right:1px solid var(--border)">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Los estados de carga</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Ni ruedas girando ni esqueletos pulsando. Se dice con texto y puntos suspensivos: <span style="font:12px var(--font-mono);color:var(--ink)">Guardando…</span>, <span style="font:12px var(--font-mono);color:var(--ink)">indexando…</span>. Una animación en bucle finge un progreso que nadie está midiendo.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;padding:18px">
+        <h3 style="margin:0;font:600 14px var(--font-sans);color:var(--ink)">Nada que se mueva solo</h3>
+        <p style="margin:0;color:var(--dim);font:13px/1.6 var(--font-sans)">Ningún elemento entra al hacer scroll, nada se mueve sin que lo hayas pulsado. Todo movimiento del visor es consecuencia de una acción tuya.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--border);padding-top:32px">
+    <h2 style="margin:0;font:600 20px var(--font-sans);color:var(--ink)">La excepción, y es una sola</h2>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:15px/1.65 var(--font-sans);text-wrap:pretty">Los documentos de investigación llevan un cursor parpadeante detrás del prompt de terminal de la barra lateral. Es la única animación en bucle del sistema, la única decorativa y la única que no responde a una acción. Se queda porque no está diciendo nada sobre un cambio: está dibujando un objeto, un terminal, que en la realidad parpadea.</p>
+    <div style="display:flex;align-items:center;gap:10px;font:13px var(--font-mono);color:var(--dim);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;align-self:flex-start">
+      <span style="color:var(--ok)">$</span><span>naeth</span><span style="width:8px;height:16px;background:var(--ink);display:inline-block;animation:naeth-blink 1s step-end infinite"></span>
+    </div>
+    <p style="margin:0;max-width:760px;color:var(--dim);font:13px/1.6 var(--font-sans)">Vive bajo el ámbito <span style="font:12px var(--font-mono);color:var(--ink)">.naeth-doc</span> y no cruza al visor. Con <span style="font:12px var(--font-mono);color:var(--ink)">prefers-reduced-motion</span> se detiene en visible: un bucle indefinido es exactamente lo que la consulta pide apagar.</p>
+  </div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;rebote&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Inspección&quot;},&quot;slowMotion&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;1x&quot;,&quot;2x&quot;,&quot;4x&quot;],&quot;default&quot;:&quot;1x&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Inspección&quot;},&quot;reducedMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Inspección&quot;},&quot;autoplay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Inspección&quot;}}">
+class Component extends DCLogic {
+  state = { on: false, chev: false, draw: false, bar: false, pop: false, reduced: false, temp: null };
+
+  componentDidMount() {
+    if (this.props.autoplay) {
+      this.timer = setInterval(() => this.play(), 2600);
+    }
+  }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+
+  play = () => this.setState(s => {
+    const v = !s.on;
+    return { on: v, chev: v, draw: v, bar: v };
+  });
+
+  renderVals() {
+    const k = { '1x': 1, '2x': 2, '4x': 4 }[this.props.slowMotion ?? '1x'] || 1;
+    const dur = (base, token) => k === 1 ? `var(${token})` : `${(base * k).toFixed(2)}s ease`;
+    const fast = dur(0.12, '--t-fast'), mid = dur(0.22, '--t-mid'), slow = dur(0.4, '--t-slow');
+    const reduced = this.props.reducedMotion || this.state.reduced;
+    const s = this.state;
+
+    // Dos curvas, cada una con su dominio. ease para el chrome; el rebasamiento SOLO para
+    // la capa flotante anclada (--t-over), que es lo que aparece encima de todo.
+    const ms = { fast: 0.12 * k, mid: 0.22 * k, slow: 0.4 * k };
+    const t = (prop, key, delay) => `${prop} ${ms[key].toFixed(2)}s ease${delay ? ` ${delay}s` : ''}`;
+    const over = (prop, delay) => `${prop} ${ms.mid.toFixed(2)}s cubic-bezier(.34,1.56,.64,1)${delay ? ` ${delay}s` : ''}`;
+
+    const rebote = s.rebote ?? this.props.rebote ?? true;
+    const rise = rebote ? 10 : 0;
+    const scale = rebote ? 0.985 : 1;
+    // El rebasamiento es un gesto de llegada: solo al abrir, y solo escalona al abrir.
+    const stagger = rebote && s.pop ? 0.045 * k : 0;
+    const popTransform = rebote && s.pop ? over('transform') : t('transform', 'mid');
+
+    return {
+      toggleRebote: () => this.setState(p => ({ rebote: !(p.rebote ?? this.props.rebote ?? true) })),
+      reboteLabel: rebote ? 'con rebasamiento' : 'solo fundido',
+      reboteInk: rebote ? 'var(--ink)' : 'var(--dim)',
+      reboteBd: rebote ? 'var(--accent)' : 'var(--border)',
+      reboteBg: rebote ? 'var(--sel)' : 'transparent',
+
+      play: this.play,
+      fireChev: () => this.setState(p => ({ chev: !p.chev })),
+      fireDraw: () => this.setState(p => ({ draw: !p.draw })),
+      fireBar: () => this.setState(p => ({ bar: !p.bar })),
+      firePop: () => this.setState(p => ({ pop: !p.pop })),
+      toggleReduced: () => this.setState(p => ({ reduced: !p.reduced })),
+
+      reducedLabel: reduced ? 'reduced-motion activo' : 'reduced-motion apagado',
+      reducedInk: reduced ? 'var(--ink)' : 'var(--dim)',
+      reducedBorder: reduced ? 'var(--accent)' : 'var(--border)',
+      reducedDot: reduced ? 'var(--accent)' : 'var(--border)',
+
+      rulerW: s.on ? '100%' : '0%',
+      tRulerFast: reduced ? 'none' : t('width', 'fast'),
+      tRulerMid: reduced ? 'none' : t('width', 'mid'),
+      tRulerSlow: reduced ? 'none' : t('width', 'slow'),
+
+      chevT: s.chev ? 'rotate(-90deg)' : 'rotate(0deg)',
+      tChev: reduced ? 'none' : t('transform', 'fast'),
+
+      drawX: reduced ? 'translateX(0)' : (s.draw ? 'translateX(0)' : 'translateX(-100%)'),
+      drawO: s.draw ? '1' : '0',
+      tDraw: reduced ? t('opacity', 'mid') : `${t('transform', 'mid')}, ${t('opacity', 'mid')}`,
+      tDrawFade: t('opacity', 'mid'),
+
+      barW: s.bar ? '78%' : '22%',
+      barPct: s.bar ? '78%' : '22%',
+      tBar: reduced ? 'none' : t('width', 'slow'),
+
+      popO: s.pop ? '1' : '0',
+      popT: (reduced || s.pop) ? 'translateY(0) scale(1)' : `translateY(${rise}px) scale(${scale})`,
+      popBorder: s.pop ? 'var(--accent)' : 'var(--border)',
+      tPop: reduced ? t('opacity', 'mid') : `${t('opacity', 'mid')}, ${popTransform}`,
+      rowO: s.pop ? '1' : '0',
+      rowY: (reduced || s.pop || !stagger) ? 'translateY(0)' : 'translateY(6px)',
+      tRow1: reduced || !stagger ? 'none' : `${t('opacity', 'mid', stagger)}, ${over('transform', stagger)}`,
+      tRow2: reduced || !stagger ? 'none' : `${t('opacity', 'mid', stagger * 2)}, ${over('transform', stagger * 2)}`
+    };
+  }
+}
+</script>
+</body>
+</html>

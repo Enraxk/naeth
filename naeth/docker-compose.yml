@@ -76,6 +76,10 @@ services:
       # (instructivo). Activar strict SOLO cuando los clientes hayan recargado el schema
       # de las tools (agent_model), o no podran escribir hasta reconectar.
       AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}
+      # Fase 4: warn = guarda aunque no venga digest; strict = lo rechaza. Activado el
+      # 30/08/2026, al cerrar el backfill de las 479 vigentes. Mismo aviso que arriba: un
+      # cliente con el schema viejo cacheado no podra escribir hasta reconectar.
+      NAETH_DIGEST_ENFORCE: ${NAETH_DIGEST_ENFORCE:-warn}
       # Visor v2 (Vite + Svelte). Sin esta variable se sirve el v1 de `app/viewer/`, que se
       # conserva justo para eso: el rollback es quitar estas dos lineas y recrear, sin tocar
       # una sola linea de codigo.
@@ -176,6 +180,7 @@ services:
       EMBED_DIM: ${EMBED_DIM:-1024}
       OAUTH_ENABLED: "0"        # SSO por oauth2-proxy delante (publico) + loopback local
       AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}   # Paso 10 (ver nota en api)
+      NAETH_DIGEST_ENFORCE: ${NAETH_DIGEST_ENFORCE:-warn}   # fase 4 (ver nota en api)
       # Visor v2 (Vite + Svelte). Sin esta variable se sirve el v1 de `app/viewer/`, que se
       # conserva justo para eso: el rollback es quitar estas dos lineas y recrear, sin tocar
       # una sola linea de codigo.
