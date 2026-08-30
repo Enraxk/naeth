@@ -264,7 +264,22 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
   arreglar metadato. Misma excepción al ADD-only que el em dash del 28/07 y el borrado del 28/08.
   Backup previo en `_digest_backup`, como `_path_backup` y `_emdash_backup`
 - [ ] ⚠ **Nunca una pasada de LLM sin revisar**: varias notas llevan dentro su propia versión refutada
-- [ ] Al terminar: `NAETH_DIGEST_ENFORCE=strict` y retirar el recorte de 4.3
+- [x] **`NAETH_DIGEST_ENFORCE=strict`, activo en los dos nodos el 30/08/2026.** Verificado dentro de
+  los cuatro contenedores, con la pila recreada y los tres endpoints en verde
+- [x] ⚠ **El recorte NO se retira, y el plan decía retirarlo.** Su razón de ser cambió: nació como
+  muleta del backfill y hoy es la DEGRADACIÓN de una nota sin digest. `strict` cierra la vía MCP, pero
+  **el visor escribe por `/api` y no pasa por `_enforce_digest`**, así que sin recorte una nota
+  guardada ahí con el campo vacío saldría sin digest Y sin `content`: invisible. Con recorte sale un
+  `excerpt`, que ya avisa de lo que es. Cambiar un hueco por una nota invisible es peor degradación
+- [x] ⚠ **El interruptor va en el `docker-compose.yml`, no en el `.env`, y eso destapó una asimetría
+  de un mes.** `finally` NO tiene `.env` (sus variables salen de SOPS vía `up.sh`), así que
+  `AUTHORSHIP_ENFORCE=strict` vivía SOLO en el PC: **el respaldo llevaba desde el 21/07 en `warn`**, y
+  con él liderando se podía escribir sin declarar modelo. Los dos defaults suben a `strict` en el
+  compose, que es lo único que los dos nodos comparten. **Una regla de escritura que solo aplica en un
+  nodo no es una regla**, y el failover decide cuál manda
+- [x] El visor no se ve afectado por ninguno de los dos: sus rutas llaman a core con `_HUMAN_AUTHOR`
+  sin pasar por `_enforce_model` ni `_enforce_digest`, que cuelgan solo de las tools MCP. Comprobado
+  antes de tocar nada, porque el visor escribe con `model=null` y parecía que iba a romperse
 
 ### 4.8 · `NaethPersist` en sus dos copias · CERRADA EN LOCAL el 28/08/2026
 
