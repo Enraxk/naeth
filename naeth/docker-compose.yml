@@ -73,9 +73,17 @@ services:
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?falta OIDC_CLIENT_ID (usa up.ps1)}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?falta OIDC_CLIENT_SECRET (usa up.ps1)}
       # Paso 10: warn = guarda aunque el agente no declare modelo; strict = lo rechaza
-      # (instructivo). Activar strict SOLO cuando los clientes hayan recargado el schema
-      # de las tools (agent_model), o no podran escribir hasta reconectar.
-      AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}
+      # (instructivo). El aviso de "activar solo cuando los clientes hayan recargado el
+      # schema" se cumplio el 21/07/2026, asi que el default sube a strict el 30/08/2026.
+      #
+      # MOTIVO DEL CAMBIO DE DEFAULT, medido ese dia: `strict` vivia SOLO en el `.env` del
+      # PC, y `finally` no tiene `.env` (alli las variables salen de SOPS via up.sh). El
+      # respaldo llevaba desde el 21/07 en `warn`, asi que con el liderando se podia escribir
+      # sin declarar modelo, y el failover decide quien manda. Una regla de escritura que solo
+      # aplica en un nodo no es una regla; el compose es lo unico que los dos comparten.
+      # El visor NO se ve afectado: sus rutas llaman a core con _HUMAN_AUTHOR sin pasar por
+      # _enforce_model, que cuelga solo de las tools MCP.
+      AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-strict}
       # Fase 4: warn = guarda aunque no venga digest; strict = lo rechaza. Activado el
       # 30/08/2026, al cerrar el backfill de las 479 vigentes. Mismo aviso que arriba: un
       # cliente con el schema viejo cacheado no podra escribir hasta reconectar.
@@ -185,7 +193,7 @@ services:
       EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
       EMBED_DIM: ${EMBED_DIM:-1024}
       OAUTH_ENABLED: "0"        # SSO por oauth2-proxy delante (publico) + loopback local
-      AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-warn}   # Paso 10 (ver nota en api)
+      AUTHORSHIP_ENFORCE: ${AUTHORSHIP_ENFORCE:-strict}   # Paso 10 (ver nota en api)
       NAETH_DIGEST_ENFORCE: ${NAETH_DIGEST_ENFORCE:-strict}   # fase 4 (ver nota en api)
       # Visor v2 (Vite + Svelte). Sin esta variable se sirve el v1 de `app/viewer/`, que se
       # conserva justo para eso: el rollback es quitar estas dos lineas y recrear, sin tocar
