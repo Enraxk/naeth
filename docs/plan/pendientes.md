@@ -194,7 +194,7 @@ Desplegada en los dos nodos como **`2.2026.08.6`**.
 
 ### 4.7 · El backfill por grupos (8-12 sesiones)
 
-**Avance al 29/08/2026, 20:48: 316 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 163.
+**Avance al 30/08/2026, 10:42: 336 de 479 vigentes. G1 y G2 CERRADOS**, queda G3 con 143.
 
 ⚠ **El denominador se mueve solo**: eran 477 y ahora son 479, porque otras sesiones siguen escribiendo
 mientras esto avanza. Las notas nuevas nacen ya con digest (lo pone el ritual), así que suman al total
@@ -233,7 +233,7 @@ El material aplicado se acumula en [`digests-backfill.tsv`](digests-backfill.tsv
 - [ ] ⚠ **En notas de menos de 500 caracteres el digest aporta poco**, y conviene saberlo: el recorte
   automático de 300 ya sería casi la nota entera. Se escriben igual, porque el excerpt coge el PRINCIPIO
   y el digest dice lo que AFIRMA, pero ahí la ganancia es de precisión, no de contexto ahorrado
-- [ ] **G3: 163 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
+- [ ] **G3: 143 pendientes**, y son TODAS las que faltan. Ni citadas ni corregidas nunca
 - [x] **G3 se ordena por LONGITUD DESCENDENTE**, y hay que justificarlo porque dentro de G3 no hay
   señal de citas ni de versiones: todas valen cero, así que el ranking de G1 y G2 no discrimina. Lo
   que queda como criterio es cuánto contexto ahorra el digest, y eso es proporcional a lo que
