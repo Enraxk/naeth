@@ -3,6 +3,28 @@
 Lista que se va llenando **durante el backfill del digest**, no una auditoría aparte. Sale sola:
 escribir un digest obliga a leer la nota entera, y ahí se ve si lo que afirma sigue siendo verdad.
 
+## ✅ CERRADO EL 31/08/2026: las 17 resueltas
+
+Eneko decidió una por una (por AskUser, con el documento delante en otra pantalla) y se aplicó el
+mismo día: **15 supersedes y 2 tombstones**. Verificado en los dos nodos tras un `sync.ps1`: las 17
+originales fuera de vigentes, **477 vigentes con 0 sin digest**, ninguna manda ya a `inkerlum/chat`
+y ninguna cita `E:\Documentos\Eneko\Proyectos` sin marcarla como muerta.
+
+- **Tombstone (2)**: `e08c5a95` (el rango 28-40k, que hacía daño real al negociar) y `998bd8ba`
+  (ESB como cliente ancla). Las dos con sucesora viva y posterior, comprobado antes de retirar.
+- **Supersede (15)**. Siete del lote barato con sustitución de una línea, y ocho con un bloque de
+  aviso ANTEPUESTO, que deja el contenido original intacto y hace que el delta sea exactamente el
+  bloque. Ninguna perdió nada: el reemplazo lo hizo un script verificando que cada ancla aparecía
+  una sola vez, y las rutas nuevas se comprobaron en disco antes de escribirlas.
+
+⚠ **Un fallo por el camino, y queda escrito porque es del tipo silencioso**: en el primer supersede
+se cerró mal el tag del `digest`, así que se escribió con 44 caracteres de basura dentro Y el
+`memory_type` cayó a `observation`, que es el default de la tool, cuando era `fact`. Se detectó
+consultando lo escrito, no leyendo la respuesta. **`memory_supersede` no hereda los metadatos**: si
+no pasas `memory_type`, `path`, `tags` y `title`, los pierdes o los cambia por su default.
+
+---
+
 **Nada de esto se toca sin decisión de Eneko**: retirar o superseder es escritura de conocimiento,
 no metadato. Lo que sí se hace al encontrarlas es **datar el digest de forma explícita** ("estado al
 DD/MM"), para que al menos no engañen desde la búsqueda mientras esperan decisión.
