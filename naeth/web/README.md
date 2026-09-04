@@ -123,8 +123,9 @@ las 24 horas. Si vuelve a saltar `version-naeth`, esto es lo que hay que ejecuta
   Dos rankings hermanos y con tests, que ordenan una lista larga con lo que se va tecleando:
   `wikipick` (candidatos de `[[wikilink]]`, desempata la memoria más reciente) y `pathpick` (rutas,
   desempata la que más memorias tiene). `pathpick` importa `fold` de `wikipick`.
-- `src/components/`: `Header`, `Sidebar`, `Rail`, `Crumbs`, `Footer`, `Icon`, `Milkdown`, `PathField`.
-- `src/views/`: `Inicio`, `Estado`, `Memoria`, `Nueva`, `Stub`.
+- `src/components/`: `Header`, `Sidebar`, `Rail`, `Crumbs`, `Footer`, `Icon`, `Milkdown`,
+  `MarkdownView`, `PathField`.
+- `src/views/`: `Inicio`, `Estado`, `Memoria`, `Nueva`, `Ajustes`, `Stub`.
 - `src/app.css`: tokens de diseño (Tailwind `@theme` y CSS vars, tema claro y oscuro).
 
 ## Alcance
@@ -135,10 +136,15 @@ las 24 horas. Si vuelve a saltar `version-naeth`, esto es lo que hay que ejecuta
 | Estado del nodo | Implementada |
 | Memoria (lectura y edición) | Implementada |
 | Nueva memoria | Implementada |
+| Ajustes | Implementada (solo lectura) |
 | Grafo | Stub |
-| Ajustes | Stub (el tema se cambia en el rail) |
 
-Las dos stub degradan con icono, explicación y badge. Lo pendiente está en
+**Ajustes es de solo lectura a propósito**: escribir desde el visor no pasa por los enforce de
+autoría ni de digest, que cuelgan de las tools MCP, así que un panel con escritura sería justo la
+puerta que esos dos interruptores existen para cerrar. Estrena `/api/authors` y `/healthz`, que
+tenían endpoint desde los Pasos 10 y 7 y no llamaba nadie.
+
+La única stub que queda degrada con icono, explicación y badge. Lo pendiente está en
 [`../../docs/plan/pendientes.md`](../../docs/plan/pendientes.md), con el porqué de cada fase en
 [`../../docs/plan/plan-fases-2026-08-28.md`](../../docs/plan/plan-fases-2026-08-28.md).
 

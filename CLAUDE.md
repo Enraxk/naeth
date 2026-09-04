@@ -13,7 +13,9 @@ módulo funcionando o tiene rollback inmediato.
 
 - `naeth/` — el código: Postgres+pgvector, API FastAPI, worker de embeddings, servidor MCP y visor.
 - `naeth/web/`: visor v2 (Vite + Svelte 5 + TS + Tailwind v4). **Es lo que se sirve desde el
-  22/08/2026**, con tres vistas en stub que degradan limpias (Grafo, Nueva memoria, Ajustes). Estado,
+  22/08/2026**. Queda UNA vista en stub, el Grafo, que degrada limpia; Nueva memoria y Ajustes ya
+  están entregadas. Leer una nota **no monta el editor** desde el 04/09/2026: Crepe entra solo al
+  pulsar Editar, y la lectura la pinta `lib/md.ts`. Estado,
   comandos, despliegue y trampas del editor en [`naeth/web/README.md`](naeth/web/README.md): míralo
   en vez de suponer hasta dónde llega. El visor v1 (`naeth/app/viewer/index.html`) se conserva sin
   ruta, como rollback (basta quitar `NAETH_VIEWER_DIR`) y como referencia.
