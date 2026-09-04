@@ -374,6 +374,124 @@ def tree() -> list[dict]:
                 for r in rows]
 
 
+# ============================================================
+# Grafo (Paso 5.4)
+# ============================================================
+#
+# Estas tres funciones existen porque `relation_list` es POR NODO y no escala al grafo entero:
+# resuelve cada extremo con `_current_of`, que es un CTE recursivo, asi que para las ~480 aristas
+# del corpus serian ~960 consultas recursivas. Aqui la resolucion se hace UNA vez para todos.
+
+_GRAFO_SQL = """
+WITH RECURSIVE fwd(root, node) AS (
+        SELECT m.id, m.id FROM memory m
+        UNION
+        SELECT f.root, s.child_id FROM fwd f JOIN supersession s ON s.parent_id = f.node
+    ),
+    hoja AS (
+        SELECT DISTINCT ON (f.root) f.root, f.node AS cur
+        FROM fwd f JOIN memory_current mc ON mc.id = f.node
+        ORDER BY f.root, mc.created_at DESC, mc.id
+    ),
+    viva AS (
+        SELECT r.source_id, r.target_id, r.predicate FROM relation r
+        WHERE NOT EXISTS (SELECT 1 FROM tombstone t
+                          WHERE t.target_id = r.id AND t.target_kind = 'relation')
+    )
+SELECT s.cur AS source_id, t.cur AS target_id, v.predicate, count(*) AS n
+FROM viva v
+JOIN hoja s ON s.root = v.source_id
+JOIN hoja t ON t.root = v.target_id
+WHERE s.cur <> t.cur
+GROUP BY 1, 2, 3
+"""
+
+
+def graph_edges() -> list[dict]:
+    """Todas las aristas del grafo, con sus extremos ya resueltos a la version vigente.
+
+    EL RECURSIVO VA HACIA ADELANTE, no hacia atras. `_current_of` responde "dado UN id, sube
+    hasta la hoja"; aqui hace falta lo contrario, "para todos los ids a la vez, propaga hacia
+    los hijos", y por eso `fwd` arranca de `memory` COMPLETA (las 905 filas) y no de
+    `memory_current`: el punto es alcanzar la vigente desde la version vieja que tiene la
+    relacion colgada. Medido con EXPLAIN ANALYZE el 04/09/2026: 5,1 ms.
+
+    ⚠ EL JOIN CONTRA `hoja` ES UN JOIN Y NO UN LEFT JOIN, y esa letra cambia el resultado. Con
+    LEFT JOIN mas `coalesce(hoja.cur, m.id)`, una relacion cuyo extremo esta TOMBSTONEADO (o
+    cuya cadena no llega a ninguna vigente) resuelve a si misma y el grafo acaba pintando nodos
+    que ya no existen. Medido el 04/09/2026 sobre las 22 memorias retiradas: la version con
+    coalesce daba 489 aristas y la correcta 479, o sea DIEZ nodos fantasma.
+
+    ⚠ EL `s.cur <> t.cur` TAMPOCO ES COSMETICO: al colapsar la cadena, una relacion creada entre
+    dos versiones de la MISMA nota se convierte en un bucle sobre si misma.
+
+    `n` dice cuantas filas de `relation` colapsaron sobre esa arista. Se devuelve el conteo y no
+    un `id` porque despues de colapsar no hay UN id que sea la respuesta correcta.
+
+    POR QUE ESTO VALE LA PENA, con numero: `memory_stats` reporta 190 huerfanas contando contra
+    `relation` por id exacto, y las reales son 120. Las 70 de diferencia son notas cuyas
+    relaciones cuelgan de una version anterior. Sin este CTE el grafo perderia esos 70 nodos y
+    nada avisaria.
+    """
+    with conn() as c:
+        rows = c.execute(_GRAFO_SQL).fetchall()
+        return [{"source_id": str(r["source_id"]), "target_id": str(r["target_id"]),
+                 "predicate": r["predicate"], "n": r["n"]} for r in rows]
+
+
+def graph_links() -> dict[str, list[str]]:
+    """Destinos EN BRUTO de los `[[wikilinks]]` de cada memoria vigente, sin resolver.
+
+    Sin resolver a proposito, y es la decision de diseño de todo el endpoint. La resolucion vive
+    en `web/src/lib/wikilinks.ts` y tiene seis pasadas medidas sobre el corpus (uuid, prefijo de
+    uuid, titulo, slug, prefijo de titulo, prefijo de slug, y desde el 04/09 tambien path), con
+    sus tests. Reimplementarla aqui seria mantener dos copias que se van a separar, y hay prueba
+    de que pasa: `_stats_hygiene` tiene una version reducida que solo mira las formas por id, y
+    por eso reporta 41 wikilinks rotos donde el resolutor completo cuenta 80.
+
+    El backend hace lo unico que solo el puede hacer, que es sacar las cadenas de dentro de los
+    corchetes sin mandarle al navegador el texto de las 520 memorias.
+
+    `split_part(d[1], '|', 1)` se queda con el destino y descarta el alias de estilo Obsidian
+    `[[destino|texto]]`, que es lo que hace tambien el regex del front.
+    """
+    with conn() as c:
+        rows = c.execute(
+            r"""SELECT m.id, array_agg(DISTINCT split_part(d[1], '|', 1)) AS destinos
+               FROM memory_current m,
+                    LATERAL regexp_matches(m.content, '\[\[([^\]]+)\]\]', 'g') d
+               GROUP BY m.id""",
+        ).fetchall()
+        return {str(r["id"]): r["destinos"] for r in rows}
+
+
+def graph_knn(memory_id: str, k: int = 8) -> list[dict]:
+    """Los `k` vecinos semanticos mas cercanos de una memoria, por coseno sobre el embedding.
+
+    VA POR NODO Y NO GLOBAL, y lo decide el reloj: medido el 04/09/2026, los vecinos de UNA nota
+    salen en 16 ms con el indice HNSW, y el kNN de TODO el corpus con k=5 tarda 2,7 segundos.
+    Meter lo segundo en `/api/graph` seria esperar casi tres segundos para pintar la primera
+    arista, y pagarlo entero aunque la capa semantica este apagada.
+
+    ⚠ EL `sim` QUE DEVUELVE NO SE PUEDE LEER COMO UN PORCENTAJE DE PARECIDO. La similitud de
+    este corpus esta comprimida: medido sobre pares AL AZAR, la mediana ya es 0,874 (min 0,784,
+    p95 0,907, p99 0,922), y los vecinos reales rondan 0,93 a 0,94. O sea que el rango util vive
+    entre 0,90 y 0,97, y un control de umbral de 0 a 1 tendria el 87% del recorrido muerto. El
+    control de la vista es top-k, que es relativo; si algun dia se ofrece umbral, va etiquetado
+    por percentil del corpus y nunca en coseno crudo.
+    """
+    with conn() as c:
+        return c.execute(
+            """SELECT b.id, 1 - (a.embedding <=> b.embedding) AS sim
+               FROM memory_current a, memory_current b
+               WHERE a.id = %(id)s AND b.id <> a.id
+                 AND a.embedding IS NOT NULL AND b.embedding IS NOT NULL
+               ORDER BY a.embedding <=> b.embedding
+               LIMIT %(k)s""",
+            {"id": memory_id, "k": k},
+        ).fetchall()
+
+
 def _top(c, sql: str, limit: int, params: dict | None = None) -> dict:
     """Ejecuta un agrupado `(clave, n)` y devuelve el top N MAS lo que se queda fuera.
 

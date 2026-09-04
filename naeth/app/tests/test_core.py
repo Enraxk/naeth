@@ -484,3 +484,140 @@ def test_hygiene_mide_el_avance_del_backfill_del_digest():
     assert d["pct_hecho"] == 33
     # y dice DONDE falta, que es lo que ordena las tandas
     assert {x["k"]: x["n"] for x in d["por_proyecto"]["top"]} == {"naeth": 1, "cenit": 1}
+
+
+# ============================================================
+# Fase 3 - el grafo entero de una vez (Paso 5.4, 04/09/2026)
+# ============================================================
+#
+# Que se prueba aqui y por que: `graph_edges` resuelve la cadena de supersession para TODO el
+# corpus en una consulta, en vez de llamar a `_current_of` dos veces por arista como hace
+# `relation_list`. Es la misma pregunta respondida por otro camino, asi que lo que hay que
+# vigilar no es que funcione, sino que los dos caminos no se separen: un grafo que discrepe de
+# la ficha de la memoria no avisa de nada, simplemente enseña otra cosa.
+
+
+def _aristas(edges, a, b):
+    """Aristas entre dos ids, en cualquier direccion."""
+    return [e for e in edges
+            if (e["source_id"], e["target_id"]) in ((a, b), (b, a))]
+
+
+def test_grafo_una_relacion_sobre_v1_sale_sobre_v2():
+    a = core.add("grafo origen", title="g1")["memory"]
+    b = core.add("grafo destino v1", title="g2")["memory"]
+    core.relation_add(str(a["id"]), str(b["id"]), "links_to")
+    b2 = core.supersede(str(b["id"]), "grafo destino v2", title="g2")["memory"]
+    edges = core.graph_edges()
+    assert _aristas(edges, str(a["id"]), str(b2["id"]))
+    # y NO sobre la version vieja, que es justo lo que un JOIN ingenuo dejaria colgando
+    assert not _aristas(edges, str(a["id"]), str(b["id"]))
+
+
+def test_grafo_cadena_larga_en_los_dos_extremos_da_UNA_arista():
+    a1 = core.add("cadena a v1", title="ca")["memory"]
+    b1 = core.add("cadena b v1", title="cb")["memory"]
+    core.relation_add(str(a1["id"]), str(b1["id"]), "links_to")
+    a2 = core.supersede(str(a1["id"]), "cadena a v2", title="ca")["memory"]
+    a3 = core.supersede(str(a2["id"]), "cadena a v3", title="ca")["memory"]
+    b2 = core.supersede(str(b1["id"]), "cadena b v2", title="cb")["memory"]
+    b3 = core.supersede(str(b2["id"]), "cadena b v3", title="cb")["memory"]
+    assert len(_aristas(core.graph_edges(), str(a3["id"]), str(b3["id"]))) == 1
+
+
+def test_grafo_dos_relaciones_que_colapsan_dan_n_2():
+    # Dos relaciones creadas sobre versiones distintas del mismo par: al resolver la cadena caen
+    # sobre la misma arista logica. Por eso se devuelve `n` y no un `id` de relacion: despues de
+    # colapsar no hay UNA fila que sea la respuesta correcta.
+    a1 = core.add("colapso a v1", title="cla")["memory"]
+    b = core.add("colapso b", title="clb")["memory"]
+    core.relation_add(str(a1["id"]), str(b["id"]), "links_to")
+    a2 = core.supersede(str(a1["id"]), "colapso a v2", title="cla")["memory"]
+    core.relation_add(str(a2["id"]), str(b["id"]), "links_to")
+    ar = _aristas(core.graph_edges(), str(a2["id"]), str(b["id"]))
+    assert len(ar) == 1
+    assert ar[0]["n"] == 2
+
+
+def test_grafo_relacion_entre_dos_versiones_de_la_misma_nota_NO_sale():
+    # Al colapsar la cadena se convertiria en un bucle sobre si misma. Es lo que impide el
+    # `s.cur <> t.cur`, que sin este test parece una condicion decorativa.
+    a1 = core.add("bucle v1", title="bu")["memory"]
+    a2 = core.supersede(str(a1["id"]), "bucle v2", title="bu")["memory"]
+    core.relation_add(str(a1["id"]), str(a2["id"]), "links_to")
+    for e in core.graph_edges():
+        assert e["source_id"] != e["target_id"]
+    assert not _aristas(core.graph_edges(), str(a2["id"]), str(a2["id"]))
+
+
+def test_grafo_relacion_tombstoneada_no_sale():
+    a = core.add("tomb rel a", title="tra")["memory"]
+    b = core.add("tomb rel b", title="trb")["memory"]
+    rel = core.relation_add(str(a["id"]), str(b["id"]), "links_to")
+    assert _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+    core.tombstone(rel["id"], target_kind="relation")
+    assert not _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+
+
+def test_grafo_relacion_a_una_memoria_RETIRADA_no_sale():
+    """El JOIN contra `hoja` es un JOIN y no un LEFT JOIN, y este test es el motivo.
+
+    Con LEFT JOIN mas `coalesce(hoja.cur, m.id)`, un extremo tombstoneado resuelve a si mismo y
+    el grafo pinta un nodo que ya no existe. Medido contra produccion el 04/09/2026: la version
+    con coalesce daba 489 aristas y la correcta 479, o sea diez nodos fantasma.
+    """
+    a = core.add("viva que apunta a una muerta", title="vqm")["memory"]
+    b = core.add("memoria que sera retirada", title="mqr")["memory"]
+    core.relation_add(str(a["id"]), str(b["id"]), "links_to")
+    assert _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+    core.tombstone(str(b["id"]))
+    assert not _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+
+
+def test_grafo_una_nota_sin_relaciones_no_aparece():
+    a = core.add("sola en el mundo", title="sol")["memory"]
+    tocados = {e["source_id"] for e in core.graph_edges()} | {e["target_id"] for e in core.graph_edges()}
+    assert str(a["id"]) not in tocados
+
+
+def test_grafo_coherencia_con_relation_list():
+    """El test que impide que las dos implementaciones se separen.
+
+    `graph_edges` y `relation_list` responden la misma pregunta por caminos distintos. Si un dia
+    divergen, el grafo enseñara un vecindario y la ficha otro, sin que nada falle.
+    """
+    a = core.add("coherencia centro", title="coh")["memory"]
+    b = core.add("coherencia vecino uno", title="c1")["memory"]
+    c = core.add("coherencia vecino dos", title="c2")["memory"]
+    core.relation_add(str(a["id"]), str(b["id"]), "links_to")
+    core.relation_add(str(c["id"]), str(a["id"]), "depends_on")
+    b2 = core.supersede(str(b["id"]), "coherencia vecino uno v2", title="c1")["memory"]
+
+    aid = str(a["id"])
+    por_ficha = {r["target_id"] if r["direction"] == "out" else r["source_id"]
+                 for r in core.relation_list(aid)}
+    por_grafo = {e["target_id"] if e["source_id"] == aid else e["source_id"]
+                 for e in core.graph_edges()
+                 if aid in (e["source_id"], e["target_id"])}
+    assert por_ficha == por_grafo
+    assert str(b2["id"]) in por_grafo
+
+
+def test_grafo_links_extrae_desaliasa_y_deduplica():
+    a = core.add("mira [[destino-uno]] y [[destino-dos|con alias]] y otra vez [[destino-uno]]",
+                 title="wl")["memory"]
+    links = core.graph_links()
+    assert sorted(links[str(a["id"])]) == ["destino-dos", "destino-uno"]
+
+
+def test_grafo_links_ignora_las_notas_sin_wikilinks():
+    a = core.add("aqui no hay ningun enlace", title="sinwl")["memory"]
+    assert str(a["id"]) not in core.graph_links()
+
+
+def test_grafo_knn_sin_embedding_devuelve_vacio():
+    # En los tests no corre el worker, asi que ninguna memoria tiene embedding. Lo que se fija
+    # aqui es que la ausencia degrada a lista vacia en vez de reventar: es el estado real de
+    # cualquier memoria recien escrita, durante los segundos que tarda su embedding en la cola.
+    a = core.add("sin vector todavia", title="knn")["memory"]
+    assert core.graph_knn(str(a["id"]), 5) == []
