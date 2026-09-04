@@ -555,6 +555,33 @@ async def api_relations(request: Request) -> Response:
     return JSONResponse(_json(core.relation_list(request.path_params["memory_id"])))
 
 
+# --- Grafo (Paso 5.4) ---
+# Dos rutas y no una: el kNN global del corpus entero tarda 2,7 s medidos, asi que meterlo en
+# /api/graph seria pagarlo entero incluso con la capa semantica apagada. Ver core.graph_knn.
+@mcp.custom_route("/api/graph", methods=["GET"])
+async def api_graph(request: Request) -> Response:
+    # `nodes` es un CONTEO y no la lista: el visor ya tiene el arbol completo cargado y
+    # autorrefrescado, asi que repetir aqui las 520 filas duplicaria unos 150 kB y crearia dos
+    # fuentes de verdad para el titulo de un nodo. El numero sirve para que la vista detecte que
+    # su arbol esta desfasado respecto al grafo y lo recargue.
+    with core.conn() as c:
+        n = c.execute("SELECT count(*) AS n FROM memory_current").fetchone()["n"]
+    return JSONResponse(_json({"nodes": n,
+                               "edges": core.graph_edges(),
+                               "links": core.graph_links()}))
+
+
+@mcp.custom_route("/api/graph/knn", methods=["GET"])
+async def api_graph_knn(request: Request) -> Response:
+    mid = request.query_params.get("id", "")
+    if not mid:
+        return JSONResponse({"error": "id requerido"}, status_code=400)
+    # El tope no es paranoia: sin el, un `k=500` convierte una consulta de 16 ms en segundos, y
+    # la vista solo ofrece de 0 a 8 porque por encima el vecindario deja de leerse.
+    k = max(1, min(int(request.query_params.get("k", "8")), 20))
+    return JSONResponse(_json({"id": mid, "neighbors": core.graph_knn(mid, k)}))
+
+
 @mcp.custom_route("/api/relation/{relation_id}", methods=["DELETE"])
 async def api_relation_del(request: Request) -> Response:
     return JSONResponse(_json(core.tombstone(request.path_params["relation_id"],
