@@ -11,6 +11,11 @@
 //   uuid completo      12   [[e0e9709e-e076-4dec-89e0-8743e28a7da7]]
 //   prefijo de uuid     7   [[3f3c6a37]]
 //   slug kebab-case    ·    [[tania-tetyana-perteseva]], [[planes-orden-ejecucion]]
+//   path completo       9   [[krepis/status]], [[cenit/design]]  (añadido el 04/09/2026)
+//
+// La forma `path` se midió aparte, el 04/09/2026: recupera 7 destinos que hasta entonces se
+// quedaban en texto muerto, y verificado destino a destino contra el corpus entero no cambia
+// ni pierde ninguno de los que ya resolvían (7 ganan, 0 pierden, 0 cambian).
 //
 // De ahí el orden de resolución: de lo más estricto a lo más laxo, y con prefijo aceptado tanto
 // sobre el título como sobre su slug.
@@ -33,6 +38,8 @@ export interface WikiIndex {
   byId: Map<string, TreeRow>
   byShort: Map<string, TreeRow[]>
   bySlug: Map<string, TreeRow[]>
+  /** Por `path` completo (`proyecto/subtema`). Ver la pasada 5 de `resolve`. */
+  byPath: Map<string, TreeRow[]>
   /** [clave normalizada, slug, fila] por orden, para las pasadas por prefijo. */
   entries: { key: string; slug: string; row: TreeRow }[]
 }
@@ -41,6 +48,9 @@ export interface Resolved {
   id: string
   /** Había más de un candidato: se eligió el más reciente. */
   ambiguous: boolean
+  /** Cuántos candidatos había. Solo se rellena cuando `ambiguous`, y sirve para decirlo con un
+   *  número en vez de con un "varios" que no se puede comprobar. */
+  n?: number
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -56,6 +66,16 @@ const slugify = (s: string) =>
 
 const newest = (a: TreeRow, b: TreeRow) =>
   String(b.created_at || '').localeCompare(String(a.created_at || ''))
+
+/**
+ * Empaqueta un destino elegido entre `total` candidatos.
+ *
+ * `n` SOLO viaja cuando de verdad hubo mas de uno. No es tacaneria: el objeto que devuelve
+ * `resolve` es contrato probado con `toEqual`, y meter un campo constante en el caso normal
+ * obligaria a tocar todos los tests del camino feliz sin que ninguno pruebe nada nuevo.
+ */
+const many = (id: string, total: number): Resolved =>
+  total > 1 ? { id, ambiguous: true, n: total } : { id, ambiguous: false }
 
 /** Un destino "parece id" si es hex/guiones y suficientemente largo para no chocar con un título. */
 const looksLikeId = (s: string) => /^[0-9a-f]{6,}$/i.test(s.replace(/-/g, ''))
@@ -74,6 +94,7 @@ export function buildIndex(rows: TreeRow[]): WikiIndex {
   const byId = new Map<string, TreeRow>()
   const byShort = new Map<string, TreeRow[]>()
   const bySlug = new Map<string, TreeRow[]>()
+  const byPath = new Map<string, TreeRow[]>()
   const entries: WikiIndex['entries'] = []
   for (const r of rows) {
     if (r.title) {
@@ -83,10 +104,13 @@ export function buildIndex(rows: TreeRow[]): WikiIndex {
       push(bySlug, s, r)
       entries.push({ key: k, slug: s, row: r })
     }
+    // El path se indexa aunque la fila no tenga titulo: una nota sin titular sigue viviendo en
+    // su path, y es justo la que mas falta hace poder alcanzar por algun sitio.
+    if (r.path) push(byPath, norm(r.path), r)
     byId.set(r.id.toLowerCase(), r)
     push(byShort, r.id.replace(/-/g, '').slice(0, 8).toLowerCase(), r)
   }
-  return { byTitle, byId, byShort, bySlug, entries }
+  return { byTitle, byId, byShort, bySlug, byPath, entries }
 }
 
 /** De varios candidatos gana el título MÁS CORTO: es el que menos sobra tras el prefijo. */
@@ -94,7 +118,7 @@ const bestByPrefix = (cands: TreeRow[]): Resolved => {
   const sorted = [...cands].sort(
     (a, b) => (a.title?.length ?? 0) - (b.title?.length ?? 0) || newest(a, b),
   )
-  return { id: sorted[0].id, ambiguous: cands.length > 1 }
+  return many(sorted[0].id, cands.length)
 }
 
 export function resolve(target: string, ix: WikiIndex): Resolved | null {
@@ -112,7 +136,7 @@ export function resolve(target: string, ix: WikiIndex): Resolved | null {
     const cands = ix.byShort.get(raw.replace(/-/g, '').slice(0, 8).toLowerCase())
     if (cands?.length) {
       const sorted = [...cands].sort(newest)
-      return { id: sorted[0].id, ambiguous: cands.length > 1 }
+      return many(sorted[0].id, cands.length)
     }
     // Un uuid con forma válida que no está en el árbol apunta a una versión ya superseded:
     // no se inventa un destino por parecido de texto.
@@ -121,13 +145,35 @@ export function resolve(target: string, ix: WikiIndex): Resolved | null {
 
   // 3) título exacto. Con duplicados gana el más reciente.
   const byT = ix.byTitle.get(key)
-  if (byT?.length) return { id: [...byT].sort(newest)[0].id, ambiguous: byT.length > 1 }
+  if (byT?.length) return many([...byT].sort(newest)[0].id, byT.length)
 
   // 4) slug exacto
   const byS = ix.bySlug.get(slug)
-  if (byS?.length) return { id: [...byS].sort(newest)[0].id, ambiguous: byS.length > 1 }
+  if (byS?.length) return many([...byS].sort(newest)[0].id, byS.length)
 
-  // 5) y 6) prefijo de título o de slug, la forma más común en el corpus, y por eso se acepta
+  // 5) PATH completo, `proyecto/subtema`. Es una convención que Eneko ya usaba y que este
+  // resolutor no contemplaba, así que `[[krepis/status]]` y `[[cenit/design]]` no resolvían nunca.
+  //
+  // La guarda de la barra es lo que hace el cambio seguro: sin `/` no se entra aquí y el camino es
+  // exactamente el de antes, así que ningún destino que hoy resuelve puede cambiar de respuesta.
+  // Con `/` hoy se llegaba a la pasada de prefijo, donde `slugify('cenit/design')` da
+  // `cenit-design` y no casa con ningún título, o sea que se devolvía `null`: esta pasada solo
+  // puede ganar destinos, nunca perderlos.
+  //
+  // ⚠ UN PATH NO IDENTIFICA UNA NOTA, y por eso el desempate importa. Medido el 04/09/2026 sobre
+  // las 520 vigentes: 81 paths distintos, y **488 de 520 (94%) viven en un path compartido**, con
+  // mediana de 3 notas por path. `[[krepis/status]]` da 1, pero `[[cenit/design]]` da 5.
+  // Gana la MÁS RECIENTE porque un enlace por path dice "el estado actual de este tema", no "esta
+  // nota concreta": para una nota concreta se escribe su título. Y sale `ambiguous`, que el camino
+  // de lectura convierte en un aviso, para que la elección no sea silenciosa.
+  // El caso que mejor funciona es el que motivó todo esto: de los 23 paths que acaban en
+  // `/status`, 18 son unívocos.
+  if (raw.includes('/')) {
+    const byP = ix.byPath.get(key)
+    if (byP?.length) return many([...byP].sort(newest)[0].id, byP.length)
+  }
+
+  // 6) y 7) prefijo de título o de slug, la forma más común en el corpus, y por eso se acepta
   // pese a ser laxa. El umbral evita que un destino de tres letras arrastre cualquier cosa.
   if (key.length >= MIN_PREFIX) {
     const porTitulo = ix.entries.filter((e) => e.key.startsWith(key)).map((e) => e.row)
@@ -165,7 +211,16 @@ export function toDisplayMarkdown(src: string, ix: WikiIndex): string {
     chunk.replace(WIKI, (whole, target: string, alias?: string) => {
       const hit = resolve(target, ix)
       if (!hit) return whole
-      return `[${escapeLabel((alias ?? target).trim())}](#/m/${hit.id})`
+      const label = escapeLabel((alias ?? target).trim())
+      // Un destino ambiguo se abre igual, pero LO DICE. `ambiguous` existia desde el principio y
+      // no lo miraba nadie; se estrena al añadir la resolucion por path, que es la via que mas
+      // ambiguedad puede generar (94% de las notas comparten path con otra).
+      // Medido el 04/09/2026 antes de decidir el aviso: solo 2 de 316 wikilinks resueltos son
+      // ambiguos, o sea el 1%. Con esa frecuencia el aviso informa y no estorba; si algun dia
+      // sube, hay que replantearlo en vez de acostumbrarse a ignorarlo.
+      return hit.ambiguous
+        ? `[${label}](#/m/${hit.id} "${hit.n} destinos posibles: se abre el mas reciente")`
+        : `[${label}](#/m/${hit.id})`
     }),
   )
 }

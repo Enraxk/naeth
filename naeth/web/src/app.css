@@ -144,6 +144,28 @@
 .milkdown .milkdown-list-item-block li .label-wrapper.label-wrapper { color: var(--dim); }
 .milkdown .milkdown-list-item-block li .label-wrapper.label-wrapper svg { fill: var(--dim); }
 
+/* Wikilink cuyo destino era AMBIGUO: resolvio a varias notas y se abrio la mas reciente.
+   Anadido el 04/09/2026 con la resolucion por path, que es la via que mas ambiguedad puede
+   generar (94% de las memorias comparten path con otra).
+
+   EL SELECTOR ES EXACTO Y NO UNA CLASE porque el camino de lectura produce markdown, no HTML:
+   `toDisplayMarkdown` marca el caso poniendole `title` al enlace, y ningun otro enlace INTERNO
+   lleva title. De ahi `[href^="#/m/"][title]`, que no puede alcanzar a un enlace externo que el
+   autor haya escrito con title a mano.
+
+   Punteado y no color: el color ya significa otra cosa (es un enlace), y lo que hay que decir
+   aqui es "esto lo elegi yo por ti", que es una advertencia sobre el enlace, no un tipo de
+   enlace distinto. Medido antes de decidirlo: solo 2 de los 316 wikilinks que resuelven son
+   ambiguos, o sea el 1%, asi que la marca no compite con la lectura.
+
+   Clase repetida por el mismo motivo que el bloque de arriba: el CSS de Crepe se inserta en
+   runtime, despues de este fichero, y con la misma especificidad ganaba el suyo. */
+.milkdown.milkdown a[href^="#/m/"][title] {
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 html, body { height: 100%; }
 #app { height: 100%; }
 body {

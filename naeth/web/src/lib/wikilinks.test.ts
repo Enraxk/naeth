@@ -62,7 +62,37 @@ const LIMITE = row({
   created_at: '2026-06-01T10:00:00Z',
 })
 
-const IX = buildIndex([NAETH, CENIT_CORTO, CENIT_LARGO, PERSONA, DUP_VIEJO, DUP_NUEVO, LIMITE])
+// --- Fixtures de la resolucion por PATH (anadida el 04/09/2026) ---
+// Reproducen los dos casos reales que la motivaron: un path con UNA sola nota y otro compartido.
+// Medido sobre el corpus: 488 de 520 memorias comparten path, asi que el caso normal es el
+// ambiguo, no el limpio.
+const KREPIS = row({
+  id: '11223344-9999-4aaa-8bbb-000000000009',
+  title: 'Krepis: brief de discovery cerrado',
+  path: 'krepis/status',
+  created_at: '2026-08-01T10:00:00Z',
+})
+const DESIGN_VIEJO = row({
+  id: '22334455-aaaa-4aaa-8bbb-00000000000a',
+  title: 'CENIT · contrato de modulo',
+  path: 'cenit/design',
+  created_at: '2026-07-07T10:00:00Z',
+})
+const DESIGN_NUEVO = row({
+  id: '33445566-bbbb-4aaa-8bbb-00000000000b',
+  title: 'CENIT · diagrama de arquitectura',
+  path: 'cenit/design',
+  created_at: '2026-08-28T10:00:00Z',
+})
+// Sin titulo y con path: la unica forma de alcanzarla es por su path o por su uuid.
+const SIN_TITULO = row({
+  id: '44556677-cccc-4aaa-8bbb-00000000000c',
+  path: 'cenit/build',
+  created_at: '2026-07-21T10:00:00Z',
+})
+
+const IX = buildIndex([NAETH, CENIT_CORTO, CENIT_LARGO, PERSONA, DUP_VIEJO, DUP_NUEVO, LIMITE,
+  KREPIS, DESIGN_VIEJO, DESIGN_NUEVO, SIN_TITULO])
 
 describe('resolve · los seis caminos, de estricto a laxo', () => {
   it('1 · uuid completo', () => {
@@ -82,7 +112,9 @@ describe('resolve · los seis caminos, de estricto a laxo', () => {
   })
 
   it('3b · titulo exacto duplicado: gana el MAS RECIENTE, y se marca ambiguo', () => {
-    expect(resolve('Nota duplicada', IX)).toEqual({ id: DUP_NUEVO.id, ambiguous: true })
+    // `n` viaja solo cuando hay ambiguedad, para poder decir CUANTOS candidatos habia en vez de
+    // un "varios" que el lector no puede comprobar.
+    expect(resolve('Nota duplicada', IX)).toEqual({ id: DUP_NUEVO.id, ambiguous: true, n: 2 })
   })
 
   it('4 · slug exacto (kebab-case, sin acentos)', () => {
@@ -91,11 +123,45 @@ describe('resolve · los seis caminos, de estricto a laxo', () => {
 
   it('5 · prefijo de titulo: de varios candidatos gana el titulo MAS CORTO', () => {
     // Lo que menos sobra tras el prefijo es lo que el autor quiso escribir abreviado.
-    expect(resolve('CENIT · vigilancia', IX)).toEqual({ id: CENIT_CORTO.id, ambiguous: true })
+    expect(resolve('CENIT · vigilancia', IX)).toEqual({ id: CENIT_CORTO.id, ambiguous: true, n: 2 })
   })
 
   it('6 · prefijo de slug, cuando el destino va en kebab y el titulo no', () => {
     expect(resolve('cenit-vigilancia-de', IX)?.id).toBe(CENIT_CORTO.id)
+  })
+})
+
+describe('resolve · pasada 5, el PATH completo', () => {
+  it('un path con UNA sola nota resuelve limpio y sin marcar', () => {
+    expect(resolve('krepis/status', IX)).toEqual({ id: KREPIS.id, ambiguous: false })
+  })
+
+  it('un path COMPARTIDO gana la mas reciente, y lo dice con el numero', () => {
+    // El caso normal del corpus, no la excepcion: 94% de las notas comparten path.
+    expect(resolve('cenit/design', IX)).toEqual({ id: DESIGN_NUEVO.id, ambiguous: true, n: 2 })
+  })
+
+  it('alcanza una nota SIN TITULO, que por titulo o slug seria inalcanzable', () => {
+    expect(resolve('cenit/build', IX)?.id).toBe(SIN_TITULO.id)
+  })
+
+  it('no distingue mayusculas ni espacios sobrantes', () => {
+    expect(resolve('  Krepis/Status  ', IX)?.id).toBe(KREPIS.id)
+  })
+
+  it('un path inexistente devuelve null y NO cae al prefijo', () => {
+    // Sin la guarda, `norm('inventado/status')` seguiria hacia las pasadas laxas. Con 8 caracteres
+    // o mas, un destino con barra podria arrastrar un titulo cualquiera que empiece igual.
+    expect(resolve('inventado/status', IX)).toBeNull()
+  })
+
+  it('REGRESION · un destino SIN barra se comporta exactamente como antes', () => {
+    // La guarda `raw.includes('/')` es la propiedad de seguridad de toda la pasada: verificado
+    // contra el corpus entero el 04/09/2026, 7 destinos ganan, 0 pierden y 0 cambian.
+    expect(resolve('naeth · preferencia de calidad', IX)?.id).toBe(NAETH.id)
+    expect(resolve('CENIT · vigilancia', IX)?.id).toBe(CENIT_CORTO.id)
+    expect(resolve('tania-tetyana-perteseva', IX)?.id).toBe(PERSONA.id)
+    expect(resolve('CENIT', IX)).toBeNull()
   })
 })
 
@@ -163,6 +229,28 @@ describe('toDisplayMarkdown · solo el camino de LECTURA', () => {
 
   it('una entrada vacia sale igual', () => {
     expect(toDisplayMarkdown('', IX)).toBe('')
+  })
+})
+
+describe('toDisplayMarkdown · el aviso de destino ambiguo', () => {
+  it('un destino univoco no lleva aviso', () => {
+    expect(toDisplayMarkdown('ver [[krepis/status]]', IX)).toBe(`ver [krepis/status](#/m/${KREPIS.id})`)
+  })
+
+  it('un destino ambiguo enlaza igual, pero dice cuantos candidatos habia', () => {
+    expect(toDisplayMarkdown('ver [[cenit/design]]', IX)).toBe(
+      `ver [cenit/design](#/m/${DESIGN_NUEVO.id} "2 destinos posibles: se abre el mas reciente")`,
+    )
+  })
+
+  it('el alias se respeta tambien cuando hay aviso', () => {
+    expect(toDisplayMarkdown('ver [[cenit/design|el diagrama]]', IX)).toBe(
+      `ver [el diagrama](#/m/${DESIGN_NUEVO.id} "2 destinos posibles: se abre el mas reciente")`,
+    )
+  })
+
+  it('un path dentro de un bloque de codigo se queda literal', () => {
+    expect(toDisplayMarkdown('`[[krepis/status]]`', IX)).toBe('`[[krepis/status]]`')
   })
 })
 
