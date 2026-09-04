@@ -34,6 +34,35 @@ export const PROJECT: Record<string, Meta> = {
   ucraftengine: { icon: 'box', c: ['#ff8f6b', '#c2410c'] },
   formacion: { icon: 'presentation', c: ['#9bd45a', '#4d7c0f'] },
   skills: { icon: 'puzzle', c: ['#e0cf4b', '#a16207'] },
+
+  // --- Añadidos el 04/09/2026, al construir el grafo ---
+  //
+  // Faltaban CATORCE proyectos y entre ellos tres de los cuatro mas grandes, asi que 238 de las
+  // 528 memorias (el 45% del corpus) se pintaban todas del mismo gris de reserva. En el arbol y
+  // en las barras de Estado eso pasaba desapercibido porque el nombre va escrito al lado; en el
+  // grafo no, porque alli el color ES la unica pista de a que proyecto pertenece un punto.
+  //
+  // ⚠ VEINTISEIS COLORES NO SE DISTINGUEN, y conviene saberlo antes de fiarse de este mapa. El
+  // limite practico de una paleta categorica ronda la docena. El reparto de aqui prioriza que los
+  // GRANDES se separen bien entre si, y acepta parecidos entre los de una o dos memorias, cuya
+  // masa en pantalla es despreciable. Si algun dia hay que distinguir de verdad entre dos
+  // proyectos pequeños, la respuesta no es un color mas: es filtrar.
+  inkerlum: { icon: 'book-open', c: ['#7aa2f7', '#1d4ed8'] },
+  eneko: { icon: 'house', c: ['#d4a373', '#92400e'] },
+  cenit: { icon: 'refresh', c: ['#ff8a65', '#c2410c'] },
+  'job-search': { icon: 'search', c: ['#8de0c0', '#047857'] },
+  'research-harness': { icon: 'square-code', c: ['#b3a1e6', '#5b21b6'] },
+  'caja-pc': { icon: 'hash', c: ['#c0c5ce', '#52525b'] },
+  enraxk: { icon: 'smile', c: ['#e6c07b', '#854d0e'] },
+  fiscal: { icon: 'list-ordered', c: ['#a8b545', '#4d7c0f'] },
+  prompting: { icon: 'lightbulb', c: ['#6ec7d4', '#0e7490'] },
+  'email-triage': { icon: 'list', c: ['#8fa8e8', '#3730a3'] },
+  'escritura-a-mano': { icon: 'italic', c: ['#e8a0bf', '#9d174d'] },
+  krepis: { icon: 'table', c: ['#9dbf9e', '#3f6212'] },
+  portfolio: { icon: 'check', c: ['#b8b8b8', '#57534e'] },
+  'tech-reborn': { icon: 'gamepad-2', c: ['#a3d977', '#3f6212'] },
+  // `ark` y `mandatum` de arriba ya no tienen ninguna memoria en el corpus. Se dejan: no estorban,
+  // y retirarlos es una decision sobre proyectos, no sobre colores.
 }
 
 // Aqui vivia ORIGIN_ICON, que mapeaba `code` y `chat` a un icono. Retirado el 22/08/2026: eran los
