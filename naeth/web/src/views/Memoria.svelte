@@ -2,9 +2,10 @@
   import Icon from '../components/Icon.svelte'
   import Milkdown, { type EditorApi, type WikiState } from '../components/Milkdown.svelte'
   import MarkdownView from '../components/MarkdownView.svelte'
+  import MiniGraph from '../components/MiniGraph.svelte'
   import PathField from '../components/PathField.svelte'
   import DigestField from '../components/DigestField.svelte'
-  import { getMemory, supersede, getRelations, addRelation } from '../lib/api'
+  import { getMemory, supersede, getRelations, addRelation, getKnn } from '../lib/api'
   import { DIGEST_MAX, type MemoryDetail, type Relation } from '../lib/types'
   import { navigate } from '../lib/router.svelte'
   import { rankWikiCandidates } from '../lib/wikipick'
@@ -12,6 +13,8 @@
   import { typeMeta, typeColor } from '../lib/colors'
   import { fmtDate, fmtAuthor } from '../lib/format'
   import { buildIndex, toDisplayMarkdown, extractLinkedIds } from '../lib/wikilinks'
+  import { buildGraph, etiquetaVecindario, filtrosPorDefecto, vecindario } from '../lib/graph'
+  import type { KnnNeighbor } from '../lib/types'
 
   let { id }: { id: string } = $props()
 
@@ -29,6 +32,47 @@
   let relations = $state<Relation[]>([])
   const titleOf = (rid: string) => (data.tree ?? []).find((r) => r.id === rid)?.title ?? '(memoria)'
   const otherId = (r: Relation) => (r.direction === 'out' ? r.target_id : r.source_id)
+
+  // --- mini grafo del vecindario ------------------------------------------------------------
+  //
+  // NO se pide `/api/graph`, y es deliberado: son 93 kB, y traerlos al abrir una nota desharia
+  // justo lo que consiguio sacar el editor del camino de lectura. Todo lo que hace falta ya esta
+  // aqui: `relations` (que el backend devuelve con la cadena resuelta y en las dos direcciones)
+  // y los wikilinks del propio texto. La unica llamada nueva es el kNN, que son 10 ms.
+  //
+  // ⚠ LO QUE ESTO NO ENSEÑA: los wikilinks ENTRANTES que no sean ademas una relacion. Otra nota
+  // que te mencione con `[[ ]]` sin relacion explicita no aparece aqui. Para eso esta el boton
+  // que abre el grafo global enfocado, que si los tiene.
+  let knn = $state<KnnNeighbor[]>([])
+
+  const miniModel = $derived.by(() => {
+    const tree = data.tree ?? []
+    if (!tree.length || !detail) return null
+    const resp = {
+      nodes: tree.length,
+      edges: relations.map((r) => ({
+        source_id: r.source_id, target_id: r.target_id, predicate: r.predicate, n: 1,
+      })),
+      // `extractLinkedIds` ya devuelve ids resueltos, y `buildGraph` los vuelve a pasar por
+      // `resolve`: un uuid completo resuelve a si mismo, asi que el resultado es el mismo sin
+      // duplicar la heuristica de resolucion en dos sitios.
+      links: { [id]: extractLinkedIds(mdValue, wikiIndex) },
+    }
+    const model = buildGraph(tree, resp, new Map([[id, knn]]), {
+      ...filtrosPorDefecto(),
+      // Las tres encendidas: en el vecindario de UNA nota, el vecino semantico es justo lo que
+      // enseña lo que no enlazaste a mano, y cuesta una consulta de 10 ms.
+      layers: { relation: true, wikilink: true, semantic: true },
+      ocultarAislados: false,
+    })
+    return vecindario(model, id)
+  })
+
+  const miniVecinos = $derived(miniModel?.edges.length ?? 0)
+
+  // El contador SEPARA los vinculos reales de los parecidos calculados. El porque y su caso
+  // medido estan en `etiquetaVecindario`, que vive en lib/graph.ts para poder probarlo.
+  const miniEtiqueta = $derived(etiquetaVecindario(miniModel))
 
   // edición
   let editing = $state(false)
@@ -135,7 +179,9 @@
     }
     return out
   })
-  const hasContext = $derived(!editing && (outline.length > 0 || relations.length > 0 || chain.length > 1))
+  const hasContext = $derived(
+    !editing && (outline.length > 0 || relations.length > 0 || chain.length > 1 || miniVecinos > 0),
+  )
   function gotoHeading(i: number) {
     const hs = document.querySelectorAll('.d-body :is(h1,h2,h3,h4,h5,h6)')
     ;(hs[i] as HTMLElement | undefined)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
@@ -179,6 +225,10 @@
       draftAvail = !!readDraft(mid)
       document.querySelector('.detail')?.scrollTo({ top: 0 })
       getRelations(mid).then((rs) => { if (mid === id) relations = rs })
+      // El catch se traga el fallo a proposito: sin vecinos semanticos el mini grafo enseña
+      // igual las otras dos capas, y una nota recien escrita todavia no tiene embedding.
+      knn = []
+      getKnn(mid, 6).then((r) => { if (mid === id) knn = r.neighbors }).catch(() => {})
       const ids = await walkChain(mid)
       if (mid !== id) return
       if (ids.length > 1) {
@@ -528,6 +578,18 @@
             </div>
           </div>
         {/if}
+        {#if miniModel && miniVecinos > 0}
+          <div class="ctx-sec">
+            <div class="ctx-head">
+              <span>Vecindario · {miniEtiqueta}</span>
+              <button class="ctx-mas" title="Ver esta memoria dentro del grafo completo"
+                      onclick={() => navigate('grafo', id)}>
+                <Icon name="share-2" size={12} color="var(--dim)" /><span>en el grafo</span>
+              </button>
+            </div>
+            <MiniGraph model={miniModel} centro={id} />
+          </div>
+        {/if}
         {#if chain.length > 1}
           <div class="ctx-sec">
             <div class="ctx-head">Historial</div>
@@ -550,6 +612,10 @@
 {/if}
 
 <style>
+  .ctx-head { display: flex; align-items: baseline; gap: 8px; }
+  .ctx-mas { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 2px 0; color: var(--dim); font: 10px var(--font-mono); letter-spacing: .5px; text-transform: uppercase; }
+  .ctx-mas:hover { color: var(--ink); }
+
   .memoria { display: grid; grid-template-columns: 1fr; gap: 40px; padding: 28px 48px; align-items: start; }
   .memoria.has-context { grid-template-columns: minmax(0, 1fr) 300px; }
   .note { min-width: 0; }

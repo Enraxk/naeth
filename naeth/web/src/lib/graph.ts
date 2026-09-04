@@ -260,6 +260,23 @@ export function vecindario(model: GraphModel, id: string): GraphModel {
   return { nodes, edges, aislados: 0, componentes: nodes.length ? 1 : 0 }
 }
 
+/**
+ * Como se cuenta un vecindario, SEPARANDO los vinculos reales de los parecidos calculados.
+ *
+ * No es cosmetico. Verificado el 04/09/2026 sobre una nota sin ninguna relacion ni wikilink: el
+ * kNN devuelve sus seis vecinos igual, asi que la cabecera decia "Vecindario · 6" y la nota
+ * parecia conectada cuando esta sola. La linea discontinua ya lo insinuaba, pero un numero es
+ * mas fuerte que un trazo, y era el numero el que mentia.
+ */
+export function etiquetaVecindario(model: GraphModel | null): string {
+  const reales = model?.edges.filter((e) => e.layer !== 'semantic').length ?? 0
+  const sugeridos = model?.edges.filter((e) => e.layer === 'semantic').length ?? 0
+  if (reales && sugeridos) return `${reales} + ${sugeridos} sugeridos`
+  if (reales) return String(reales)
+  if (sugeridos) return `${sugeridos} sugerido${sugeridos === 1 ? '' : 's'}`
+  return '0'
+}
+
 /** Filtros de partida: las tres capas encendidas y los aislados fuera. */
 export const filtrosPorDefecto = (): GraphFilters => ({
   layers: { relation: true, wikilink: true, semantic: false },

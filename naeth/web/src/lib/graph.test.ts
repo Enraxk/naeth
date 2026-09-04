@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildGraph, filtrosPorDefecto, proyectoDe, vecindario,
+  buildGraph, etiquetaVecindario, filtrosPorDefecto, proyectoDe, vecindario,
   type GraphFilters, type GraphModel,
 } from './graph'
 import type { GraphResponse, TreeRow } from './types'
@@ -234,5 +234,35 @@ describe('proyectoDe', () => {
 
   it('una nota sin path no se queda sin grupo', () => {
     expect(proyectoDe(null)).toBe('(sin path)')
+  })
+})
+
+describe('etiquetaVecindario · el contador que no puede mentir', () => {
+  const conCapas = (layers: ('relation' | 'wikilink' | 'semantic')[]): GraphModel => ({
+    nodes: [],
+    edges: layers.map((layer, i) => ({ source: 'a', target: `v${i}`, layer })),
+    aislados: 0,
+    componentes: 1,
+  })
+
+  it('una nota SOLA con vecinos semanticos dice que son sugeridos', () => {
+    // El caso que motivo la funcion: sin esto la cabecera decia "6" y la nota parecia conectada.
+    expect(etiquetaVecindario(conCapas(['semantic', 'semantic']))).toBe('2 sugeridos')
+  })
+
+  it('un solo sugerido va en singular', () => {
+    expect(etiquetaVecindario(conCapas(['semantic']))).toBe('1 sugerido')
+  })
+
+  it('con vinculos reales, el numero es el de los reales', () => {
+    expect(etiquetaVecindario(conCapas(['relation', 'wikilink']))).toBe('2')
+  })
+
+  it('con las dos cosas, se dicen las dos por separado', () => {
+    expect(etiquetaVecindario(conCapas(['relation', 'wikilink', 'semantic']))).toBe('2 + 1 sugeridos')
+  })
+
+  it('sin modelo no revienta', () => {
+    expect(etiquetaVecindario(null)).toBe('0')
   })
 })
