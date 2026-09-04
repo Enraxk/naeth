@@ -383,6 +383,17 @@
   /* Las aristas nunca reciben puntero: son mil lineas finas que se cruzan y solo estorbarian al
      apuntar a un nodo. */
   .aristas, .foco line { pointer-events: none; }
+
+  /* LO QUE MIRAS RECUPERA SU COLOR. La paleta esta desaturada a proposito para que 26 proyectos
+     a la vez no griten, pero eso deja el grafo entero en tono menor. Al pasar el raton, el
+     vecindario vuelve a saturarse: lo apagado se enciende donde miras, y el resto sigue de
+     fondo. Cuesta una propiedad sobre las pocas decenas de elementos de esta capa, no sobre los
+     mil de las de abajo.
+
+     El fundido SE QUEDA con `prefers-reduced-motion`, siguiendo la politica de app.css: lo que
+     esa preferencia retira es el DESPLAZAMIENTO, no un cambio de color, y sin el la saturacion
+     aparece de golpe y da un respingo. */
+  .foco { filter: saturate(2.1); transition: filter var(--t-fast); }
   /* `non-scaling-stroke` para que el realce del hover no engorde al alejarse. */
   .nd:hover { stroke: var(--ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 </style>
