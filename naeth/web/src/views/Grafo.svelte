@@ -160,7 +160,7 @@
         <h3>{nodoSel.title ?? '(sin título)'}</h3>
         <div class="p-meta">{nodoSel.path ?? ''} · {nodoSel.degree} vínculos</div>
         <button class="p-abrir" onclick={() => navigate('memoria', nodoSel.id)}>Abrir la memoria</button>
-        <div class="p-tip">o doble clic en el nodo</div>
+        <div class="p-tip">o un clic sobre el nodo</div>
       </aside>
     {/if}
   </div>

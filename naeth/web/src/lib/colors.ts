@@ -5,10 +5,10 @@ type Pair = [string, string]
 type Meta = { icon: string; c: Pair }
 
 export const TYPE: Record<string, Meta> = {
-  fact: { icon: 'file-text', c: ['#38d3c9', '#0d9488'] },
-  observation: { icon: 'eye', c: ['#e0b84b', '#b45309'] },
-  decision: { icon: 'git-commit-horizontal', c: ['#b58cff', '#7c3aed'] },
-  preference: { icon: 'heart', c: ['#f48fb1', '#db2777'] },
+  fact: { icon: 'file-text', c: ['#55aea8', '#2c7871'] },
+  observation: { icon: 'eye', c: ['#bca566', '#905a30'] },
+  decision: { icon: 'git-commit-horizontal', c: ['#b69de2', '#7e58c1'] },
+  preference: { icon: 'heart', c: ['#da9db2', '#b4537e'] },
   // Aqui vivian `learning` y `error`, retirados el 28/08/2026 al cerrar el vocabulario en los
   // cuatro de la convencion: se ofrecian en el editor y tenian CERO uso en 462 memorias. Es el
   // mismo caso que `ORIGIN_ICON`, retirado el 22/08 por ofrecer un mapa que nadie acertaba.
@@ -17,23 +17,23 @@ export const TYPE: Record<string, Meta> = {
 }
 
 export const PROJECT: Record<string, Meta> = {
-  naeth: { icon: 'database', c: ['#38d3c9', '#0d9488'] },
+  naeth: { icon: 'database', c: ['#55aea8', '#2c7871'] },
   // El verde claro #16a34a se quedaba en 2.86:1 sobre la sidebar, bajo el 3:1 que piden los
   // elementos graficos. #15803d (el mismo que --ok en claro) sube a 4.3 sin cambiar de familia.
   // (Esta nota vivia en TYPE.learning, que se retiro el 28/08/2026.)
-  gridwatch: { icon: 'zap', c: ['#5ad17e', '#15803d'] },
-  infra: { icon: 'server', c: ['#e0a64b', '#b45309'] },
-  personal: { icon: 'users', c: ['#f48fb1', '#db2777'] },
-  yogin: { icon: 'sparkles', c: ['#b58cff', '#7c3aed'] },
-  ark: { icon: 'gamepad-2', c: ['#ff9d5c', '#ea580c'] },
-  fplibre: { icon: 'graduation-cap', c: ['#b6d35a', '#4d7c0f'] },
-  yosoysanas: { icon: 'music', c: ['#ff7a8a', '#dc2626'] },
-  gtfu: { icon: 'activity', c: ['#e879f9', '#a21caf'] },
-  whisper: { icon: 'mic', c: ['#9aa5ff', '#4f46e5'] },
-  mandatum: { icon: 'book-open', c: ['#c084fc', '#9333ea'] },
-  ucraftengine: { icon: 'box', c: ['#ff8f6b', '#c2410c'] },
-  formacion: { icon: 'presentation', c: ['#9bd45a', '#4d7c0f'] },
-  skills: { icon: 'puzzle', c: ['#e0cf4b', '#a16207'] },
+  gridwatch: { icon: 'zap', c: ['#6fb384', '#2e6a44'] },
+  infra: { icon: 'server', c: ['#bc9a66', '#905a30'] },
+  personal: { icon: 'users', c: ['#da9db2', '#b4537e'] },
+  yogin: { icon: 'sparkles', c: ['#b69de2', '#7e58c1'] },
+  ark: { icon: 'gamepad-2', c: ['#d89f79', '#bc6a3f'] },
+  fplibre: { icon: 'graduation-cap', c: ['#a4b56f', '#4b6528'] },
+  yosoysanas: { icon: 'music', c: ['#df8f99', '#b55353'] },
+  gtfu: { icon: 'activity', c: ['#cf8dd9', '#893e91'] },
+  whisper: { icon: 'mic', c: ['#a7aee6', '#625dbc'] },
+  mandatum: { icon: 'book-open', c: ['#ba96de', '#8f59c0'] },
+  ucraftengine: { icon: 'box', c: ['#db9984', '#9c5436'] },
+  formacion: { icon: 'presentation', c: ['#95b56f', '#4b6528'] },
+  skills: { icon: 'puzzle', c: ['#bcb266', '#815e2a'] },
 
   // --- Añadidos el 04/09/2026, al construir el grafo ---
   //
@@ -47,20 +47,20 @@ export const PROJECT: Record<string, Meta> = {
   // GRANDES se separen bien entre si, y acepta parecidos entre los de una o dos memorias, cuya
   // masa en pantalla es despreciable. Si algun dia hay que distinguir de verdad entre dos
   // proyectos pequeños, la respuesta no es un color mas: es filtrar.
-  inkerlum: { icon: 'book-open', c: ['#7aa2f7', '#1d4ed8'] },
-  eneko: { icon: 'house', c: ['#d4a373', '#92400e'] },
-  cenit: { icon: 'refresh', c: ['#ff8a65', '#c2410c'] },
-  'job-search': { icon: 'search', c: ['#8de0c0', '#047857'] },
-  'research-harness': { icon: 'square-code', c: ['#b3a1e6', '#5b21b6'] },
-  'caja-pc': { icon: 'hash', c: ['#c0c5ce', '#52525b'] },
-  enraxk: { icon: 'smile', c: ['#e6c07b', '#854d0e'] },
-  fiscal: { icon: 'list-ordered', c: ['#a8b545', '#4d7c0f'] },
-  prompting: { icon: 'lightbulb', c: ['#6ec7d4', '#0e7490'] },
-  'email-triage': { icon: 'list', c: ['#8fa8e8', '#3730a3'] },
-  'escritura-a-mano': { icon: 'italic', c: ['#e8a0bf', '#9d174d'] },
-  krepis: { icon: 'table', c: ['#9dbf9e', '#3f6212'] },
-  portfolio: { icon: 'check', c: ['#b8b8b8', '#57534e'] },
-  'tech-reborn': { icon: 'gamepad-2', c: ['#a3d977', '#3f6212'] },
+  inkerlum: { icon: 'book-open', c: ['#8ea6d8', '#4864b1'] },
+  eneko: { icon: 'house', c: ['#bb9e82', '#77492d'] },
+  cenit: { icon: 'refresh', c: ['#da957f', '#9c5436'] },
+  'job-search': { icon: 'search', c: ['#98cab7', '#1f604d'] },
+  'research-harness': { icon: 'square-code', c: ['#b4a9d2', '#644497'] },
+  'caja-pc': { icon: 'hash', c: ['#bdc0c5', '#56565b'] },
+  enraxk: { icon: 'smile', c: ['#cbb48c', '#6c4d2a'] },
+  fiscal: { icon: 'list-ordered', c: ['#90975b', '#4b6528'] },
+  prompting: { icon: 'lightbulb', c: ['#7fb2ba', '#2c6575'] },
+  'email-triage': { icon: 'list', c: ['#9baad0', '#4f4b8c'] },
+  'escritura-a-mano': { icon: 'italic', c: ['#d4a8bb', '#813655'] },
+  krepis: { icon: 'table', c: ['#9fb39f', '#3e5225'] },
+  portfolio: { icon: 'check', c: ['#b2b2b2', '#575452'] },
+  'tech-reborn': { icon: 'gamepad-2', c: ['#a0bf86', '#3e5225'] },
   // `ark` y `mandatum` de arriba ya no tienen ninguna memoria en el corpus. Se dejan: no estorban,
   // y retirarlos es una decision sobre proyectos, no sobre colores.
 }
@@ -73,7 +73,7 @@ export const PROJECT: Record<string, Meta> = {
 // Retirarlo no cambia nada de lo que se ve. Se prefiere eso a inflar el mapa a 46 entradas, que
 // seria inventar una taxonomia visual que nadie ha pedido y que envejeceria igual de mal.
 
-const FALLBACK: Meta = { icon: 'folder', c: ['#8a929e', '#6b7280'] }
+const FALLBACK: Meta = { icon: 'folder', c: ['#8a8e95', '#72767e'] }
 
 export const typeMeta = (t: string): Meta => TYPE[t] ?? TYPE.fact
 export const projMeta = (p: string): Meta => PROJECT[p] ?? FALLBACK

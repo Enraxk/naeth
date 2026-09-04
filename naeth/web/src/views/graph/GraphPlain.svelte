@@ -98,6 +98,16 @@
    */
   const upx = $derived(anchoPx > 0 ? ancho / anchoPx : 1)
 
+  /**
+   * Cuanto crece un nodo al acercarse.
+   *
+   * Un tamaño constante en pantalla arregla que no se vea nada de lejos, pero deja una sensacion
+   * rara: por mucho que te acerques a una nota, sigue igual de pequeña. Acercarse tiene que
+   * servir para algo. Con esto el nodo crece con el zoom, con techo para que a fondo no tape a
+   * sus vecinos.
+   */
+  const crecimiento = $derived(Math.min(1 + (vb.k - 1) * 0.35, 3.2))
+
   function rueda(ev: WheelEvent) {
     ev.preventDefault()
     const r = host?.getBoundingClientRect()
@@ -194,16 +204,19 @@
     (ev.target as Element | null)?.closest?.('[data-id]')?.getAttribute('data-id') ?? null
 
   function sobre(ev: PointerEvent) {
-    encima = idDe(ev)
+    const id = idDe(ev)
+    if (id === encima) return
+    encima = id
+    if (id) onSelect?.(id)
   }
   function fuera(ev: PointerEvent) {
     if (!(ev.relatedTarget as Element | null)?.closest?.('[data-id]')) encima = null
   }
+  // UN CLIC ABRE LA NOTA, como en el grafo de Obsidian. Antes seleccionaba y habia que buscar un
+  // boton en el panel: nadie que venga de alli va a hacer eso, va a pulsar el punto y esperar que
+  // pase algo. El panel se alimenta ahora de por donde pasa el raton, asi que la informacion se
+  // ve sin comprometerse a nada.
   function clic(ev: MouseEvent) {
-    const id = idDe(ev)
-    if (id) onSelect?.(id)
-  }
-  function dobleClic(ev: MouseEvent) {
     const id = idDe(ev)
     if (id) onOpen?.(id)
   }
@@ -277,7 +290,6 @@
   onpointerover={sobre}
   onpointerout={fuera}
   onclick={clic}
-  ondblclick={dobleClic}
 >
   <svg
     bind:this={host}
@@ -307,7 +319,7 @@
       {#each model.nodes as n (n.id)}
         {@const p = colocacion.pos.get(n.id)}
         {#if p}
-          <path class="nd" data-id={n.id} d={forma(n, p.x, p.y, radio(n) * upx)}
+          <path class="nd" data-id={n.id} d={forma(n, p.x, p.y, radio(n) * upx * crecimiento)}
                 fill={projColor(n.project)} />
         {/if}
       {/each}
@@ -330,7 +342,7 @@
         {#each nodosFoco as n (n.id)}
           {@const p = colocacion.pos.get(n.id)}
           {#if p}
-            <path class="nd" data-id={n.id} d={forma(n, p.x, p.y, radio(n) * upx)}
+            <path class="nd" data-id={n.id} d={forma(n, p.x, p.y, radio(n) * upx * crecimiento)}
                   fill={projColor(n.project)} />
           {/if}
         {/each}
@@ -340,7 +352,7 @@
     <g class="etiquetas">
       {#each etiquetables as e (e.n.id)}
         <text
-          x={e.x} y={e.y + (radio(e.n) + 11) * upx}
+          x={e.x} y={e.y + (radio(e.n) * crecimiento + 11) * upx}
           font-size={11 * upx}
           text-anchor="middle"
           fill="var(--ink)"
