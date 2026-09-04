@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '../components/Icon.svelte'
   import Milkdown, { type EditorApi, type WikiState } from '../components/Milkdown.svelte'
+  import MarkdownView from '../components/MarkdownView.svelte'
   import PathField from '../components/PathField.svelte'
   import DigestField from '../components/DigestField.svelte'
   import { getMemory, supersede, getRelations, addRelation } from '../lib/api'
@@ -208,6 +209,14 @@
    */
   let baseMd = $state('')
   let baseReady = $state(false)
+
+  // Al salir de edicion el editor se destruye, pero `mdRef` seguiria apuntando a su API: viva
+  // pero con el `crepe` ya a null, o sea devolviendo el `value` de entonces. Nada la llama hoy
+  // fuera de edicion, y justo por eso conviene que no exista en vez de confiar en que siga siendo
+  // asi manana.
+  $effect(() => {
+    if (!editing) mdRef = null
+  })
 
   /** Se llama cuando el editor ya está montado. Una sola vez por sesión de edición. */
   function captureBase() {
@@ -448,13 +457,21 @@
     {/if}
     {#key `${m.id}-${editing}-${mdKey}-${treeReady}`}
       <div class="d-body">
-        <Milkdown
-          value={displayValue}
-          readonly={!editing}
-          getRef={(r) => { mdRef = r; captureBase() }}
-          onWiki={onWikiState}
-          {onWikiKey}
-        />
+        <!-- LEER NO MONTA EL EDITOR. Hasta el 04/09/2026 esto era un `<Milkdown readonly>`, asi
+             que abrir una nota para leerla descargaba Crepe entero: 2,13 MB de JS y 79 kB de CSS
+             (664 kB de su chunk mas 1.467 kB de ProseMirror, CodeMirror con sus modos y KaTeX con
+             sus fuentes). Ahora Crepe solo entra al pulsar Editar, que es cuando hace falta. -->
+        {#if editing}
+          <Milkdown
+            value={displayValue}
+            readonly={false}
+            getRef={(r) => { mdRef = r; captureBase() }}
+            onWiki={onWikiState}
+            {onWikiKey}
+          />
+        {:else}
+          <MarkdownView value={displayValue} />
+        {/if}
       </div>
     {/key}
 
