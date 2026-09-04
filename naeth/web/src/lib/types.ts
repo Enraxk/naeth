@@ -129,3 +129,32 @@ export interface Health {
   oauth_provider?: string | null
   oauth_base_url?: string | null
 }
+
+// --- Grafo (Paso 5.4) ---
+
+/** Una arista tal y como la devuelve `/api/graph`, con los extremos ya resueltos a lo vigente. */
+export interface GraphEdgeRow {
+  source_id: string
+  target_id: string
+  predicate: string
+  /** Cuántas filas de `relation` colapsaron sobre esta arista al resolver la cadena. */
+  n: number
+}
+
+/**
+ * `/api/graph`. `nodes` es un CONTEO y no la lista: el árbol ya viaja en `data.tree` y repetirlo
+ * aquí crearía dos fuentes de verdad para el título de un nodo. Sirve para detectar desfase.
+ * `links` son los destinos de los `[[wikilinks]]` EN BRUTO, sin resolver: la resolución vive en
+ * `wikilinks.ts`, que es donde tiene sus tests.
+ */
+export interface GraphResponse {
+  nodes: number
+  edges: GraphEdgeRow[]
+  links: Record<string, string[]>
+}
+
+/** Un vecino semántico de `/api/graph/knn`. Ver el aviso sobre `sim` en `core.graph_knn`. */
+export interface KnnNeighbor {
+  id: string
+  sim: number
+}

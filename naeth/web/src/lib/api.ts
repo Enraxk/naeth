@@ -1,5 +1,6 @@
 import type {
   Status, TreeRow, MemoryDetail, MemoryRow, Relation, AuthorCount, Health,
+  GraphResponse, KnnNeighbor,
 } from './types'
 
 // fetch sin caché (visor en vivo) + JSON tipado.
@@ -59,6 +60,13 @@ export const supersede = (id: string, body: SupersedeBody) =>
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   }).then((r) => r.json() as Promise<{ memory: MemoryRow; created: boolean }>)
+
+// --- Grafo (Paso 5.4) ---
+// Dos llamadas y no una: el kNN del corpus entero tarda 2,7 s medidos, así que va por nodo y bajo
+// demanda. `k` lo topa el backend en 20.
+export const getGraph = () => j<GraphResponse>('/api/graph')
+export const getKnn = (id: string, k = 8) =>
+  j<{ id: string; neighbors: KnnNeighbor[] }>(`/api/graph/knn?id=${encodeURIComponent(id)}&k=${k}`)
 
 // --- Relaciones del grafo (editor [[ ]] + Fase 0) ---
 export const getRelations = (id: string) => j<Relation[]>('/api/memory/' + id + '/relations')
