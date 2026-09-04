@@ -125,10 +125,22 @@
     }
   }
 
+  /**
+   * ⚠ EL NODO SE ANOTA AL PULSAR, no se busca al soltar, y esto es un arreglo con historia.
+   *
+   * `setPointerCapture` redirige TODO lo que venga despues al elemento que captura, asi que el
+   * `click` posterior llega con `target` = el contenedor y no el nodo. Resultado: pulsar un nodo
+   * no abria nada. Y no se cazo verificando porque la comprobacion disparaba el evento
+   * directamente sobre el path, que es justo saltarse la parte que fallaba: pasaba la prueba y
+   * no funcionaba el raton.
+   */
+  let pulsado: string | null = null
+
   function abajo(ev: PointerEvent) {
     if (ev.button !== 0) return
+    pulsado = idDe(ev)
     arrastre = { x: ev.clientX, y: ev.clientY, vx: vb.x, vy: vb.y }
-    ;(ev.currentTarget as SVGSVGElement).setPointerCapture(ev.pointerId)
+    ;(ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId)
   }
 
   function mueve(ev: PointerEvent) {
@@ -146,7 +158,11 @@
     // `clic`: si no se distinguiera, seleccionar un nodo lo deseleccionaria acto seguido.
     const corto2 =
       arrastre && Math.abs(ev.clientX - arrastre.x) < 4 && Math.abs(ev.clientY - arrastre.y) < 4
-    if (corto2 && !idDe(ev)) onSelect?.(null)
+    if (corto2) {
+      if (pulsado) onOpen?.(pulsado)
+      else onSelect?.(null)
+    }
+    pulsado = null
     arrastre = null
   }
 
@@ -216,10 +232,6 @@
   // boton en el panel: nadie que venga de alli va a hacer eso, va a pulsar el punto y esperar que
   // pase algo. El panel se alimenta ahora de por donde pasa el raton, asi que la informacion se
   // ve sin comprometerse a nada.
-  function clic(ev: MouseEvent) {
-    const id = idDe(ev)
-    if (id) onOpen?.(id)
-  }
 
   /** Las aristas y nodos del vecindario resaltado, que son los que se repintan encima. */
   const aristasFoco = $derived(
@@ -289,7 +301,6 @@
   onpointercancel={() => (arrastre = null)}
   onpointerover={sobre}
   onpointerout={fuera}
-  onclick={clic}
 >
   <svg
     bind:this={host}
@@ -319,7 +330,8 @@
       {#each model.nodes as n (n.id)}
         {@const p = colocacion.pos.get(n.id)}
         {#if p}
-          <path class="nd" data-id={n.id} d={forma(n, p.x, p.y, radio(n) * upx * crecimiento)}
+          <path class="nd" class:centro={n.id === (encima ?? seleccion)}
+                data-id={n.id} d={forma(n, p.x, p.y, radio(n) * upx * crecimiento)}
                 fill={projColor(n.project)} />
         {/if}
       {/each}
@@ -364,11 +376,6 @@
       {/each}
     </g>
 
-    {#if seleccion && colocacion.pos.get(seleccion)}
-      {@const p = colocacion.pos.get(seleccion)!}
-      <circle cx={p.x} cy={p.y} r={(radio(nodo.get(seleccion)!) + 5) * upx}
-              fill="none" stroke="var(--accent)" stroke-width={2 * upx} />
-    {/if}
   </svg>
 </div>
 
@@ -395,5 +402,5 @@
      aparece de golpe y da un respingo. */
   .foco { filter: saturate(2.1); transition: filter var(--t-fast); }
   /* `non-scaling-stroke` para que el realce del hover no engorde al alejarse. */
-  .nd:hover { stroke: var(--ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  .nd:hover, .nd.centro { stroke: var(--accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 </style>
