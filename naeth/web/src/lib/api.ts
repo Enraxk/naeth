@@ -1,10 +1,16 @@
-import type { Status, TreeRow, MemoryDetail, MemoryRow, Relation } from './types'
+import type {
+  Status, TreeRow, MemoryDetail, MemoryRow, Relation, AuthorCount, Health,
+} from './types'
 
 // fetch sin caché (visor en vivo) + JSON tipado.
 const j = async <T>(url: string): Promise<T> =>
   (await fetch(url, { cache: 'no-store' })).json()
 
 export const getStatus = () => j<Status>('/api/status')
+// Las dos existen en el backend desde hace tiempo y no las llamaba nadie: `authors` desde el
+// Paso 10 y `healthz` desde el Paso 7. Las estrena la vista Ajustes.
+export const getAuthors = () => j<AuthorCount[]>('/api/authors')
+export const getHealth = () => j<Health>('/healthz')
 export const getTree = () => j<TreeRow[]>('/api/tree')
 export const getMemory = (id: string) => j<MemoryDetail>('/api/memory/' + id)
 export const search = (q: string, semantic = true) =>

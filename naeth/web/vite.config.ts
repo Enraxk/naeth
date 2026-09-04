@@ -20,8 +20,14 @@ export default defineConfig({
     __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
   },
   server: {
+    // `/healthz` cuelga de la RAIZ, no de `/api` (mcp_server.py lo declara asi para que el
+    // discovery de OAuth quede donde claude.ai lo busca). Sin esta segunda entrada, en dev el
+    // propio Vite responde 200 con el index.html y el `.json()` de la vista revienta con un
+    // error de sintaxis que no dice nada. En produccion no pasa: alli el visor y la API salen
+    // del mismo proceso. Anadido el 04/09/2026 al estrenarlo desde la vista Ajustes.
     proxy: {
       '/api': 'http://127.0.0.1:8800',
+      '/healthz': 'http://127.0.0.1:8800',
     },
   },
   // Solo `.test.ts`: lo que se prueba aqui es LOGICA PURA (resolucion de wikilinks, agrupado del
