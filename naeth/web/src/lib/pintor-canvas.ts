@@ -216,18 +216,23 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           : []
 
       if (conNombre.length) {
-        ctx.font = '11px ui-sans-serif, system-ui, sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.lineJoin = 'round'
-        ctx.lineWidth = 3
         ctx.strokeStyle = tk.bg
         for (const nd of conNombre) {
           const p = P(nd)
           const r = radioEnPantalla(radioNodo(nd.n), v.k)
-          // El texto se aparta un poco mas del nodo enfocado, que es el `moveText` de Obsidian:
-          // deja respirar al anillo y da una senal de que ese es el que estas mirando.
-          const sep = nd.id === est.foco ? r + 8 : r + 4
+          // EL NOMBRE DEL SENALADO SE ESCRIBE MAS GRANDE que el de sus vecinos. Con todos al
+          // mismo cuerpo, en un vecindario de cinco no hay forma de saber cual era el que
+          // apuntabas: el anillo lo dice, pero el ojo va antes al texto. Y el texto se aparta un
+          // poco mas del nodo, que es el `moveText` de Obsidian: deja respirar al anillo.
+          const esFoco = nd.id === est.foco
+          ctx.font = esFoco
+            ? '600 14px ui-sans-serif, system-ui, sans-serif'
+            : '11px ui-sans-serif, system-ui, sans-serif'
+          ctx.lineWidth = esFoco ? 4 : 3
+          const sep = esFoco ? r + 9 : r + 4
           const t = corto(nd.n.title)
           ctx.globalAlpha = hayFoco ? 1 : op
           ctx.strokeText(t, p.x, p.y + sep)

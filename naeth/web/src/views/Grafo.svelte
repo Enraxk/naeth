@@ -6,6 +6,8 @@
   import { data } from '../lib/data.svelte'
   import { navigate, route } from '../lib/router.svelte'
   import { resalte, resaltar } from '../lib/ui.svelte'
+  import { collapsed } from '../lib/prefs.svelte'
+  import { carpetaQueEsconde } from '../lib/tree'
   import { typeMeta, typeColor } from '../lib/colors'
   import { buildGraph, filtrosPorDefecto, proyectoDe, type EdgeLayer } from '../lib/graph'
     import type { GraphResponse, KnnNeighbor } from '../lib/types'
@@ -32,8 +34,22 @@
   // El exento entra en los filtros para que una nota senalada en el arbol no pueda quedar
   // escondida por "ocultar sueltas". Pedir ver algo y que el grafo se quede callado porque un
   // filtro lo tapaba es la peor respuesta, y ademas no hay forma de adivinar la causa.
+  /**
+   * Lo que el arbol esconde: toda memoria cuya carpeta esta colapsada.
+   *
+   * Cerrar una carpeta la retira del grafo. Reutiliza `carpetaQueEsconde`, la misma funcion pura
+   * que usa la sidebar para saber que fila encender, asi que las dos vistas no pueden discrepar
+   * sobre que esta escondido, que es como nacen los bugs que nadie reproduce.
+   */
+  const ocultos = $derived.by(() => {
+    if (!collapsed.size) return null
+    const s = new Set<string>()
+    for (const r of data.tree ?? []) if (carpetaQueEsconde(r.path, collapsed)) s.add(r.id)
+    return s.size ? s : null
+  })
+
   const model = $derived(
-    buildGraph(data.tree ?? [], grafo, knn, { ...filtros, exento: resalte.id }),
+    buildGraph(data.tree ?? [], grafo, knn, { ...filtros, exento: resalte.id, ocultos }),
   )
 
   // Lo que cuenta la franja de abajo: lo resaltado si hay algo, y si no lo seleccionado.
@@ -180,7 +196,8 @@
       <span class="f-cuentas">
         <b>{model.nodes.length}</b> memorias · <b>{model.edges.length}</b> vínculos ·
         <b>{model.componentes}</b> grupos{#if filtros.ocultarAislados && model.aislados}
-          · {model.aislados} sueltas fuera{/if}
+          · {model.aislados} sueltas fuera{/if}{#if model.ocultas}
+          · <b>{model.ocultas}</b> en carpetas cerradas{/if}
       </span>
     {/if}
   </div>

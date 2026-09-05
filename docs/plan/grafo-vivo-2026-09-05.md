@@ -234,6 +234,35 @@ la fase de ajustes los convertiría en deuda con nombre.
 
 D5, el buscador, no entra aquí: es una pieza que falta, no un defecto, y va con su propia fase.
 
+### Corrección de rumbo del 05/09/2026, 14:29: colapsar SÍ oculta
+
+Al probarlo, Eneko volvió sobre la decisión de "encender en vez de recortar" y pidió lo contrario
+para el caso del colapso: **cerrar una carpeta la retira del grafo**. Se hace, y la objeción que
+puse la primera vez pesa menos aquí de lo que dije: el escenario que yo temía era encontrarse el
+grafo vacío por unos colapsos heredados, y esto es un gesto explícito y reversible sobre un árbol
+que nace abierto.
+
+El coste sigue existiendo y por eso se mide en vez de esconderlo: al ocultar una carpeta
+desaparecen también **las aristas que salían de ella hacia otros proyectos**, que son el 24% del
+corpus. `GraphModel` devuelve `ocultas` y la franja lo dice. Medido al cerrar `cenit`: de 455
+memorias y 650 vínculos a 399 y 567, con `58 en carpetas cerradas` escrito en la franja.
+
+El hover sigue encendiendo: son dos gestos distintos. Señalar una carpeta la ilumina con sus
+vecinos; cerrarla la retira.
+
+### El resalte se queda pegado (05/09/2026)
+
+Con el grafo vivo, el nodo que señalas se mueve, y con un hover normal se sale de debajo del cursor
+y el resalte se apaga solo. El ciclo que salía era: señalas, el nodo se va, se apaga, vuelves a
+señalar. Ahora el resalte solo cambia cuando el ratón encuentra **otro** nodo, y se suelta con
+Escape, con un clic en el fondo o señalando en el árbol.
+
+Se aprovechó para quitar la duplicación que lo hacía frágil: el lienzo tenía un `encima` propio
+además del `resalte` compartido, o sea dos fuentes para el mismo dato. Ahora la única es `resalte`.
+
+Y el nombre del nodo señalado se escribe más grande que el de sus vecinos: con todos al mismo
+cuerpo, en un vecindario de cinco no hay forma de saber cuál era el que apuntabas.
+
 ## Fase 3. El mini grafo de la ficha
 
 Hoy es radial, determinista y funciona (`components/MiniGraph.svelte`). Pasa a usar el motor nuevo

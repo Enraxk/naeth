@@ -28,6 +28,7 @@ const modelo = (nodes: GraphNode[], edges: GraphEdge[] = []): GraphModel => ({
   nodes,
   edges,
   aislados: 0,
+  ocultas: 0,
   componentes: new Set(nodes.map((n) => n.component)).size,
 })
 

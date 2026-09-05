@@ -51,7 +51,6 @@
   let anclaZoom: { wx: number; wy: number; sx: number; sy: number } | null = null
   let panv = { x: 0, y: 0 }
   let atenuacion = 0
-  let encima: string | null = null
   let arrastrando: string | null = null
   /** Encuadra solo mientras se asienta y nadie ha tocado nada. */
   let autoEncuadre = true
@@ -115,7 +114,7 @@
       vivo = true
     }
 
-    const objAten = foco || encima || seleccion || grupo?.length ? 1 : 0
+    const objAten = foco || seleccion || grupo?.length ? 1 : 0
     if (Math.abs(atenuacion - objAten) > 0.004) {
       atenuacion = reduce ? objAten : atenuacion + (objAten - atenuacion) * 0.18
       vivo = true
@@ -166,7 +165,7 @@
 
     amarrar()
 
-    const id = encima ?? foco ?? seleccion
+    const id = foco ?? seleccion
     pintor.dibujar(sim, vista, {
       foco: id,
       encendidos: encendidos(id),
@@ -386,10 +385,15 @@
       return
     }
 
+    // ⚠ EL RESALTE SE QUEDA PEGADO, y no es un descuido: es lo unico que lo hace usable.
+    //
+    // El grafo esta VIVO, asi que el nodo que senalas se mueve, y con un hover normal se sale de
+    // debajo del cursor y el resalte se apaga solo. El ciclo que salia era: senalas, el nodo se
+    // va, se apaga, vuelves a senalar. Aqui el resalte solo cambia cuando el raton encuentra OTRO
+    // nodo, y se suelta con Escape, con un clic en el fondo o senalando en el arbol.
     const nd = nodoEn(p.x, p.y)
-    if ((nd?.id ?? null) !== encima) {
-      encima = nd?.id ?? null
-      onSelect?.(encima)
+    if (nd && nd.id !== foco) {
+      onSelect?.(nd.id)
       despertar()
     }
   }
@@ -420,15 +424,6 @@
     despertar()
   }
 
-  function fuera() {
-    if (pulsa || arrastrando) return
-    if (encima !== null) {
-      encima = null
-      onSelect?.(null)
-      despertar()
-    }
-  }
-
   function rueda(ev: WheelEvent) {
     ev.preventDefault()
     if (!caja) return
@@ -453,7 +448,6 @@
   function tecla(ev: KeyboardEvent) {
     if (!sim) return
     if (ev.key === 'Escape') {
-      encima = null
       onSelect?.(null)
       return despertar()
     }
@@ -467,9 +461,9 @@
       autoEncuadre = false
       return despertar()
     }
-    if (ev.key === 'Enter' && (encima ?? seleccion)) {
+    if (ev.key === 'Enter' && (foco ?? seleccion)) {
       ev.preventDefault()
-      return onOpen?.((encima ?? seleccion)!)
+      return onOpen?.((foco ?? seleccion)!)
     }
 
     const dir: Record<string, [number, number]> = {
@@ -480,7 +474,7 @@
     ev.preventDefault()
     autoEncuadre = false
 
-    const actual = encima ?? seleccion
+    const actual = foco ?? seleccion
     if (!actual) {
       vista.cx += (d[0] * vista.w * 0.15) / vista.k
       vista.cy += (d[1] * vista.h * 0.15) / vista.k
@@ -506,7 +500,6 @@
       }
     }
     if (mejor && puntos > 0) {
-      encima = mejor
       onSelect?.(mejor)
       const nd = sim.nodos.find((n) => n.id === mejor)
       if (nd) {
@@ -592,7 +585,6 @@
   onpointermove={mueve}
   onpointerup={arriba}
   onpointercancel={arriba}
-  onpointerleave={fuera}
 ></div>
 
 <style>

@@ -50,6 +50,17 @@ export interface GraphFilters {
   ocultarAislados: boolean
   /** Una memoria que se ve pase lo que pase, aunque los filtros la escondan. */
   exento?: string | null
+  /**
+   * Memorias que el arbol esconde porque su carpeta esta colapsada.
+   *
+   * ⚠ ESTO ES EL ARBOL GOBERNANDO EL GRAFO, decidido el 05/09/2026. Cerrar una carpeta la retira
+   * del grafo, y es deliberado en los dos sentidos: lo decide un gesto explicito del usuario, y no
+   * pasa nada por defecto (el arbol nace abierto). El coste hay que saberlo: al ocultar una
+   * carpeta desaparecen tambien las aristas que salian de ella hacia otros proyectos, que son el
+   * 24% del corpus y lo unico que el grafo cuenta y el arbol no. Por eso el modelo devuelve
+   * `ocultas` y la franja lo dice: esconder tiene que verse.
+   */
+  ocultos?: ReadonlySet<string> | null
 }
 
 export interface GraphModel {
@@ -57,6 +68,8 @@ export interface GraphModel {
   edges: GraphEdge[]
   /** Cuantos nodos ha escondido `ocultarAislados`. Se enseña, porque cambia al encender capas. */
   aislados: number
+  /** Cuantos ha escondido el arbol al colapsar carpetas. Se enseña por el mismo motivo. */
+  ocultas: number
   /** Cuantas componentes conexas hay entre lo que queda visible. */
   componentes: number
 }
@@ -206,6 +219,15 @@ export function buildGraph(
   // 3) Filtros de nodo, que se aplican sobre las aristas porque una arista con un extremo
   //    filtrado deja de tener sentido.
   const proyectoDeId = (id: string) => proyectoDe(porId.get(id)?.path)
+  // Lo que el arbol esconde se lleva por delante sus aristas, y esto NO es opcional: sin ello el
+  // grado seguiria contando vecinos que ya no se ven, y `ocultarAislados` dejaria en pie nodos
+  // que en pantalla no tocan nada. Lo cazo un test antes que ningun ojo.
+  if (filters.ocultos) {
+    const o = filters.ocultos
+    const ex = filters.exento ?? null
+    const fuera = (id: string) => o.has(id) && id !== ex
+    edges = edges.filter((e) => !fuera(e.source) && !fuera(e.target))
+  }
   if (filters.projects) {
     const p = filters.projects
     edges = edges.filter((e) => p.has(proyectoDeId(e.source)) && p.has(proyectoDeId(e.target)))
@@ -229,9 +251,14 @@ export function buildGraph(
   // nota y que el grafo se quede callado porque un filtro la tapaba es la peor respuesta posible,
   // y ademas invisible (no hay forma de saber que el filtro fue la causa).
   const exento = filters.exento ?? null
-  const visibles = filters.projects
-    ? tree.filter((r) => r.id === exento || filters.projects!.has(proyectoDe(r.path)))
+  const ocultos = filters.ocultos ?? null
+  const conCarpeta = ocultos
+    ? tree.filter((r) => r.id === exento || !ocultos.has(r.id))
     : tree
+  const ocultas = tree.length - conCarpeta.length
+  const visibles = filters.projects
+    ? conCarpeta.filter((r) => r.id === exento || filters.projects!.has(proyectoDe(r.path)))
+    : conCarpeta
   const candidatos = filters.ocultarAislados
     ? visibles.filter((r) => adj.has(r.id) || r.id === exento)
     : visibles
@@ -252,6 +279,7 @@ export function buildGraph(
     nodes,
     edges,
     aislados,
+    ocultas,
     componentes: new Set(nodes.map((n) => n.component)).size,
   }
 }
@@ -265,7 +293,7 @@ export function vecindario(model: GraphModel, id: string): GraphModel {
     ids.add(e.target)
   }
   const nodes = model.nodes.filter((n) => ids.has(n.id))
-  return { nodes, edges, aislados: 0, componentes: nodes.length ? 1 : 0 }
+  return { nodes, edges, aislados: 0, ocultas: 0, componentes: nodes.length ? 1 : 0 }
 }
 
 /**
@@ -292,4 +320,5 @@ export const filtrosPorDefecto = (): GraphFilters => ({
   soloTransversales: false,
   ocultarAislados: true,
   exento: null,
+  ocultos: null,
 })

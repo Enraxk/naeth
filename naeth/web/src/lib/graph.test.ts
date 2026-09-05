@@ -215,6 +215,45 @@ describe('buildGraph · el exento, que ningun filtro puede esconder', () => {
   })
 })
 
+describe('buildGraph · el arbol esconde lo que colapsas', () => {
+  // Decidido el 05/09/2026: cerrar una carpeta la retira del grafo. El coste esta asumido y hay
+  // que poder verlo, que es para lo que existe `ocultas`: al esconder una carpeta desaparecen
+  // tambien las aristas que salian de ella hacia otros proyectos.
+  const rel = resp({
+    edges: [
+      { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
+      { source_id: 'a', target_id: 'c', predicate: 'links_to', n: 1 },
+    ],
+  })
+  const f = (over: Partial<GraphFilters> = {}) => filtros({ ocultarAislados: false, ...over })
+
+  it('sin nada oculto, estan todas', () => {
+    const m = buildGraph(TREE, rel, new Map(), f())
+    expect(m.nodes).toHaveLength(TREE.length)
+    expect(m.ocultas).toBe(0)
+  })
+
+  it('lo oculto desaparece y se cuenta', () => {
+    const m = buildGraph(TREE, rel, new Map(), f({ ocultos: new Set(['c', 'd']) }))
+    expect(m.nodes.map((n) => n.id)).not.toContain('c')
+    expect(m.ocultas).toBe(2)
+  })
+
+  it('al ocultar un extremo tambien se va su arista', () => {
+    // Es el coste de la decision, y por eso se fija con un test: esconder una carpeta esconde los
+    // vinculos que salian de ella, no solo sus nodos.
+    const con = buildGraph(TREE, rel, new Map(), f())
+    const sin = buildGraph(TREE, rel, new Map(), f({ ocultos: new Set(['c']) }))
+    expect(con.edges.length - sin.edges.length).toBe(1)
+  })
+
+  it('el exento se salva tambien de esto', () => {
+    const m = buildGraph(TREE, rel, new Map(), f({ ocultos: new Set(['c', 'd']), exento: 'c' }))
+    expect(m.nodes.map((n) => n.id)).toContain('c')
+    expect(m.ocultas).toBe(1)
+  })
+})
+
 describe('buildGraph · grado y componentes', () => {
   it('el grado cuenta vecinos distintos, no aristas', () => {
     const m = buildGraph(TREE, resp({
@@ -281,6 +320,7 @@ describe('etiquetaVecindario · el contador que no puede mentir', () => {
     nodes: [],
     edges: layers.map((layer, i) => ({ source: 'a', target: `v${i}`, layer })),
     aislados: 0,
+    ocultas: 0,
     componentes: 1,
   })
 
