@@ -27,6 +27,7 @@
     grupo = null,
     seleccion = null,
     compacto = false,
+    posiciones = null,
     onSelect,
     onOpen,
   }: {
@@ -36,6 +37,12 @@
      * pintor e interaccion. Solo ajusta lo que depende del sitio disponible.
      */
     compacto?: boolean
+    /**
+     * Posiciones de partida, del mapa global. Con ellas el lienzo arranca QUIETO y enseñando la
+     * disposicion que estos nodos tienen en el grafo entero, en vez de inventarse una propia.
+     * Sigue vivo: en cuanto se arrastra algo, despierta.
+     */
+    posiciones?: ReadonlyMap<string, { x: number; y: number }> | null
     /** Resaltado que viene de fuera: la ruta, o el raton sobre el arbol. */
     foco?: string | null
     /** Varias memorias encendidas a la vez: la carpeta que se senala en el arbol. */
@@ -553,7 +560,8 @@
     // Con movimiento reducido no se ensena la simulacion: se adelanta en silencio y se pinta ya
     // asentada. Es la primera excepcion a que el movimiento se gobierne desde `app.css`, y no
     // puede resolverse con tokens porque esto no es una transicion CSS, son objetos moviendose.
-    if (reduce) for (let i = 0; i < 260 && sim.paso(); i++);
+    if (posiciones?.size) colocarYEncuadrar(posiciones)
+    else if (reduce) for (let i = 0; i < 260 && sim.paso(); i++)
 
     listo = true
     despertar()
@@ -574,6 +582,30 @@
     sim.cambiar(m)
     despertar()
   })
+
+  // El mapa global puede llegar despues de montar el lienzo, porque se calcula repartido en varios
+  // frames. Cuando llega, se recoloca: es preferible un reacomodo visible una vez a enseñar una
+  // forma inventada para siempre.
+  $effect(() => {
+    const p = posiciones
+    if (!sim || !listo || !p?.size) return
+    colocarYEncuadrar(p)
+    despertar()
+  })
+
+  /**
+   * Coloca desde el mapa y encuadra DE GOLPE.
+   *
+   * El encuadre de golpe no es un atajo: `colocar` deja la simulacion dormida, y el encuadre
+   * automatico avanza un 12% por frame contando con que la simulacion mantenga vivo el bucle.
+   * Sin ella, el bucle pinta una vez y se para, asi que la camara se quedaba a un 12% del camino y
+   * el vecindario aparecia descuadrado. Aqui no hay nada que interpolar: es la primera imagen.
+   */
+  function colocarYEncuadrar(p: ReadonlyMap<string, { x: number; y: number }>) {
+    sim?.colocar(p)
+    autoEncuadre = false
+    encuadraTodo(1)
+  }
 
   // Un lienzo no entiende `var(--ink)`: hay que releer los tokens al cambiar de tema.
   $effect(() => {

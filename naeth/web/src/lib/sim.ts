@@ -113,6 +113,18 @@ export interface Simulador {
   vecinos(id: string): ReadonlySet<string>
   /** Rectangulo que ocupa todo lo dibujado ahora mismo. */
   caja(): { x0: number; y0: number; x1: number; y1: number }
+  /**
+   * Coloca los nodos donde diga el mapa y deja la simulacion QUIETA.
+   *
+   * Es lo que permite que la ficha de una memoria enseñe la disposicion que esa nota tiene en el
+   * grafo global en vez de inventarse una propia. Medido el 05/09/2026
+   * (`docs/discovery/forma-vecindario-2026-09-05.md`): simulando el vecindario aparte, el 90% del
+   * orden de los vecinos alrededor del centro se pierde, porque la fisica aislada convierte
+   * cualquier vecindario en el mismo anillo regular.
+   *
+   * Quieta, no muerta: en cuanto alguien arrastra un nodo, `agitar` la despierta.
+   */
+  colocar(pos: ReadonlyMap<string, { x: number; y: number }>): void
   parar(): void
 }
 
@@ -266,6 +278,60 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
     vecinos(id) {
       return adyacencia.get(id) ?? VACIO
     },
+    colocar(pos) {
+      const sueltos: NodoSim[] = []
+      let cx = 0
+      let cy = 0
+      let n = 0
+      for (const nd of nodos) {
+        const p = pos.get(nd.id)
+        if (!p) {
+          sueltos.push(nd)
+          continue
+        }
+        nd.x = p.x
+        nd.y = p.y
+        nd.vx = 0
+        nd.vy = 0
+        cx += p.x
+        cy += p.y
+        n++
+      }
+
+      // ⚠ LOS QUE NO ESTAN EN EL MAPA. El vecindario de una ficha incluye vecinos SEMANTICOS, que
+      // se piden por nota y no forman parte del grafo global, asi que no tienen posicion que
+      // heredar. Si se les deja donde cayeron al crear el simulador, aparecen en cualquier sitio y
+      // rompen la forma que se venia a conservar.
+      //
+      // Se les da sitio alrededor del centro de lo conocido y se les deja acomodarse unos pocos
+      // ticks CON LO DEMAS CLAVADO, para que se coloquen sin arrastrar a nadie. Es el unico sitio
+      // donde el anclado tiene sentido: aqui es local y dura un instante, no una politica global.
+      if (sueltos.length && n) {
+        const r = new Map(nodos.filter((x) => !sueltos.includes(x)).map((x) => [x.id, x]))
+        sueltos.forEach((nd, i) => {
+          const ang = (i / sueltos.length) * Math.PI * 2
+          nd.x = cx / n + Math.cos(ang) * 60
+          nd.y = cy / n + Math.sin(ang) * 60
+          nd.vx = 0
+          nd.vy = 0
+        })
+        for (const nd of r.values()) {
+          nd.fx = nd.x
+          nd.fy = nd.y
+        }
+        sim.alpha(0.5).alphaTarget(0)
+        for (let i = 0; i < 80; i++) sim.tick()
+        for (const nd of r.values()) {
+          nd.fx = null
+          nd.fy = null
+        }
+      }
+
+      // Alpha a cero: el bucle pinta una vez y se calla. Sin esto la simulacion arrancaria con
+      // alpha 1 y desharia en dos segundos lo que se acaba de colocar.
+      sim.alpha(0).alphaTarget(0)
+    },
+
     caja() {
       let x0 = Infinity
       let y0 = Infinity

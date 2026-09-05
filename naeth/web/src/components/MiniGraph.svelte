@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import Lienzo from '../views/graph/Lienzo.svelte'
   import { navigate } from '../lib/router.svelte'
   import { resaltar } from '../lib/ui.svelte'
   import { TRAZO } from '../lib/pintor'
+  import { mapa, pedirMapa } from '../lib/mapa.svelte'
   import type { GraphModel, EdgeLayer } from '../lib/graph'
 
   // Vecindario a un salto, en el panel de contexto de una memoria.
@@ -24,6 +26,17 @@
 
   let { model, centro }: { model: GraphModel; centro: string } = $props()
 
+  // El mapa global es lo que hace que este vecindario se vea COMO SE VE en el grafo entero. Se pide
+  // aqui y no en la vista: es esta pieza la que lo necesita, y asi la ficha no paga nada si el
+  // panel de contexto no llega a mostrarse.
+  //
+  // ⚠ AL MONTAR Y NO DESDE UN EFECTO REACTIVO. `pedirMapa` muta `mapa`, que este mismo componente
+  // lee en el marcado, asi que desde un `$effect` se reinvocaba sola: 15 peticiones a `/api/graph`
+  // por abrir una ficha, medido. El mapa es global y no depende de que nota estes mirando.
+  onMount(() => {
+    pedirMapa()
+  })
+
   const ETIQUETA: Record<EdgeLayer, string> = {
     relation: 'relación',
     wikilink: 'wikilink',
@@ -40,10 +53,18 @@
       {model}
       seleccion={centro}
       compacto
+      posiciones={mapa.listo ? mapa.pos : null}
       onSelect={(id) => resaltar(id, 'arbol')}
       onOpen={(id) => navigate('memoria', id)}
     />
   </div>
+
+  {#if mapa.calculando && !mapa.listo}
+    <!-- La primera ficha de la sesion espera a que el mapa se calcule, cosa de un segundo. Las
+         demas lo encuentran hecho. Se dice, en vez de enseñar una forma provisional que luego
+         cambia sola delante de los ojos. -->
+    <div class="esperando">calculando la forma del grafo…</div>
+  {/if}
 
   <div class="leyenda">
     {#each capas as l (l)}
@@ -67,6 +88,7 @@
     border-radius: 8px;
     overflow: hidden;
   }
+  .esperando { margin-top: 6px; font: 10px var(--font-mono); color: var(--dim); }
   .leyenda { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
   .lg { display: inline-flex; align-items: center; gap: 5px; font: 10px var(--font-mono); color: var(--dim); }
 </style>
