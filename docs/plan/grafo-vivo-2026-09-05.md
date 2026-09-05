@@ -265,9 +265,34 @@ cuerpo, en un vecindario de cinco no hay forma de saber cuál era el que apuntab
 
 ## Fase 3. El mini grafo de la ficha
 
-Hoy es radial, determinista y funciona (`components/MiniGraph.svelte`). Pasa a usar el motor nuevo
-para que el vecindario se vea igual en los dos sitios y el hover cruzado también funcione ahí. Es la
-última porque no bloquea nada.
+Hoy es radial, determinista y funciona (`components/MiniGraph.svelte`). Los dos objetivos siguen
+siendo los que estaban escritos: que el vecindario se vea igual en los dos sitios, y que el hilo
+entre árbol y grafo llegue también aquí.
+
+**Pero NO pasa a canvas, y esto se aparta de lo que dejé escrito el 05/09 por la mañana.** El plan
+decía "pasa a usar el motor nuevo", y al mirarlo de cerca eso costaría más de lo que da:
+
+- Son entre 3 y 12 elementos (grado máximo 11, medido el 04/09). Canvas gana a partir de miles, no
+  aquí.
+- **Se perdería accesibilidad de verdad.** Cada vecino es hoy un elemento con `role="button"`,
+  `tabindex` y `<title>`: se tabula y un lector lo anuncia. En canvas no hay elementos, y en el
+  grafo grande eso se aceptó porque no había alternativa a 4.550 nodos. Con doce sí la hay.
+- La simulación no aporta: con grado mediano 2 no hay nada que un anillo no resuelva ya, y encima
+  el radial es determinista y no mueve nada, así que no entra en el conflicto con
+  `prefers-reduced-motion` que el grafo grande sí tuvo que resolver.
+
+Lo que se unifica es el **vocabulario y el comportamiento**, que es de donde venía el problema real:
+
+**3.1. Una sola fuente para el lenguaje visual.** Hoy las cuatro formas por tipo y los tres trazos
+por capa están escritos DOS veces, en `MiniGraph.svelte` y en `pintor.ts`, con la misma intención y
+distinta sintaxis. Es duplicación peligrosa y silenciosa: cambiar una forma en un sitio y no en el
+otro hace que el mismo tipo de memoria se vea distinto en dos vistas, y nada avisa. La geometría
+pasa a vivir una vez en `pintor.ts`, con dos consumidores: el trazador de canvas y un generador de
+`path` para SVG. Con tests de que los dos describen la misma figura.
+
+**3.2. El mini grafo entra en el hilo.** Señalar un vecino lo enciende en el árbol y en el grafo
+grande; y al revés, si lo señalado en cualquier sitio es uno de sus nodos, el mini lo enciende.
+Es la misma pieza (`resalte`) que ya cosen las otras dos vistas.
 
 ## Fase 3.5. Ajustes de preferencia de usuario
 
