@@ -305,6 +305,28 @@ distancia de enlace), más lo nuestro: cómo entra el grafo al abrirlo, la veloc
 y el umbral del texto. Persistidos en `localStorage` con el patrón de `prefs.svelte.ts`. Va después
 del mini grafo porque son preferencias sobre un motor que para entonces ya no se toca.
 
+### Corrección de rumbo del 05/09/2026, 15:15: el mini SÍ pasa al motor vivo
+
+Eneko, tras verlo: *"El mini grafo quiero que se vea y se sienta como el grafo normal (sí, sé que
+es overkill) pero es lo que quiero. De esta manera cada memoria se siente viva"*. Es su decisión,
+tomada con el coste delante, y se hace.
+
+De mis tres argumentos, dos eran de eficiencia y ya no aplican (el encargo no es ahorrar, es que se
+sienta vivo). **El tercero era real y no se paga**: en canvas los vecinos dejan de ser elementos
+tabulables con título. Se resuelve dando al lienzo una **lista accesible** de sus nodos, enlaces de
+verdad ocultos a la vista, que además arregla lo mismo en el grafo grande, donde hoy no hay nada.
+Se sale ganando en accesibilidad, no perdiendo.
+
+**3b.1. El lienzo gana su lista accesible.** Enlaces reales a cada memoria del modelo, fuera de la
+vista pero no del árbol de accesibilidad. Beneficia a las dos vistas.
+
+**3b.2. El mini grafo usa el lienzo.** El mismo componente, el mismo simulador y el mismo pintor,
+con el modelo del vecindario. Un simulador por ficha es trivial con 3 a 15 nodos, y el bucle se
+para solo, así que una ficha abierta no cuesta CPU en reposo.
+
+**3b.3. Que se lea a 276 px de ancho**, que es el sitio que tiene en el panel. Es el ajuste que hay
+que mirar, no calcular.
+
 ## Fase 4. Cierre
 
 Suite completa de los dos lados, `npm run build`, verificación en navegador en los dos temas y a
