@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { crearSimulador, radioNodo } from './sim'
+import { crearSimulador, encendidosDe, radioNodo } from './sim'
 import type { GraphEdge, GraphModel, GraphNode } from './graph'
 
 // Contrato de la simulacion.
@@ -262,5 +262,69 @@ describe('simulador · el radio', () => {
   it('crece con el grado y tiene techo', () => {
     expect(radioNodo(nodo('a', 0, 1))).toBeLessThan(radioNodo(nodo('b', 0, 5)))
     expect(radioNodo(nodo('c', 0, 10))).toBe(radioNodo(nodo('d', 0, 40)))
+  })
+})
+
+
+describe('encendidosDe · un foco que no esta aqui no puede apagar lo que si esta', () => {
+  // El fallo mas grave del 05/09/2026, reproducido antes de arreglarlo: con una ficha abierta,
+  // senalar en el arbol una nota que no era vecina dejaba el mini grafo ENTERO apagado, de 5.404
+  // pixeles opacos a cero. El resalte es global, asi que a un lienzo le llega el id de memorias que
+  // no estan en su modelo; el conjunto salia con un solo elemento inexistente y el pintor lo leia
+  // como "hay foco" mientras ningun nodo presente pasaba el filtro.
+
+  const s = () => crearSimulador(modelo(
+    [nodo('a'), nodo('b'), nodo('c'), nodo('solo')],
+    [arista('a', 'b'), arista('b', 'c')],
+  ))
+
+  it('un id que no esta en el grafo devuelve null, NO un conjunto de uno', () => {
+    expect(encendidosDe(s(), 'fantasma', null)).toBe(null)
+  })
+
+  it('un id que si esta enciende el nodo y sus vecinos', () => {
+    expect([...encendidosDe(s(), 'b', null)!].sort()).toEqual(['a', 'b', 'c'])
+  })
+
+  it('un nodo sin vecinos se enciende a si mismo', () => {
+    // Distinto del caso anterior: existe, asi que hay foco, aunque no ilumine a nadie mas.
+    expect([...encendidosDe(s(), 'solo', null)!]).toEqual(['solo'])
+  })
+
+  it('sin id y sin grupo, null', () => {
+    expect(encendidosDe(s(), null, null)).toBe(null)
+  })
+
+  it('un grupo mixto enciende SOLO los que estan, con sus vecinos', () => {
+    expect([...encendidosDe(s(), null, ['a', 'fantasma'])!].sort()).toEqual(['a', 'b'])
+  })
+
+  it('un grupo entero de ausentes devuelve null', () => {
+    expect(encendidosDe(s(), null, ['x', 'y'])).toBe(null)
+  })
+
+  it('el grupo gana al id, que es lo que hace la interfaz', () => {
+    const r = encendidosDe(s(), 'c', ['a'])!
+    expect([...r].sort()).toEqual(['a', 'b'])
+  })
+
+  it('tras quitar un nodo del modelo, deja de encenderse', () => {
+    // La otra mitad del mismo fallo: la cache del lienzo no llevaba el modelo en la clave, asi que
+    // devolvia vecinos de un grafo anterior.
+    const sim = s()
+    sim.cambiar(modelo([nodo('a'), nodo('b')], [arista('a', 'b')]))
+    expect(encendidosDe(sim, 'c', null)).toBe(null)
+    expect([...encendidosDe(sim, 'a', null)!].sort()).toEqual(['a', 'b'])
+  })
+})
+
+describe('simulador · tiene', () => {
+  it('dice quien esta y quien no, y se entera de los cambios', () => {
+    const sim = crearSimulador(modelo([nodo('a'), nodo('b')], [arista('a', 'b')]))
+    expect(sim.tiene('a')).toBe(true)
+    expect(sim.tiene('z')).toBe(false)
+    sim.cambiar(modelo([nodo('b')], []))
+    expect(sim.tiene('a')).toBe(false)
+    expect(sim.tiene('b')).toBe(true)
   })
 })

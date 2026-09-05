@@ -107,7 +107,16 @@ export async function pedirMapa() {
   // Las tres capas menos la semántica, que se pide por nodo y no forma parte del grafo de partida.
   // Y SIN filtros: el mapa es del corpus entero, así que ocultar una carpeta en el grafo no cambia
   // la forma que la ficha de una memoria enseña.
-  const model = buildGraph(tree, respuesta, new Map(), filtrosPorDefecto())
+  //
+  // ⚠ `ocultarAislados: false` A PROPÓSITO, y lo destapó un test. Con el valor por defecto, las
+  // memorias sin ningún vínculo se quedaban fuera y el "mapa del grafo entero" no las tenía: al
+  // abrir la ficha de una nota suelta, ni ella ni sus vecinos semánticos (que suelen ser sueltos
+  // también) heredaban posición, y el vecindario volvía a inventarse una. Que no se vean en el
+  // grafo grande es cosa de los filtros de ESA vista, no del mapa.
+  const model = buildGraph(tree, respuesta, new Map(), {
+    ...filtrosPorDefecto(),
+    ocultarAislados: false,
+  })
 
   mapa.calculando = true
   if (sim) {

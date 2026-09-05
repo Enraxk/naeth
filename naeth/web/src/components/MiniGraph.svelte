@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import Lienzo from '../views/graph/Lienzo.svelte'
   import { navigate } from '../lib/router.svelte'
   import { resalte, resaltar } from '../lib/ui.svelte'
   import { TRAZO } from '../lib/pintor'
   import { mapa, pedirMapa } from '../lib/mapa.svelte'
+  import { data } from '../lib/data.svelte'
   import type { GraphModel, EdgeLayer } from '../lib/graph'
 
   // Vecindario a un salto, en el panel de contexto de una memoria.
@@ -30,10 +30,15 @@
   // aqui y no en la vista: es esta pieza la que lo necesita, y asi la ficha no paga nada si el
   // panel de contexto no llega a mostrarse.
   //
-  // ⚠ AL MONTAR Y NO DESDE UN EFECTO REACTIVO. `pedirMapa` muta `mapa`, que este mismo componente
-  // lee en el marcado, asi que desde un `$effect` se reinvocaba sola: 15 peticiones a `/api/graph`
-  // por abrir una ficha, medido. El mapa es global y no depende de que nota estes mirando.
-  onMount(() => {
+  // ⚠ DEPENDE SOLO DE `data.tree`, y eso es lo que hace que no reviente. `pedirMapa` muta `mapa`,
+  // que este mismo componente lee en el marcado, asi que un efecto que leyera `mapa` se reinvocaria
+  // solo: fueron 15 peticiones a `/api/graph` por abrir una ficha, medidas. Leyendo unicamente el
+  // arbol no hay ciclo.
+  //
+  // Y tiene que ser un efecto y no un `onMount`: al montar solo, el mapa se quedaba viejo hasta que
+  // abrieras OTRA ficha, aunque hubieran entrado memorias nuevas mientras leias esta.
+  $effect(() => {
+    data.tree
     pedirMapa()
   })
 

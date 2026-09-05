@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { crearSimulador, type Simulador } from '../../lib/sim'
+  import { onMount, untrack } from 'svelte'
+  import { crearSimulador, encendidosDe, type Simulador } from '../../lib/sim'
   import { pintorCanvas } from '../../lib/pintor-canvas'
   import { aMundo, radioEnPantalla, type Pintor, type Vista } from '../../lib/pintor'
   import { theme } from '../../lib/theme.svelte'
@@ -92,11 +92,9 @@
 
   // --- el bucle ---------------------------------------------------------------------------
   let corriendo = false
-  let sucio = true
 
   /** Pide un frame si no hay ninguno pedido. Todo lo que cambia algo llama a esto. */
   function despertar() {
-    sucio = true
     if (!corriendo) {
       corriendo = true
       requestAnimationFrame(frame)
@@ -137,7 +135,16 @@
       vivo = true
     }
 
-    const objAten = foco || seleccion || grupo?.length ? 1 : 0
+    // EL FOCO EFECTIVO, filtrado por lo que hay en ESTE grafo. El resalte es global, asi que puede
+    // apuntar a una memoria que no esta aqui: pasa en el mini de una ficha cada vez que el raton
+    // toca en el arbol una nota que no es vecina suya. En ese caso NO se cae a null, se cae a la
+    // seleccion, que en el mini es la nota que estas leyendo: senalar algo de fuera no puede dejar
+    // este grafo sin nada senalado.
+    const idFoco =
+      foco && sim.tiene(foco) ? foco : seleccion && sim.tiene(seleccion) ? seleccion : null
+    const enc = encendidos(idFoco)
+
+    const objAten = enc || grupo?.length ? 1 : 0
     if (Math.abs(atenuacion - objAten) > 0.004) {
       atenuacion = reduce ? objAten : atenuacion + (objAten - atenuacion) * 0.18
       vivo = true
@@ -188,10 +195,9 @@
 
     amarrar()
 
-    const id = foco ?? seleccion
     pintor.dibujar(sim, vista, {
-      foco: id,
-      encendidos: encendidos(id),
+      foco: idFoco,
+      encendidos: enc,
       atenuacion,
       arrastrando,
       color: true,
@@ -199,38 +205,30 @@
       topeNombres: compacto ? 1 : undefined,
     })
 
-    sucio = false
     if (vivo) despertar()
   }
 
   /**
    * Lo que se queda a plena luz, con cache.
    *
-   * Se calcula al cambiar y no en cada frame: una carpeta de 83 memorias son 83 consultas de
-   * vecindario, y a 60 fps eso es trabajo repetido para un resultado que no ha cambiado. La cache
-   * compara por identidad del array, que es lo que Svelte recrea cuando el grupo cambia de verdad.
+   * El calculo vive en `lib/sim.ts` para poder probarlo; aqui solo esta la cache, porque se pide en
+   * cada frame y una carpeta de 83 memorias son 83 consultas de vecindario para un resultado que no
+   * ha cambiado.
    *
-   * LOS VECINOS ENTRAN EN EL CONJUNTO, y es la decision de fondo: senalar una carpeta enciende lo
-   * que hay dentro Y aquello con lo que habla, que es como se ve hacia donde sale de su proyecto.
-   * Si solo se encendiera lo de dentro, el grafo no contaria nada que el arbol no cuente ya.
+   * ⚠ EL MODELO ENTRA EN LA CLAVE. Sin el, tras cambiar un filtro con el mismo nodo senalado se
+   * devolvia el conjunto anterior, con vecinos que ya no existian y sin los que hubieran aparecido.
    */
   let cacheGrupo: string[] | null = null
   let cacheId: string | null = null
+  let cacheModel: GraphModel | null = null
   let cacheSet: Set<string> | null = null
   function encendidos(id: string | null): Set<string> | null {
     if (!sim) return null
-    if (grupo === cacheGrupo && id === cacheId) return cacheSet
+    if (grupo === cacheGrupo && id === cacheId && model === cacheModel) return cacheSet
     cacheGrupo = grupo
     cacheId = id
-    if (grupo?.length) {
-      const s = new Set(grupo)
-      for (const g of grupo) for (const v of sim.vecinos(g)) s.add(v)
-      cacheSet = s
-    } else if (id) {
-      cacheSet = new Set([id, ...sim.vecinos(id)])
-    } else {
-      cacheSet = null
-    }
+    cacheModel = model
+    cacheSet = encendidosDe(sim, id, grupo)
     return cacheSet
   }
 
@@ -359,6 +357,15 @@
   // con el grafo de Obsidian, con el mismo tope de 500 ms.
   let pulsa: { id: string | null; sx: number; sy: number; t: number; cx: number; cy: number } | null = null
   let ultimo = { x: 0, y: 0, t: 0 }
+  /**
+   * El ultimo nodo que este lienzo ha senalado, para no repetir el aviso en cada pixel de raton.
+   *
+   * ⚠ NO SE COMPARA CONTRA `foco`, y ese era el bug. `foco` incluye el id de la ruta, asi que
+   * llegando por `#/grafo/<id>` ese nodo concreto ya venia como foco y la comparacion lo daba por
+   * senalado sin haberlo estado: era el unico nodo de la vista cuya fila no se encendia nunca en el
+   * arbol. Con una cuenta propia, el lienzo sabe lo que ha dicho EL, que es lo que quiere saber.
+   */
+  let ultimoSenalado: string | null = null
 
   function abajo(ev: PointerEvent) {
     if (ev.button !== 0 || !caja) return
@@ -423,7 +430,8 @@
     // va, se apaga, vuelves a senalar. Aqui el resalte solo cambia cuando el raton encuentra OTRO
     // nodo, y se suelta con Escape, con un clic en el fondo o senalando en el arbol.
     const nd = nodoEn(p.x, p.y)
-    if (nd && nd.id !== foco) {
+    if (nd && nd.id !== ultimoSenalado) {
+      ultimoSenalado = nd.id
       onSelect?.(nd.id)
       despertar()
     }
@@ -447,7 +455,10 @@
       // Un clic en un nodo abre la nota, como en Obsidian. Un clic en el fondo suelta lo que
       // hubiera seleccionado.
       if (pulsa.id) onOpen?.(pulsa.id)
-      else onSelect?.(null)
+      else {
+        ultimoSenalado = null
+        onSelect?.(null)
+      }
       panv = { x: 0, y: 0 }
     }
     pulsa = null
@@ -479,6 +490,7 @@
   function tecla(ev: KeyboardEvent) {
     if (!sim) return
     if (ev.key === 'Escape') {
+      ultimoSenalado = null
       onSelect?.(null)
       return despertar()
     }
@@ -531,6 +543,7 @@
       }
     }
     if (mejor && puntos > 0) {
+      ultimoSenalado = mejor
       onSelect?.(mejor)
       const nd = sim.nodos.find((n) => n.id === mejor)
       if (nd) {
@@ -597,7 +610,13 @@
     // Si el lienzo vive de un mapa (la ficha de una memoria), cambiar de nota cambia el modelo
     // ENTERO, no un filtro: hay que volver a colocar desde el mapa y reencuadrar, porque los nodos
     // nuevos entran donde los deje el empaquetado y la camara sigue mirando al vecindario anterior.
-    if (posiciones?.size) colocarYEncuadrar(posiciones)
+    //
+    // ⚠ `posiciones` SE LEE CON `untrack`. Sin eso este efecto tambien depende de ella, asi que al
+    // llegar el mapa se ejecutaba `sim.cambiar` sin que el modelo hubiera cambiado, y el efecto de
+    // abajo repetia el trabajo. Es la misma familia de reentrada que ya costo quince peticiones a
+    // `/api/graph`: un efecto que reacciona a algo que no es lo suyo.
+    const p = untrack(() => posiciones)
+    if (p?.size) colocarYEncuadrar(p)
     despertar()
   })
 
@@ -670,22 +689,35 @@
 
 <!-- LA LISTA ACCESIBLE. Un lienzo no tiene elementos, asi que para un lector de pantalla el grafo
      seria un rectangulo vacio por mucho `aria-label` que lleve. Esto son enlaces de verdad, fuera
-     de la vista pero dentro del arbol de accesibilidad: se tabulan, se anuncian con su titulo y su
-     proyecto, y llevan a la memoria.
+     de la vista pero dentro del arbol de accesibilidad: se anuncian con su titulo y su proyecto, y
+     llevan a la memoria.
+
+     ⚠ VA DENTRO DE UN DESPLEGABLE CERRADO, y eso es la mitad del asunto. La primera version los
+     ponia sueltos, y con 455 memorias eso metia 455 PARADAS DE TABULACION en una vista que antes
+     tenia una: quien navega con teclado necesitaba 456 pulsaciones para atravesarla. Ganaba el
+     lector de pantalla y perdia el teclado, que no es una mejora de accesibilidad sino un cambio de
+     victima. Cerrado son otra vez una parada, y los enlaces entran en el recorrido solo si se abre.
 
      No es una concesion: el mini grafo tenia esto por ser SVG, y era el unico argumento serio para
      no pasarlo a lienzo. Poniendolo aqui lo ganan las DOS vistas, porque el grafo grande nunca lo
      tuvo. -->
-<ul class="solo-lectores">
-  {#each model.nodes as n (n.id)}
-    <li>
-      <a href="#/m/{n.id}"
-         onfocus={() => onSelect?.(n.id)}
-         onblur={() => onSelect?.(null)}
-      >{n.title ?? '(sin título)'} · {n.path ?? ''} · {n.degree} vínculos</a>
-    </li>
-  {/each}
-</ul>
+<details class="solo-lectores">
+  <summary>
+    {compacto
+      ? `Listado del vecindario: ${model.nodes.length} memorias`
+      : `Listado del grafo: ${model.nodes.length} memorias`}
+  </summary>
+  <ul>
+    {#each model.nodes as n (n.id)}
+      <li>
+        <a href="#/m/{n.id}"
+           onfocus={() => onSelect?.(n.id)}
+           onblur={() => onSelect?.(null)}
+        >{n.title ?? '(sin título)'} · {n.path ?? ''} · {n.degree} vínculos</a>
+      </li>
+    {/each}
+  </ul>
+</details>
 
 <style>
   .caja {
@@ -715,8 +747,9 @@
     white-space: nowrap;
     border: 0;
   }
-  /* Al tabular hasta un enlace SI se ve: si no, el foco desaparece de pantalla y quien navega con
-     teclado y vista se pierde. */
+  /* Al tabular hasta el resumen o hasta un enlace SI se ve: si no, el foco desaparece de pantalla
+     y quien navega con teclado y vista se pierde. */
+  .solo-lectores summary:focus-visible,
   .solo-lectores a:focus-visible {
     position: fixed;
     left: 12px;

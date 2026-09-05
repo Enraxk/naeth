@@ -327,6 +327,50 @@ para solo, así que una ficha abierta no cuesta CPU en reposo.
 **3b.3. Que se lea a 276 px de ancho**, que es el sitio que tiene en el panel. Es el ajuste que hay
 que mirar, no calcular.
 
+## La revisión del 05/09/2026, y sus ocho arreglos
+
+Pasada una revisión en Fable sobre los 18 commits del día (29 ficheros, unas 4.900 líneas), con la
+suite en verde y `svelte-check` a cero, buscando lo que eso no cubre. Salieron ocho cosas y se
+arreglaron las ocho.
+
+**El grave.** Con una ficha abierta, señalar en el árbol una nota que no fuera vecina dejaba el mini
+grafo **completamente apagado**: reproducido, de 5.404 píxeles opacos a **cero**. El resalte es
+global, así que a un lienzo le llega el id de memorias que no están en su modelo; el conjunto de
+encendidos salía con un solo elemento inexistente y el pintor lo leía como "hay foco" mientras
+ningún nodo presente pasaba el filtro.
+
+El arreglo va en el lienzo y no en el mini: **un lienzo no puede fiarse de que un foco externo
+exista en su modelo**. `Simulador.tiene()` y `encendidosDe()` salen a `lib/sim.ts` como función
+pura, con nueve tests, porque el cálculo vivía dentro del componente y por eso no lo cubría nada. Y
+el foco efectivo no cae a nulo cuando el de fuera no existe: cae a la selección, que en una ficha es
+la nota que estás leyendo. Verificado: ahora queda en 5.528 de 5.630.
+
+**El de accesibilidad, que era una mejora mal terminada.** La lista de enlaces que se añadió para
+que el lienzo no fuera un rectángulo mudo metía **455 paradas de tabulación** donde antes había una.
+Ganaba el lector de pantalla y perdía quien navega con teclado, que no es una mejora sino un cambio
+de víctima. Ahora va dentro de un `<details>` cerrado: medido, **8 elementos alcanzables en la vista
+entera** (los seis chips, el lienzo y el resumen) con los 455 enlaces en el DOM y fuera del
+recorrido.
+
+**Los otros seis**, todos con su arreglo y su motivo:
+
+| # | Qué era | Cómo se cerró |
+|---|---|---|
+| 3 | La caché de encendidos no llevaba el modelo en la clave, así que tras filtrar devolvía vecinos que ya no existían | El modelo entra en la clave |
+| 4 | El efecto del modelo leía también `posiciones`, así que al llegar el mapa repetía trabajo. Misma familia que las quince peticiones | `untrack` para leer lo que no es suyo. Medido: **1 petición** con carga limpia |
+| 5 | El nodo por el que llegas con `#/grafo/<id>` no podía señalarse: la comparación era contra `foco`, que ya era ese id, y su fila no se encendía nunca | Cuenta propia del último señalado. Verificado apagando el resalte y volviéndolo a encender sobre ese mismo nodo |
+| 6 | `lib/mapa.svelte.ts` sin tests, y es donde vivió el bug de las quince peticiones | `lib/mapa.test.ts`, el primero del repo que importa un módulo con runes. Siete casos, incluido "dos llamadas seguidas piden el grafo una vez" |
+| 7 | Código muerto: `sucio` y `olvidarMapa` | Fuera el primero; el segundo lo usan los tests, que es lo que su comentario ya decía |
+| 8 | El mapa se quedaba viejo si el corpus cambiaba sin abrir otra ficha, porque se pedía en `onMount` | Un efecto que depende **solo** de `data.tree`: como no lee `mapa`, no reentra |
+
+**Y un fallo que destapó un test al escribirlo**, que no estaba en el informe: el mapa se construía
+con `ocultarAislados`, así que el "mapa del grafo entero" **no tenía las memorias sin vínculos**. Al
+abrir la ficha de una nota suelta, ni ella ni sus vecinos semánticos heredaban posición y el
+vecindario volvía a inventarse una. Que no se vean en el grafo grande es cosa de los filtros de esa
+vista, no del mapa.
+
+220 tests.
+
 ## Fase 4. Cierre
 
 Suite completa de los dos lados, `npm run build`, verificación en navegador en los dos temas y a

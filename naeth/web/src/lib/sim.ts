@@ -111,6 +111,8 @@ export interface Simulador {
   cerca(x: number, y: number, r: number): NodoSim | null
   /** Vecinos de un nodo, en O(1). */
   vecinos(id: string): ReadonlySet<string>
+  /** Si esta memoria esta en ESTE grafo. Ver `encendidosDe` para por que hace falta. */
+  tiene(id: string): boolean
   /** Rectangulo que ocupa todo lo dibujado ahora mismo. */
   caja(): { x0: number; y0: number; x1: number; y1: number }
   /**
@@ -278,6 +280,10 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
     vecinos(id) {
       return adyacencia.get(id) ?? VACIO
     },
+
+    tiene(id) {
+      return porId.has(id)
+    },
     colocar(pos) {
       const sueltos: NodoSim[] = []
       let cx = 0
@@ -356,3 +362,38 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
 }
 
 const VACIO: ReadonlySet<string> = new Set()
+
+/**
+ * Lo que se queda a plena luz: un nodo con sus vecinos, o una carpeta entera con los suyos.
+ *
+ * ⚠ IGNORA LOS IDS QUE NO ESTAN EN ESTE GRAFO, y esa guarda es la razon de que exista la funcion.
+ * El resalte es GLOBAL (`lib/ui.svelte.ts`), asi que a un lienzo le puede llegar el id de una
+ * memoria que no esta en su modelo: le pasa al mini grafo de una ficha cada vez que el raton toca
+ * en el arbol una nota que no es vecina suya. Sin la guarda salia un conjunto de un solo elemento
+ * inexistente, y el pintor lo leia como "hay algo enfocado" mientras ningun nodo presente pasaba el
+ * filtro: el grafo entero se apagaba. Medido el 05/09/2026, el mini pasaba de 5.404 pixeles opacos
+ * a CERO.
+ *
+ * Devuelve `null` cuando no queda nada que encender, que es lo que el pintor entiende como "no hay
+ * foco" y deja el grafo como estaba. Senalar algo que no esta aqui no puede apagar lo que si esta.
+ *
+ * Vive fuera del componente para poder probarla: dentro del `.svelte` no la cubria ningun test, y
+ * es justo donde estaba el fallo.
+ */
+export function encendidosDe(
+  sim: Simulador,
+  id: string | null,
+  grupo: readonly string[] | null,
+): Set<string> | null {
+  if (grupo?.length) {
+    const s = new Set<string>()
+    for (const g of grupo) {
+      if (!sim.tiene(g)) continue
+      s.add(g)
+      for (const v of sim.vecinos(g)) s.add(v)
+    }
+    return s.size ? s : null
+  }
+  if (id && sim.tiene(id)) return new Set([id, ...sim.vecinos(id)])
+  return null
+}
