@@ -21,6 +21,7 @@ import {
   radioEnPantalla,
   TOPE_ETIQUETAS,
   TOPE_ETIQUETAS_FOCO,
+  partirEnLineas,
   TRAZO,
   trazarForma,
   type EstadoPintado,
@@ -222,6 +223,9 @@ export function pintorCanvas(host: HTMLElement): Pintor {
         ctx.textBaseline = 'top'
         ctx.lineJoin = 'round'
         ctx.strokeStyle = tk.bg
+        // Ancho de linea proporcional al lienzo: en el grande son unos 200 px y en el mini de una
+        // ficha, mucho mas estrecho, lo que quepa sin salirse por los lados.
+        const anchoLinea = Math.min(210, w * 0.42)
         for (const nd of conNombre) {
           const p = P(nd)
           const r = radio(nd)
@@ -234,12 +238,21 @@ export function pintorCanvas(host: HTMLElement): Pintor {
             ? '600 14px ui-sans-serif, system-ui, sans-serif'
             : '11px ui-sans-serif, system-ui, sans-serif'
           ctx.lineWidth = esFoco ? 4 : 3
+          const alto = esFoco ? 16 : 13
           const sep = esFoco ? r + 9 : r + 4
-          const t = corto(nd.n.title)
           ctx.globalAlpha = hayFoco ? 1 : op
-          ctx.strokeText(t, p.x, p.y + sep)
-          ctx.fillStyle = tk.ink
-          ctx.fillText(t, p.x, p.y + sep)
+          // EL TITULO ENTERO, partido en las lineas que haga falta. Recortarlo con puntos
+          // suspensivos se comia media frase, y en este corpus los titulos son enunciados: dos
+          // notas del mismo proyecto se distinguen justo por el final.
+          const lineas = partirEnLineas(nd.n.title ?? '(sin título)', anchoLinea, (t) =>
+            ctx.measureText(t).width,
+          )
+          for (let i = 0; i < lineas.length; i++) {
+            const y = p.y + sep + i * alto
+            ctx.strokeText(lineas[i], p.x, y)
+            ctx.fillStyle = tk.ink
+            ctx.fillText(lineas[i], p.x, y)
+          }
         }
         ctx.globalAlpha = 1
       }
@@ -249,9 +262,4 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       cv.remove()
     },
   }
-}
-
-const corto = (t: string | null) => {
-  const s = t ?? '(sin título)'
-  return s.length > 38 ? s.slice(0, 37) + '…' : s
 }

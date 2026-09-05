@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  aMundo, aPantalla, opacidadTexto, pathForma, radioEnPantalla, TRAZO, trazarForma,
+  aMundo, aPantalla, opacidadTexto, partirEnLineas, pathForma, radioEnPantalla, TRAZO, trazarForma,
   verticesForma, type Vista,
 } from './pintor'
 import type { MemType } from './types'
@@ -167,5 +167,55 @@ describe('las cuatro formas, una sola geometria', () => {
     const chico = verticesForma('decision', 0, 0, 4)!
     const grande = verticesForma('decision', 0, 0, 8)!
     expect(grande[0][0]).toBe(chico[0][0] * 2)
+  })
+})
+
+
+describe('partirEnLineas · el titulo entero, sin puntos suspensivos', () => {
+  // Antes se recortaba a 38 caracteres, y en este corpus los titulos son enunciados, no nombres de
+  // fichero: dos notas del mismo proyecto se distinguen justo por el final, que era lo que se
+  // perdia. "CENIT · Paso 8 (multi-nodo) COMPLETO · estado al 2026-07-26" se leia como
+  // "CENIT · Paso 8 (multi-nodo) COMPL...".
+  //
+  // El medidor de mentira cuenta seis pixeles por caracter, que basta para fijar el reparto.
+  const medir = (t: string) => t.length * 6
+
+  it('lo que cabe se queda en una linea', () => {
+    expect(partirEnLineas('Naeth es publico', 200, medir)).toEqual(['Naeth es publico'])
+  })
+
+  it('NO SE PIERDE NI UNA PALABRA, que es lo que se pedia', () => {
+    const t = 'CENIT · Paso 8 (multi-nodo) COMPLETO · estado al 2026-07-26'
+    expect(partirEnLineas(t, 120, medir).join(' ')).toBe(t)
+  })
+
+  it('ninguna linea se pasa del ancho, salvo que sea una palabra sola', () => {
+    const t = 'Las huerfanas son 120 y no 190, y los wikilinks rotos 80 y no 41'
+    for (const l of partirEnLineas(t, 120, medir)) {
+      if (l.includes(' ')) expect(medir(l)).toBeLessThanOrEqual(120)
+    }
+  })
+
+  it('una palabra mas ancha que el maximo va sola, sin partirla por la mitad', () => {
+    // Cortar una palabra se lee peor que una linea que sobresalga un poco.
+    const r = partirEnLineas('corto supercalifragilisticoespialidoso fin', 60, medir)
+    expect(r).toContain('supercalifragilisticoespialidoso')
+  })
+
+  it('un titulo vacio no da una linea vacia', () => {
+    expect(partirEnLineas('', 100, medir)).toEqual([])
+    expect(partirEnLineas('   ', 100, medir)).toEqual([])
+  })
+
+  it('los espacios de sobra no crean lineas fantasma', () => {
+    expect(partirEnLineas('uno   dos', 200, medir)).toEqual(['uno dos'])
+  })
+
+  it('cuanto mas estrecho, mas lineas, y siempre el texto completo', () => {
+    const t = 'El grafo del visor: las nueve decisiones tomadas el 04/09'
+    const ancho = partirEnLineas(t, 400, medir)
+    const estrecho = partirEnLineas(t, 90, medir)
+    expect(estrecho.length).toBeGreaterThan(ancho.length)
+    expect(estrecho.join(' ')).toBe(t)
   })
 })

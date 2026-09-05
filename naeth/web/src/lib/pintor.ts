@@ -205,6 +205,40 @@ export function pathForma(tipo: MemType, x: number, y: number, r: number): strin
   return `M${vs[0][0]} ${vs[0][1]}` + vs.slice(1).map(([a, b]) => `L${a} ${b}`).join('') + 'Z'
 }
 
+/**
+ * Parte un titulo en las lineas que hagan falta para que quepa entero.
+ *
+ * Antes se recortaba a 38 caracteres con puntos suspensivos, y en este corpus eso se comia media
+ * frase: los titulos son enunciados, no nombres de fichero. "CENIT · Paso 8 (multi-nodo) COMPLETO ·
+ * estado al 2026-07-26" son 58 caracteres, y lo que se leia era "CENIT · Paso 8 (multi-nodo) COMPL…",
+ * que no distingue una nota de la de al lado. Pero entero en una sola linea tampoco vale: se sale
+ * del lienzo del mini grafo y pisa a los vecinos en el grande. Asi que se parte.
+ *
+ * El medidor se pasa de fuera para que la funcion sea pura y se pueda probar sin lienzo. Una
+ * palabra mas ancha que el maximo se deja sola en su linea en vez de partirla por la mitad: cortar
+ * una palabra es mas dificil de leer que una linea que sobresalga un poco.
+ */
+export function partirEnLineas(
+  texto: string,
+  anchoMax: number,
+  medir: (s: string) => number,
+): string[] {
+  const palabras = texto.split(/\s+/).filter(Boolean)
+  if (!palabras.length) return []
+  const out: string[] = []
+  let linea = palabras[0]
+  for (let i = 1; i < palabras.length; i++) {
+    const prueba = linea + ' ' + palabras[i]
+    if (medir(prueba) <= anchoMax) linea = prueba
+    else {
+      out.push(linea)
+      linea = palabras[i]
+    }
+  }
+  out.push(linea)
+  return out
+}
+
 /** El trazo de cada capa, en unidades de pantalla. Solida, punteada, discontinua. */
 export const TRAZO: Record<string, number[]> = {
   relation: [],
