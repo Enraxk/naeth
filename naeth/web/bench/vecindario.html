@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Naeth · banco de la forma del vecindario</title>
+    <style>
+      body { margin: 0; padding: 20px; font: 13px ui-monospace, Consolas, monospace; background: #14151a; color: #d8d8de; }
+      h1 { font-size: 15px; font-weight: 500; margin: 0 0 4px; }
+      .sub { color: #8a8a95; margin: 0 0 16px; max-width: 82ch; line-height: 1.55; }
+      #estado { color: #8a8a95; }
+      pre { margin: 16px 0 0; line-height: 1.6; white-space: pre; overflow-x: auto; }
+      #lienzos { display: flex; gap: 18px; margin-top: 20px; flex-wrap: wrap; }
+      figure { margin: 0; }
+      canvas { border: 1px solid #2a2b33; border-radius: 8px; display: block; }
+      figcaption { margin-top: 6px; color: #8a8a95; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <h1>La forma del vecindario: cuatro maneras de sacarla</h1>
+    <p class="sub">
+      La pregunta es si el vecindario de una ficha debe tener la MISMA forma que ese mismo
+      vecindario dentro del grafo global. La fidelidad se mide contra el global, buscando primero el
+      giro que mejor casa las dos disposiciones (un vecindario girado se reconoce igual) y midiendo
+      lo que queda; y ademas cuanto se conserva el orden de los vecinos alrededor del centro, que es
+      lo que el ojo de verdad reconoce.
+    </p>
+    <div id="estado">arrancando...</div>
+    <pre id="salida"></pre>
+    <div id="lienzos"></div>
+    <script type="module" src="./vecindario.ts"></script>
+  </body>
+</html>
