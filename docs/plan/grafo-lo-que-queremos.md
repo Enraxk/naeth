@@ -90,6 +90,7 @@ digan las mediciones.
 - ~~`finally` sigue con el build del 28/08~~ · **cerrado el 05/09/2026 a las 23:00**. Los dos nodos
   corren `2.2026.09` con el mismo bundle y el mismo `/api/graph`. Ver la fase 4 de
   `grafo-vivo-2026-09-05.md`.
-- ⚠ **Lo que destapó ese despliegue, y es de CENIT:** el rol `cenit` está escribible
-  (`default_transaction_read_only=off`) **en los dos nodos** a la vez, mandando el PC. Nada que ver
-  con el grafo, pero conviene mirarlo antes de que importe.
+- ⚠ **Lo que destapó ese despliegue, y es de CENIT:** los dos nodos están escribibles a la vez.
+  Manda `finally` desde un TAKEOVER del vigía de hoy a las 17:17 (epoch 154, tras un corte de red de
+  cinco minutos), y el PC se quedó con el epoch viejo creyendo que mandaba él. Sin divergencia de
+  datos. Se cierra con `core recover` desde el PC, y no de noche.

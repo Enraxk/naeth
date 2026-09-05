@@ -396,10 +396,24 @@ de aquí `git describe` responde `2.2026.09-1-g...` en los dos, que es lo espera
 El bundle compilado por el Node 18 de la imagen sale con el MISMO hash que el del PC, que es la
 comprobación fuerte: no es que los dos respondan, es que sirven el mismo fichero.
 
-⚠ **Hallazgo de la verificación, y no es de Naeth:** el rol `cenit` de Postgres tiene
-`default_transaction_read_only=off` **en los dos nodos**, con el árbitro diciendo que manda el PC
-(`epoch=153`, "P6: el PC vuelve"). `pendientes.md:56` da por hecho que en `finally` sigue en `on`.
-Parece residuo del último retorno del PC y toca mirarlo en CENIT, no aquí.
+⚠ **Hallazgo de la verificación, y no es de Naeth.** Los dos nodos están escribibles a la vez
+(`default_transaction_read_only=off` en ambos), que rompe el invariante I2 de CENIT. Mirado después
+con el log del vigía, **la culpa no era de `finally`: era del PC**.
+
+Lo que pasó, con fecha: **hoy a las 17:17** (commit `21497f2`, `2026-09-05 15:17:36 +0000`) hubo un
+corte de red de unos cinco minutos. El vigía del VPS dejó de ver al PC, y al recuperar internet
+ejecutó **TAKEOVER, epoch 154**: repuntó los tres CNAMEs a `finally` y se hizo escribible, que es
+exactamente su trabajo. El PC nunca se enteró, porque quien lee el árbitro es `core recover` y eso
+corre **al arrancar**: el PC llevaba encendido desde antes, así que se quedó con el `epoch 153` en
+`core/state/ownership.yaml` creyendo que mandaba, y escribible.
+
+Sin daño medido: 907 memorias, 529 vigentes y la misma última fecha (`2026-09-05 10:27:58`) en los
+dos nodos. Y un efecto de rebote afortunado, porque `memory.enraxk.dev` apunta a `finally` desde las
+17:17: el despliegue de esta noche fue al nodo que está sirviendo al mundo.
+
+Se arregla en CENIT con `core recover` desde el PC, que para este caso (manda el peer) trae lo suyo,
+le pide que ceda, reclama, repunta y deja el mirror en solo lectura. **No se ejecutó esta noche**:
+son las 23:45, no hay nada roto, y un failover a la carrera es como empiezan los incidentes largos.
 
 ---
 
