@@ -52,6 +52,8 @@
   let arrastrando: string | null = null
   /** Encuadra solo mientras se asienta y nadie ha tocado nada. */
   let autoEncuadre = true
+  /** Nodo al que la camara va acercandose sola. Ver `mirar`. */
+  let siguiendo: string | null = null
 
   // Lo unico que SI vive en Svelte, y solo porque lo lee el marcado: el cursor de agarrar. El
   // resto del estado del lienzo se queda fuera a proposito, arriba.
@@ -119,6 +121,20 @@
     if (autoEncuadre) {
       encuadraTodo(reduce ? 1 : 0.12)
       if (sim.viva()) vivo = true
+    } else if (siguiendo) {
+      // Se persigue la posicion ACTUAL del nodo, no la que tenia al empezar: mientras la
+      // simulacion respira, el nodo se mueve, y una camara que va a donde estaba deja el nodo
+      // descentrado justo al llegar.
+      const nd = sim.nodos.find((n) => n.id === siguiendo)
+      if (nd) {
+        const dx = (nd.x ?? 0) - vista.cx
+        const dy = (nd.y ?? 0) - vista.cy
+        if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
+          vista.cx += dx * (reduce ? 1 : 0.14)
+          vista.cy += dy * (reduce ? 1 : 0.14)
+          vivo = true
+        }
+      }
     }
 
     amarrar()
@@ -175,6 +191,21 @@
 
   export function reencuadrar() {
     autoEncuadre = true
+    siguiendo = null
+    despertar()
+  }
+
+  /**
+   * Lleva la camara hasta un nodo SIN cambiar el aumento, y lo sigue mientras dure.
+   *
+   * Es lo que pasa al recorrer el arbol con el raton: el grafo va detras. A diferencia de
+   * `encuadrar`, no acerca, porque cambiar el aumento en cada fila por la que pasas marea; y a
+   * diferencia del encuadre automatico, no vuelve al sitio al soltar, porque devolver la camara
+   * a su posicion anterior cada vez que sales de una fila es la mitad del mareo restante.
+   */
+  export function mirar(id: string | null) {
+    siguiendo = id
+    if (id) autoEncuadre = false
     despertar()
   }
 
@@ -183,6 +214,7 @@
     const nd = sim?.nodos.find((n) => n.id === id)
     if (!nd) return
     autoEncuadre = false
+    siguiendo = null
     anclaZoom = null
     vista.cx = nd.x ?? 0
     vista.cy = nd.y ?? 0
@@ -233,6 +265,7 @@
     pulsa = { id: nd?.id ?? null, sx: p.x, sy: p.y, t: performance.now(), cx: vista.cx, cy: vista.cy }
     agarrando = !nd
     autoEncuadre = false
+    siguiendo = null
     panv = { x: 0, y: 0 }
     ultimo = { x: ev.clientX, y: ev.clientY, t: performance.now() }
     if (nd) {
@@ -327,6 +360,7 @@
     const m = aMundo(sx, sy, vista)
     anclaZoom = { wx: m.x, wy: m.y, sx, sy }
     autoEncuadre = false
+    siguiendo = null
     objetivoK = Math.min(Math.max(objetivoK * (ev.deltaY < 0 ? 1.28 : 1 / 1.28), 0.08), 18)
     despertar()
   }

@@ -5,7 +5,7 @@
   import { collapsed, saveCollapsed, prefs, setSort, setSide } from '../lib/prefs.svelte'
   import { buildTree } from '../lib/tree'
   import { route, navigate } from '../lib/router.svelte'
-  import { ui, closeDrawer } from '../lib/ui.svelte'
+  import { ui, closeDrawer, resalte, resaltar } from '../lib/ui.svelte'
   import { typeMeta, typeColor, projMeta, projColor } from '../lib/colors'
   import { fmtShort } from '../lib/format'
 
@@ -71,7 +71,7 @@
        encontraba ningun item, que es peor que no anunciar nada. Lo que es de verdad hoy es una
        lista de botones, y asi queda hasta que el rol se implemente entero. El aria-label del <nav>
        se queda: describe el contenido sin prometer una semantica que no se cumple. -->
-  <div id="tree" class="tree">
+  <div id="tree" class="tree" class:senalando={resalte.id !== null}>
     {#each projects as p (p.proj)}
       {@const pKey = 'p:' + p.proj}
       {@const pc = projColor(p.proj)}
@@ -102,9 +102,12 @@
                   <button
                     class="row leaf"
                     class:sel={route.view === 'memoria' && route.id === m.id}
+                    class:eco={resalte.id === m.id}
                     data-id={m.id}
                     title={m.title || '(sin título)'}
                     onclick={() => openMem(m.id)}
+                    onpointerenter={() => resaltar(m.id, 'arbol')}
+                    onpointerleave={() => resaltar(null)}
                   >
                     <span class="ico"><Icon name={typeMeta(m.memory_type).icon} size={13} color={typeColor(m.memory_type)} /></span>
                     <span class="label">{m.title || '(sin título)'}</span>
@@ -150,6 +153,16 @@
   .row.subtopic .label { font: 12px var(--font-mono); color: var(--dim); }
   .row.leaf .label { font: 13px var(--font-sans); flex: 1 1 auto; }
   .row.leaf.sel { background: var(--sel); box-shadow: inset 2px 0 0 var(--accent); }
+  /* EL ECO DEL GRAFO. Cuando el raton pasa por un nodo del grafo, su fila se enciende aqui. Es
+     mas tenue que `.sel` a proposito: aquello dice "estas aqui" y esto dice solo "es esta". */
+  .row.leaf.eco { box-shadow: inset 2px 0 0 var(--accent); }
+  .row.leaf.eco .label { color: var(--accent); }
+  /* MIENTRAS SE SENALA ALGO, EL RESTO DEL ARBOL SE APAGA. No se esconde ni se mueve: baja de
+     intensidad, que es lo que hace que el ojo vaya solo a lo senalado sin perder el mapa de
+     donde estaba. El fundido se queda con `prefers-reduced-motion` siguiendo la politica de
+     app.css: lo que esa preferencia retira es el desplazamiento, no un cambio de intensidad. */
+  .tree.senalando .row:not(.eco) { opacity: .38; }
+  .tree .row { transition: opacity var(--t-fast); }
   .children { display: flex; flex-direction: column; gap: 1px; }
   .indent { margin-left: 16px; border-left: 1px solid var(--border); padding-left: 6px; }
   .ico { flex: 0 0 auto; display: inline-flex; }

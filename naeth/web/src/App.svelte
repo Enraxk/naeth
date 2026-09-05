@@ -15,12 +15,12 @@
   import { route } from './lib/router.svelte'
   import { prefs } from './lib/prefs.svelte'
   import { startPolling } from './lib/data.svelte'
-  import { ui, closeDrawer } from './lib/ui.svelte'
+  import { ui, closeDrawer, resalte } from './lib/ui.svelte'
 
   onMount(() => startPolling())
 </script>
 
-<div class="app">
+<div class="app" class:senalando={resalte.id !== null}>
   <Header />
   <div class="body" style="--side-w: {prefs.side}px">
     <Sidebar />
@@ -54,6 +54,22 @@
 
 <style>
   .app { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* MIENTRAS SE SENALA UNA MEMORIA, EL RESTO DE NAETH BAJA LA VOZ.
+     Se apaga el cromo (cabecera, ruta, rail y pie), no el contenido: en el grafo lo que hay
+     debajo ya se atenua por dentro, y en las demas vistas el contenido es lo que estas leyendo.
+     Lo que se gana es que senalar algo se sienta como senalarlo en la aplicacion entera y no
+     solo en un panel, que era el encargo: que Naeth se sienta una sola cosa viva.
+     El fundido se conserva con `prefers-reduced-motion`, igual que en el resto: esa preferencia
+     retira desplazamiento, no cambios de intensidad. */
+  .app > :global(header),
+  .app > :global(footer),
+  .app :global(.railbar),
+  .app :global(.crumbs) { transition: opacity var(--t-fast); }
+  .app.senalando > :global(header),
+  .app.senalando > :global(footer),
+  .app.senalando :global(.railbar),
+  .app.senalando :global(.crumbs) { opacity: .42; }
   .body { flex: 1 1 auto; display: grid; grid-template-columns: var(--side-w) 1fr 48px; min-height: 0; position: relative; }
   .center { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   .detail { background: var(--bg); overflow: auto; min-width: 0; flex: 1 1 auto; }

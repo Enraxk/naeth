@@ -175,6 +175,17 @@ Hoy es radial, determinista y funciona (`components/MiniGraph.svelte`). Pasa a u
 para que el vecindario se vea igual en los dos sitios y el hover cruzado también funcione ahí. Es la
 última porque no bloquea nada.
 
+## Fase 3.5. Ajustes de preferencia de usuario
+
+Pedida por Eneko el 05/09/2026 tras probar la fase 1: *"ahora sí que se siente bien. Hay que
+ajustar algunas cosas pero eso lo dejo para una fase de ajustes de preferencia de usuario (fuerza,
+cómo se pinta cuando aparecen...)"*.
+
+Son los cuatro deslizadores de fuerzas del grafo de Obsidian (centro, repulsión, fuerza de enlace y
+distancia de enlace), más lo nuestro: cómo entra el grafo al abrirlo, la velocidad del asentamiento
+y el umbral del texto. Persistidos en `localStorage` con el patrón de `prefs.svelte.ts`. Va después
+del mini grafo porque son preferencias sobre un motor que para entonces ya no se toca.
+
 ## Fase 4. Cierre
 
 Suite completa de los dos lados, `npm run build`, verificación en navegador en los dos temas y a

@@ -5,6 +5,7 @@
   import { getGraph, getKnn } from '../lib/api'
   import { data } from '../lib/data.svelte'
   import { navigate, route } from '../lib/router.svelte'
+  import { resalte, resaltar } from '../lib/ui.svelte'
   import { projColor, typeMeta, typeColor } from '../lib/colors'
   import { buildGraph, filtrosPorDefecto, proyectoDe, type EdgeLayer } from '../lib/graph'
     import type { GraphResponse, KnnNeighbor } from '../lib/types'
@@ -24,12 +25,23 @@
     }
   })
 
-  // El foco llega por la ruta `#/grafo/<id>`, que es a donde lleva el boton del mini grafo.
-  const foco = $derived(route.id)
+  // El foco llega por la ruta `#/grafo/<id>`, que es a donde lleva el boton del mini grafo, o por
+  // el resalte compartido, que es el raton pasando por una fila del arbol.
+  const foco = $derived(resalte.id ?? route.id)
 
   const model = $derived(buildGraph(data.tree ?? [], grafo, knn, filtros))
 
-  const nodoSel = $derived(model.nodes.find((n) => n.id === seleccion) ?? null)
+  // Lo que cuenta la franja de abajo: lo resaltado si hay algo, y si no lo seleccionado.
+  const idFranja = $derived(resalte.id ?? seleccion)
+  const nodoSel = $derived(model.nodes.find((n) => n.id === idFranja) ?? null)
+  /**
+   * La nota resaltada desde el arbol puede NO estar en el grafo: sin vinculos, o filtrada. En vez
+   * de dejar la franja en blanco, se dice, que ademas responde a la pregunta que uno se hace en
+   * ese momento (por que no la veo).
+   */
+  const filaSuelta = $derived(
+    !nodoSel && idFranja ? ((data.tree ?? []).find((r) => r.id === idFranja) ?? null) : null,
+  )
 
   /** Proyectos presentes, de mas a menos, para los chips del filtro. */
   const proyectos = $derived.by(() => {
@@ -70,6 +82,8 @@
    */
   async function seleccionar(id: string | null) {
     seleccion = id
+    // El otro extremo del hilo: lo que toca el raton aqui se enciende en el arbol.
+    resaltar(id)
     if (!id || !filtros.layers.semantic || knn.has(id)) return
     try {
       const r = await getKnn(id, 6)
@@ -77,13 +91,30 @@
     } catch { /* sin vecinos semanticos se sigue viendo el resto */ }
   }
 
-  // Al llegar con foco, se enfoca una vez que hay algo que enfocar.
+  /**
+   * Recorrer el arbol con el raton arrastra la camara del grafo.
+   *
+   * Solo cuando el resalte viene del ARBOL: si siguiera tambien al raton sobre el propio lienzo,
+   * cada nodo que rozaras se iria moviendo debajo del cursor.
+   */
+  $effect(() => {
+    const id = resalte.desde === 'arbol' ? resalte.id : null
+    if (!motor) return
+    motor.mirar(id && model.nodes.some((n) => n.id === id) ? id : null)
+  })
+
+  // Al llegar por `#/grafo/<id>` se enfoca una vez que hay algo que enfocar.
+  //
+  // ⚠ DEPENDE DE `route.id` Y NO DE `foco`, y la diferencia importa: `foco` incluye ahora el
+  // resalte del arbol, asi que con `foco` el primer roce del raton sobre una fila movia la camara
+  // y seleccionaba. Pasar el raton por una lista no puede tener consecuencias.
   let enfocado = false
   $effect(() => {
-    if (!enfocado && foco && motor && model.nodes.some((n) => n.id === foco)) {
+    const id = route.id
+    if (!enfocado && id && motor && model.nodes.some((n) => n.id === id)) {
       enfocado = true
-      motor.encuadrar(foco)
-      seleccionar(foco)
+      motor.encuadrar(id)
+      seleccionar(id)
     }
   })
 </script>
@@ -115,12 +146,6 @@
         <Icon name="refresh" size={12} color="currentColor" />encuadre
       </button>
     </div>
-
-    <div class="cuentas">
-      <b>{model.nodes.length}</b> memorias · <b>{model.edges.length}</b> vínculos ·
-      <b>{model.componentes}</b> grupos{#if filtros.ocultarAislados && model.aislados}
-        · {model.aislados} sueltas fuera{/if}
-    </div>
   </div>
 
   <div class="proyectos">
@@ -142,21 +167,30 @@
       <Lienzo bind:this={motor} {model} {foco} {seleccion}
               onSelect={seleccionar} onOpen={(id) => navigate('memoria', id)} />
     {/if}
+  </div>
 
+  <!-- LA FRANJA, que antes era un panel flotante sobre la esquina del lienzo y tapaba justo la
+       parte del grafo a la que uno acababa de llegar. Aqui no tapa nada: ocupa su propia banda,
+       y cuando no hay nada que mirar se gana el sitio contando el grafo entero. -->
+  <div class="franja" class:vacia={!nodoSel && !filaSuelta}>
     {#if nodoSel}
-      <aside class="panel">
-        <div class="p-tipo">
-          <Icon name={typeMeta(nodoSel.memory_type).icon} size={13} color={typeColor(nodoSel.memory_type)} />
-          <span>{nodoSel.memory_type}</span>
-          <button class="p-x" aria-label="Cerrar" onclick={() => (seleccion = null)}>
-            <Icon name="x" size={13} color="var(--dim)" />
-          </button>
-        </div>
-        <h3>{nodoSel.title ?? '(sin título)'}</h3>
-        <div class="p-meta">{nodoSel.path ?? ''} · {nodoSel.degree} vínculos</div>
-        <button class="p-abrir" onclick={() => navigate('memoria', nodoSel.id)}>Abrir la memoria</button>
-        <div class="p-tip">o un clic sobre el nodo</div>
-      </aside>
+      <Icon name={typeMeta(nodoSel.memory_type).icon} size={14} color={typeColor(nodoSel.memory_type)} />
+      <span class="f-tit" title={nodoSel.title ?? ''}>{nodoSel.title ?? '(sin título)'}</span>
+      <span class="f-meta">{nodoSel.path ?? ''}</span>
+      <span class="f-vin">{nodoSel.degree} {nodoSel.degree === 1 ? 'vínculo' : 'vínculos'}</span>
+      <button class="f-abrir" onclick={() => navigate('memoria', nodoSel.id)}>Abrir</button>
+    {:else if filaSuelta}
+      <Icon name={typeMeta(filaSuelta.memory_type).icon} size={14} color={typeColor(filaSuelta.memory_type)} />
+      <span class="f-tit" title={filaSuelta.title ?? ''}>{filaSuelta.title ?? '(sin título)'}</span>
+      <span class="f-meta">{filaSuelta.path ?? ''}</span>
+      <span class="f-vin fuera">fuera del grafo con estos filtros</span>
+      <button class="f-abrir" onclick={() => navigate('memoria', filaSuelta.id)}>Abrir</button>
+    {:else}
+      <span class="f-cuentas">
+        <b>{model.nodes.length}</b> memorias · <b>{model.edges.length}</b> vínculos ·
+        <b>{model.componentes}</b> grupos{#if filtros.ocultarAislados && model.aislados}
+          · {model.aislados} sueltas fuera{/if}
+      </span>
     {/if}
   </div>
 </div>
@@ -165,8 +199,6 @@
   .grafo { display: flex; flex-direction: column; height: 100%; min-height: 0; }
   .barra { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; padding: 12px 20px 8px; }
   .grupo { display: flex; gap: 6px; }
-  .cuentas { margin-left: auto; font: 11px var(--font-mono); color: var(--dim); }
-  .cuentas b { color: var(--ink); font-weight: 500; }
 
   .chip { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--border); border-radius: 99px; padding: 4px 11px; font: 11px var(--font-mono); color: var(--dim); }
   .chip:hover { color: var(--ink); }
@@ -183,14 +215,18 @@
   .lienzo-wrap { position: relative; flex: 1 1 auto; min-height: 0; border-top: 1px solid var(--border); }
   .msg { display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; color: var(--dim); font: 13px var(--font-sans); }
 
-  .panel { position: absolute; right: 16px; top: 16px; width: 260px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
-  .p-tipo { display: flex; align-items: center; gap: 6px; font: 10px var(--font-mono); text-transform: uppercase; letter-spacing: .5px; color: var(--dim); }
-  .p-x { margin-left: auto; background: none; border: 0; padding: 0; display: inline-flex; }
-  .panel h3 { margin: 8px 0 6px; font: 500 14px/1.4 var(--font-sans); color: var(--ink); }
-  .p-meta { font: 11px var(--font-mono); color: var(--dim); }
-  .p-abrir { margin-top: 10px; width: 100%; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px; font: 12px var(--font-sans); color: var(--ink); }
-  .p-abrir:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-  .p-tip { margin-top: 6px; text-align: center; font: 10px var(--font-mono); color: var(--dim); }
+  .franja { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; min-height: 42px; padding: 6px 20px; border-top: 1px solid var(--border); background: var(--panel); }
+  .f-tit { font: 500 13px var(--font-sans); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .f-meta { font: 11px var(--font-mono); color: var(--dim); white-space: nowrap; }
+  /* El contador empuja al boton contra el borde: el sitio del boton no cambia con el largo del
+     titulo, asi que la mano lo encuentra sin mirar. */
+  .f-vin { margin-left: auto; font: 11px var(--font-mono); color: var(--dim); white-space: nowrap; }
+  .f-vin.fuera { color: var(--warn); }
+  .f-abrir { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px; font: 12px var(--font-sans); color: var(--ink); white-space: nowrap; }
+  .f-abrir:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+  .f-cuentas { font: 11px var(--font-mono); color: var(--dim); }
+  .f-cuentas b { color: var(--ink); font-weight: 500; }
+  .franja.vacia { background: none; }
 
   @media (max-width: 600px) {
     .barra { padding: 10px 12px 6px; }
@@ -198,6 +234,9 @@
        dejando el lienzo en 387. Medido el 04/09/2026 a 375 px. Con dos filas y scroll siguen
        estando todos y el grafo recupera su sitio, que es lo que se ha venido a mirar. */
     .proyectos { padding: 0 12px 8px; max-height: 66px; overflow-y: auto; }
-    .panel { right: 8px; left: 8px; width: auto; }
+    .franja { padding: 6px 12px; gap: 8px; }
+    /* En 375 px no caben las cuatro cosas: el path se va, que es lo que menos se echa de menos
+       teniendo el titulo delante. */
+    .franja .f-meta { display: none; }
   }
 </style>
