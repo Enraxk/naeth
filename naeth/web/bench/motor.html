@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Naeth · banco del motor del grafo</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0; padding: 20px;
+        font: 13px ui-monospace, "Cascadia Code", Consolas, monospace;
+        background: #14151a; color: #d8d8de;
+      }
+      h1 { font-size: 15px; font-weight: 500; margin: 0 0 4px; }
+      .sub { color: #8a8a95; margin: 0 0 16px; max-width: 76ch; line-height: 1.5; }
+      .barra { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+      button {
+        font: inherit; background: #22232b; color: #d8d8de;
+        border: 1px solid #3a3b45; border-radius: 6px; padding: 6px 14px; cursor: pointer;
+      }
+      button:disabled { opacity: .5; cursor: default; }
+      #estado { color: #8a8a95; }
+      #lienzo { border: 1px solid #2a2b33; border-radius: 8px; width: 900px; height: 620px; overflow: hidden; }
+      pre { margin: 16px 0 0; line-height: 1.6; white-space: pre; overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Banco del motor del grafo</h1>
+    <p class="sub">
+      Fase 0 del plan del 05/09/2026. Criterio declarado antes de mirar: pasa quien de 50 fps o mas
+      con el corpus de hoy y 30 fps o mas a x5. La fisica corre sin enfriarse, o sea en su peor
+      caso sostenido, y el pintor SVG actualiza atributos a mano sin pasar por Svelte, o sea en su
+      mejor caso. Las escalas x5 y x10 son la proyeccion del corpus a uno y a tres anos.
+    </p>
+    <div class="barra">
+      <button id="correr" disabled>Medir</button>
+      <span id="estado">arrancando...</span>
+    </div>
+    <div id="lienzo"></div>
+    <pre id="salida"></pre>
+    <script type="module" src="./motor.ts"></script>
+  </body>
+</html>
