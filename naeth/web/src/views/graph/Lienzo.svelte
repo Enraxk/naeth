@@ -202,7 +202,12 @@
       arrastrando,
       color: true,
       escalaNodo: compacto ? 2.2 : 1,
-      topeNombres: compacto ? 1 : undefined,
+      // El mini juega con las MISMAS tres reglas que el grande, solo que con menos sitio: en 300 px
+      // un vecindario de quince nombres no cabe. Con seis, un vecindario pequeño los enseña ya y
+      // uno grande solo enseña el del centro hasta que te acercas; y al acercarte el culling deja
+      // menos nodos a la vista, asi que el conjunto encendido baja y los nombres van saliendo. Es
+      // la misma mecanica del grafo grande, con el tope ajustado al hueco.
+      topeNombres: compacto ? 6 : undefined,
     })
 
     if (vivo) despertar()
