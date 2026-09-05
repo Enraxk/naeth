@@ -32,7 +32,7 @@ export interface Colocacion {
 }
 
 /** PRNG de 32 bits sembrado. Lo unico que se le pide es ser estable entre recargas. */
-function sembrado(semilla: number): () => number {
+export function sembrado(semilla: number): () => number {
   let a = semilla >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0
@@ -43,7 +43,7 @@ function sembrado(semilla: number): () => number {
 }
 
 /** Semilla estable a partir del id: mismo nodo, misma posicion de partida, siempre. */
-function semillaDe(id: string): number {
+export function semillaDe(id: string): number {
   let h = 2166136261
   for (let i = 0; i < id.length; i++) {
     h ^= id.charCodeAt(i)
