@@ -87,6 +87,9 @@ digan las mediciones.
 
 ## 4. Lo que está pendiente de cerrar, y no es nuevo
 
-- **`finally` sigue con el build del 28/08.** Nada de esta jornada está allí. Toca `git pull` y
-  `./up.sh --build`, y el tag `2.2026.09` **al desplegar**.
-- El plan del día (`grafo-vivo-2026-09-05.md`) tiene su fase 4 de cierre sin ejecutar.
+- ~~`finally` sigue con el build del 28/08~~ · **cerrado el 05/09/2026 a las 23:00**. Los dos nodos
+  corren `2.2026.09` con el mismo bundle y el mismo `/api/graph`. Ver la fase 4 de
+  `grafo-vivo-2026-09-05.md`.
+- ⚠ **Lo que destapó ese despliegue, y es de CENIT:** el rol `cenit` está escribible
+  (`default_transaction_read_only=off`) **en los dos nodos** a la vez, mandando el PC. Nada que ver
+  con el grafo, pero conviene mirarlo antes de que importe.

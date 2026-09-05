@@ -371,11 +371,35 @@ vista, no del mapa.
 
 220 tests.
 
-## Fase 4. Cierre
+## Fase 4. Cierre · HECHA el 05/09/2026 a las 23:00
 
-Suite completa de los dos lados, `npm run build`, verificación en navegador en los dos temas y a
-375 px, `git pull` y `./up.sh --build` en `finally` (que sigue con el build del 28/08), y **tag
-`2.2026.09` al desplegar, no al commitear**.
+Desplegado en los dos nodos como **`2.2026.09`**, el primer tag desde el `2.2026.08.6` del 28/08.
+
+- Suite del front en verde: **236 tests**, `svelte-check` limpio sobre **484 ficheros**, y `build`.
+- `finally` traía **39 commits de retraso**: `git pull` (de `f7add16` a `cf42ec0`) y `./up.sh
+  --build`, que allí es obligatorio porque el visor se compila DENTRO de la imagen.
+- Tag anotado al desplegar, no al commitear, y `git fetch --tags` en `finally` para que
+  `git describe` responda allí. Los dos nodos dicen `2.2026.09`.
+
+Lo que prueba que los dos sirven lo mismo, y no que "terminó con éxito":
+
+| Comprobación | PC | `finally` |
+|---|---|---|
+| Bundle servido | `index-CuWNvOS-.js` | `index-CuWNvOS-.js` |
+| `/api/graph` | 200, 93.639 bytes | 200, 93.639 bytes |
+| Contenido | 529 nodos, 479 aristas, 198 con wikilinks | idéntico |
+| `git describe --tags` | `2.2026.09` | `2.2026.09` |
+
+Medido justo al desplegar: el commit que escribe esta tabla va por encima del tag, así que a partir
+de aquí `git describe` responde `2.2026.09-1-g...` en los dos, que es lo esperado.
+
+El bundle compilado por el Node 18 de la imagen sale con el MISMO hash que el del PC, que es la
+comprobación fuerte: no es que los dos respondan, es que sirven el mismo fichero.
+
+⚠ **Hallazgo de la verificación, y no es de Naeth:** el rol `cenit` de Postgres tiene
+`default_transaction_read_only=off` **en los dos nodos**, con el árbitro diciendo que manda el PC
+(`epoch=153`, "P6: el PC vuelve"). `pendientes.md:56` da por hecho que en `finally` sigue en `on`.
+Parece residuo del último retorno del PC y toca mirarlo en CENIT, no aquí.
 
 ---
 
