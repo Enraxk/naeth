@@ -71,6 +71,16 @@
   let siguiendo: string | null = null
   /** Carpeta senalada, a cuyo centro va la camara. Ver `mirarGrupo`. */
   let siguiendoGrupo: Set<string> | null = null
+  /**
+   * Queda un encuadre por hacer porque cuando tocaba no habia medidas del contenedor.
+   *
+   * ⚠ ESTO ERA UN BUG Y COSTABA CARO. Al colocar desde el mapa la simulacion queda dormida, asi que
+   * si el encuadre se pierde no hay frames despues para recuperarlo: el vecindario se queda fuera
+   * de la vista y el lienzo aparece EN BLANCO. Y pasaba de forma intermitente, que es lo peor:
+   * dependia de si el mapa ya estaba calculado al montar (lienzo vacio) o llegaba despues (bien).
+   * De ahi el sintoma que reporto Eneko, que refrescando se arreglaba.
+   */
+  let encuadrePendiente = false
 
   // Lo unico que SI vive en Svelte, y solo porque lo lee el marcado: el cursor de agarrar. El
   // resto del estado del lienzo se queda fuera a proposito, arriba.
@@ -553,6 +563,10 @@
       vista.w = caja.clientWidth
       vista.h = caja.clientHeight
       pintor?.medir(vista.w, vista.h)
+      if (encuadrePendiente && vista.w) {
+        encuadrePendiente = false
+        encuadraTodo(1)
+      }
       despertar()
     })
     ro.observe(caja)
@@ -580,6 +594,10 @@
     const m = model
     if (!sim || !listo) return
     sim.cambiar(m)
+    // Si el lienzo vive de un mapa (la ficha de una memoria), cambiar de nota cambia el modelo
+    // ENTERO, no un filtro: hay que volver a colocar desde el mapa y reencuadrar, porque los nodos
+    // nuevos entran donde los deje el empaquetado y la camara sigue mirando al vecindario anterior.
+    if (posiciones?.size) colocarYEncuadrar(posiciones)
     despertar()
   })
 
@@ -604,6 +622,11 @@
   function colocarYEncuadrar(p: ReadonlyMap<string, { x: number; y: number }>) {
     sim?.colocar(p)
     autoEncuadre = false
+    if (!vista.w) {
+      // Todavia no se ha medido el contenedor: el encuadre se apunta y lo hace el ResizeObserver.
+      encuadrePendiente = true
+      return
+    }
     encuadraTodo(1)
   }
 

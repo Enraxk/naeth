@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import Lienzo from '../views/graph/Lienzo.svelte'
   import { navigate } from '../lib/router.svelte'
-  import { resaltar } from '../lib/ui.svelte'
+  import { resalte, resaltar } from '../lib/ui.svelte'
   import { TRAZO } from '../lib/pintor'
   import { mapa, pedirMapa } from '../lib/mapa.svelte'
   import type { GraphModel, EdgeLayer } from '../lib/graph'
@@ -52,9 +52,10 @@
     <Lienzo
       {model}
       seleccion={centro}
+      foco={resalte.id}
       compacto
       posiciones={mapa.listo ? mapa.pos : null}
-      onSelect={(id) => resaltar(id, 'arbol')}
+      onSelect={(id) => resaltar(id ?? centro, 'arbol')}
       onOpen={(id) => navigate('memoria', id)}
     />
   </div>
