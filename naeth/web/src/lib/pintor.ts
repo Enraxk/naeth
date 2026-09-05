@@ -126,7 +126,32 @@ export const TOPE_ETIQUETAS = 0
 export const TOPE_ETIQUETAS_FOCO = 26
 
 /**
- * Las cuatro formas del vocabulario cerrado de tipos, trazadas sobre el path que le pasen.
+ * LA GEOMETRIA DE LAS CUATRO FORMAS, ESCRITA UNA SOLA VEZ.
+ *
+ * Devuelve los vertices en orden, o `null` para el circulo, que no tiene vertices. Existe porque
+ * hasta el 05/09/2026 estas cuatro formas estaban escritas DOS veces, aqui y en el mini grafo de
+ * la ficha, con la misma intencion y distinta sintaxis. Esa duplicacion no falla ruidosamente:
+ * cambiar una forma en un sitio y no en el otro hace que el mismo tipo de memoria se vea distinto
+ * en dos vistas de la misma aplicacion, y nada avisa.
+ *
+ * Los dos medios consumen de aqui: `trazarForma` para el lienzo y `pathForma` para el SVG.
+ */
+export function verticesForma(tipo: MemType, x: number, y: number, r: number): [number, number][] | null {
+  switch (tipo) {
+    case 'decision':
+      return [[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]]
+    case 'observation':
+      return [[x, y - r], [x + r, y], [x, y + r], [x - r, y]]
+    case 'preference':
+      return [[x, y - r], [x + r, y + r * 0.8], [x - r, y + r * 0.8]]
+    default:
+      // `fact` y cualquier tipo retirado que siga vivo en una nota vieja: circulo.
+      return null
+  }
+}
+
+/**
+ * Las cuatro formas trazadas sobre el path que le pasen, para el lienzo.
  *
  * No hace `beginPath` ni `fill`: eso es cosa de quien llama, que agrupa por color para no cambiar
  * de `fillStyle` una vez por nodo. Con 4.550 nodos esa diferencia es el pintado entero.
@@ -138,28 +163,28 @@ export function trazarForma(
   y: number,
   r: number,
 ) {
-  switch (tipo) {
-    case 'decision':
-      ctx.rect(x - r, y - r, r * 2, r * 2)
-      break
-    case 'observation':
-      ctx.moveTo(x, y - r)
-      ctx.lineTo(x + r, y)
-      ctx.lineTo(x, y + r)
-      ctx.lineTo(x - r, y)
-      ctx.closePath()
-      break
-    case 'preference':
-      ctx.moveTo(x, y - r)
-      ctx.lineTo(x + r, y + r * 0.8)
-      ctx.lineTo(x - r, y + r * 0.8)
-      ctx.closePath()
-      break
-    default:
-      // `fact` y cualquier tipo retirado que siga vivo en una nota vieja: circulo.
-      ctx.moveTo(x + r, y)
-      ctx.arc(x, y, r, 0, Math.PI * 2)
+  const vs = verticesForma(tipo, x, y, r)
+  if (!vs) {
+    ctx.moveTo(x + r, y)
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    return
   }
+  ctx.moveTo(vs[0][0], vs[0][1])
+  for (let i = 1; i < vs.length; i++) ctx.lineTo(vs[i][0], vs[i][1])
+  ctx.closePath()
+}
+
+/**
+ * Las mismas cuatro formas como atributo `d` de un `<path>`, para el SVG del mini grafo.
+ *
+ * El circulo se dibuja con dos arcos y no con `<circle>` para que el vocabulario entero quepa en
+ * un solo elemento: asi el mini grafo tiene un `<path>` por nodo y no dos ramas de marcado segun
+ * el tipo.
+ */
+export function pathForma(tipo: MemType, x: number, y: number, r: number): string {
+  const vs = verticesForma(tipo, x, y, r)
+  if (!vs) return `M${x - r} ${y}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0`
+  return `M${vs[0][0]} ${vs[0][1]}` + vs.slice(1).map(([a, b]) => `L${a} ${b}`).join('') + 'Z'
 }
 
 /** El trazo de cada capa, en unidades de pantalla. Solida, punteada, discontinua. */

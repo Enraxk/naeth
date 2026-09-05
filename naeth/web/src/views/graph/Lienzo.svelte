@@ -337,6 +337,10 @@
     if (ev.button !== 0 || !caja) return
     caja.setPointerCapture(ev.pointerId)
     const p = enLienzo(ev)
+    // Lo que se pulsa es lo que hay DEBAJO, y solo eso. Probe darle un margen para alcanzar al
+    // nodo senalado aunque se hubiera movido, y lo quite: en el uso real apuntas a donde VES el
+    // anillo, que es su posicion de ahora, asi que el margen no resolvia ningun caso demostrado y
+    // a cambio robaba al fondo los clics de deseleccionar que cayeran cerca de un nodo.
     const nd = nodoEn(p.x, p.y)
     pulsa = { id: nd?.id ?? null, sx: p.x, sy: p.y, t: performance.now(), cx: vista.cx, cy: vista.cy }
     agarrando = !nd

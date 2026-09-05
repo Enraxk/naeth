@@ -1,6 +1,8 @@
 <script lang="ts">
   import { navigate } from '../lib/router.svelte'
   import { projColor } from '../lib/colors'
+  import { pathForma, TRAZO as DASH } from '../lib/pintor'
+  import { resalte, resaltar } from '../lib/ui.svelte'
   import type { GraphModel, GraphNode, EdgeLayer } from '../lib/graph'
 
   // Vecindario a un salto, en el panel de contexto de una memoria.
@@ -62,11 +64,17 @@
     return out
   })
 
-  /** Sólida la relación, punteada el wikilink, discontinua el vecino semántico. */
+  /**
+   * Sólida la relación, punteada el wikilink, discontinua el vecino semántico.
+   *
+   * Sale de `pintor.ts`, que es la misma fuente que usa el grafo grande. Antes estaba escrito aquí
+   * otra vez, y dos capas que se pintan distinto en dos vistas de la misma aplicación es un error
+   * que no avisa: nadie lo ve hasta que compara.
+   */
   const TRAZO: Record<EdgeLayer, string> = {
-    relation: '',
-    wikilink: '2 3',
-    semantic: '5 3',
+    relation: DASH.relation.join(' '),
+    wikilink: DASH.wikilink.join(' '),
+    semantic: DASH.semantic.join(' '),
   }
 
   const ETIQUETA: Record<EdgeLayer, string> = {
@@ -75,26 +83,20 @@
     semantic: 'vecino semántico',
   }
 
-  /** Las cuatro formas del vocabulario cerrado de tipos, a un tamaño donde se distinguen. */
-  function forma(n: GraphNode | undefined, x: number, y: number, r: number): string {
-    switch (n?.memory_type) {
-      case 'decision':
-        return `M${x - r} ${y - r}h${r * 2}v${r * 2}h${-r * 2}Z`
-      case 'observation':
-        return `M${x} ${y - r}L${x + r} ${y}L${x} ${y + r}L${x - r} ${y}Z`
-      case 'preference':
-        return `M${x} ${y - r}L${x + r} ${y + r * 0.8}L${x - r} ${y + r * 0.8}Z`
-      default:
-        // `fact` y cualquier tipo retirado que siga vivo en una nota vieja: circulo.
-        return `M${x - r} ${y}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0`
-    }
-  }
+  /** Las cuatro formas, de la misma geometría que usa el lienzo del grafo grande. */
+  const forma = (n: GraphNode | undefined, x: number, y: number, r: number) =>
+    pathForma(n?.memory_type ?? 'fact', x, y, r)
 
   const tituloDe = (n: GraphNode | undefined) => n?.title ?? '(sin título)'
 </script>
 
+<!-- El vecindario entra en el mismo hilo que el arbol y el grafo: señalar aquí enciende allí, y
+     al revés. `'arbol'` como origen no es un descuido: significa "esto se señala desde fuera del
+     lienzo", que es lo que decide si la cámara del grafo grande lo persigue. -->
 {#if vecinos.length}
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <svg class="mini" viewBox="0 0 {W} {H}" role="img"
+       onpointerleave={() => resaltar(null)}
        aria-label="Vecindario de esta memoria: {vecinos.length} conexiones directas">
     {#each vecinos as v, i (v.otro + v.layer)}
       {@const p = posiciones.get(i)}
@@ -112,8 +114,10 @@
       {@const p = posiciones.get(i)}
       {@const n = nodo.get(v.otro)}
       {#if p}
-        <g class="nd" role="button" tabindex="0"
+        <g class="nd" class:eco={resalte.id === v.otro} role="button" tabindex="0"
            onclick={() => navigate('memoria', v.otro)}
+           onpointerenter={() => resaltar(v.otro, 'arbol')}
+           onfocus={() => resaltar(v.otro, 'arbol')}
            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('memoria', v.otro) } }}>
           <title>{tituloDe(n)} · {n?.path ?? ''} · {ETIQUETA[v.layer]}{v.confirmed ? ' (también wikilink)' : ''}</title>
           <path d={forma(n, p.x, p.y, 6)} fill={projColor(n?.path?.split('/')[0] ?? '')} />
@@ -149,6 +153,9 @@
   .nd:hover path { stroke: var(--ink); stroke-width: 1.5; }
   .nd:focus-visible { outline: none; }
   .nd:focus-visible path { stroke: var(--accent); stroke-width: 2; }
+  /* El eco de lo señalado en cualquier otra vista. Mismo `--accent` que usa el árbol para decir
+     "es esta", para que las tres vistas hablen el mismo idioma. */
+  .nd.eco path { stroke: var(--accent); stroke-width: 2.5; }
   .leyenda { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
   .lg { display: inline-flex; align-items: center; gap: 5px; font: 10px var(--font-mono); color: var(--dim); }
 </style>

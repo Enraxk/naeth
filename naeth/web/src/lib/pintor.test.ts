@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { aMundo, aPantalla, opacidadTexto, radioEnPantalla, TRAZO, type Vista } from './pintor'
+import {
+  aMundo, aPantalla, opacidadTexto, pathForma, radioEnPantalla, TRAZO, trazarForma,
+  verticesForma, type Vista,
+} from './pintor'
+import type { MemType } from './types'
 
 // Contrato de la conversion entre mundo y pantalla.
 //
@@ -101,5 +105,67 @@ describe('el trazo de cada capa', () => {
 
   it('wikilink y semantica se distinguen entre si', () => {
     expect(TRAZO.wikilink).not.toEqual(TRAZO.semantic)
+  })
+})
+
+
+describe('las cuatro formas, una sola geometria', () => {
+  // Hasta el 05/09/2026 estas formas estaban escritas dos veces, aqui y en el mini grafo de la
+  // ficha. Esa duplicacion no falla ruidosamente: cambiar una forma en un sitio y no en el otro
+  // hace que el mismo tipo de memoria se vea distinto en dos vistas, y nada avisa. Estos tests
+  // son lo que avisa.
+  const TIPOS: MemType[] = ['fact', 'decision', 'observation', 'preference']
+
+  it('cada tipo tiene su forma, y ninguna se repite', () => {
+    const paths = TIPOS.map((t) => pathForma(t, 0, 0, 10))
+    expect(new Set(paths).size).toBe(TIPOS.length)
+  })
+
+  it('el SVG y el lienzo dibujan LOS MISMOS vertices', () => {
+    // El trazador de canvas se graba en un doble que apunta por donde pasa, y se compara contra
+    // las coordenadas del `d` del SVG. Si alguien toca una de las dos rutas, esto cae.
+    for (const tipo of TIPOS) {
+      const vs = verticesForma(tipo, 5, -3, 8)
+      const puntos: number[][] = []
+      const espia = {
+        moveTo: (x: number, y: number) => puntos.push([x, y]),
+        lineTo: (x: number, y: number) => puntos.push([x, y]),
+        closePath: () => {},
+        arc: () => {},
+        rect: () => {},
+      } as unknown as CanvasRenderingContext2D
+      trazarForma(espia, tipo, 5, -3, 8)
+
+      if (!vs) {
+        // El circulo: el lienzo arranca en el borde derecho y el SVG tambien.
+        expect(puntos[0]).toEqual([13, -3])
+        expect(pathForma(tipo, 5, -3, 8)).toContain('M-3 -3')
+        continue
+      }
+      expect(puntos).toEqual(vs.map(([x, y]) => [x, y]))
+      const d = pathForma(tipo, 5, -3, 8)
+      for (const [x, y] of vs) expect(d).toContain(`${x} ${y}`)
+      expect(d.endsWith('Z')).toBe(true)
+    }
+  })
+
+  it('el circulo no tiene vertices y los otros tres si', () => {
+    expect(verticesForma('fact', 0, 0, 5)).toBe(null)
+    expect(verticesForma('decision', 0, 0, 5)).toHaveLength(4)
+    expect(verticesForma('observation', 0, 0, 5)).toHaveLength(4)
+    expect(verticesForma('preference', 0, 0, 5)).toHaveLength(3)
+  })
+
+  it('un tipo desconocido cae en circulo en los dos medios', () => {
+    // Un `memory_type` retirado que siga vivo en una nota vieja no puede dejar de dibujarse.
+    const raro = 'lo-que-sea' as MemType
+    expect(verticesForma(raro, 0, 0, 5)).toBe(null)
+    expect(pathForma(raro, 0, 0, 5)).toBe(pathForma('fact', 0, 0, 5))
+  })
+
+  it('la forma escala con el radio', () => {
+    const chico = verticesForma('decision', 0, 0, 4)!
+    const grande = verticesForma('decision', 0, 0, 8)!
+    expect(grande[0][0]).toBe(chico[0][0] * 2)
   })
 })
