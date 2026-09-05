@@ -529,7 +529,17 @@
   onMount(() => {
     if (!caja) return
     pintor = pintorCanvas(caja)
-    sim = crearSimulador(model)
+    // LA FISICA DEL COMPACTO ES OTRA, y no es un capricho de tamaño.
+    //
+    // Con la distancia de enlace del grafo grande (34) y quince vecinos alrededor de un centro, el
+    // anillo se satura: el perimetro que hace falta para que no choquen es mayor que el que da esa
+    // distancia, asi que la colision los amontona y el vecindario sale como un racimo. En el grafo
+    // grande no pasa porque un nodo tiene sitio alrededor.
+    //
+    // Con la distancia larga, las aristas vuelven a ser lineas que salen del centro, que es la
+    // forma que tiene el vecindario cuando lo miras en el grafo grande. Y la repulsion sube para
+    // que los vecinos se repartan por el anillo en vez de agruparse por un lado.
+    sim = crearSimulador(model, compacto ? { distancia: 96, repulsion: -140, ancho: 420 } : {})
 
     const ro = new ResizeObserver(() => {
       if (!caja) return
