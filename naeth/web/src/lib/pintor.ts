@@ -51,6 +51,24 @@ export interface EstadoPintado {
   arrastrando: string | null
   /** Colorear por proyecto o dejarlo en tono neutro. */
   color: boolean
+  /**
+   * Multiplicador del radio dibujado.
+   *
+   * Existe por el mini grafo de la ficha: en 276 px de ancho el encuadre da un aumento pequeño, y
+   * con el mismo radio que el grafo grande los nodos salen en el suelo de 1,6 px, o sea polvo. No
+   * se toca `radioNodo` porque ese radio tambien es el de colision, y agrandarlo separaria los
+   * nodos en vez de dibujarlos mas gordos.
+   */
+  escalaNodo?: number
+  /**
+   * Cuantos nombres como mucho, cuando hay algo senalado. Por defecto `TOPE_ETIQUETAS_FOCO`.
+   *
+   * El mini grafo de la ficha lo baja a uno. Alli el centro enciende a TODOS sus vecinos, asi que
+   * con el tope normal salian los dieciseis titulos a la vez en 298 px de ancho: el mismo muro de
+   * texto que se quito del grafo grande, solo que en un pañuelo. En el mini el nombre lo lleva
+   * solo el nodo que estas apuntando.
+   */
+  topeNombres?: number
 }
 
 export interface Pintor {

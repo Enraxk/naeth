@@ -98,6 +98,8 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // todo y el grafo se quedaba sin contexto alrededor de lo que miras. A 0,3 el resto sigue
       // ahi, como fondo, que es lo que hace que resaltar signifique algo.
       const apagado = 1 - 0.7 * est.atenuacion
+      const esc = est.escalaNodo ?? 1
+      const radio = (nd: NodoSim) => radioEnPantalla(radioNodo(nd.n) * esc, v.k)
 
       visibles.length = 0
       for (const nd of sim.nodos) if (dentro(P(nd))) visibles.push(nd)
@@ -164,7 +166,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           ctx.beginPath()
           for (const nd of l) {
             const p = P(nd)
-            trazarForma(ctx, nd.n.memory_type, p.x, p.y, radioEnPantalla(radioNodo(nd.n), v.k))
+            trazarForma(ctx, nd.n.memory_type, p.x, p.y, radio(nd))
           }
           ctx.fill()
         }
@@ -186,7 +188,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       const foco = est.foco ? sim.nodos.find((n) => n.id === est.foco) : null
       if (foco) {
         const p = P(foco)
-        const r = radioEnPantalla(radioNodo(foco.n), v.k)
+        const r = radio(foco)
         ctx.strokeStyle = tk.accent
         ctx.lineWidth = est.arrastrando === foco.id ? 3 : 2
         ctx.beginPath()
@@ -206,7 +208,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       const op = opacidadTexto(v.k)
       const enc = hayFoco ? visibles.filter((nd) => enFoco(nd.id)) : []
       const conNombre = hayFoco
-        ? enc.length <= TOPE_ETIQUETAS_FOCO
+        ? enc.length <= (est.topeNombres ?? TOPE_ETIQUETAS_FOCO)
           ? enc
           : foco
             ? [foco]
@@ -222,7 +224,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
         ctx.strokeStyle = tk.bg
         for (const nd of conNombre) {
           const p = P(nd)
-          const r = radioEnPantalla(radioNodo(nd.n), v.k)
+          const r = radio(nd)
           // EL NOMBRE DEL SENALADO SE ESCRIBE MAS GRANDE que el de sus vecinos. Con todos al
           // mismo cuerpo, en un vecindario de cinco no hay forma de saber cual era el que
           // apuntabas: el anillo lo dice, pero el ojo va antes al texto. Y el texto se aparta un

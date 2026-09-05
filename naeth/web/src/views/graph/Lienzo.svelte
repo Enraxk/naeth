@@ -26,10 +26,16 @@
     foco = null,
     grupo = null,
     seleccion = null,
+    compacto = false,
     onSelect,
     onOpen,
   }: {
     model: GraphModel
+    /**
+     * Version pequeña, la del panel de una ficha. No cambia el motor: son los mismos simulador,
+     * pintor e interaccion. Solo ajusta lo que depende del sitio disponible.
+     */
+    compacto?: boolean
     /** Resaltado que viene de fuera: la ruta, o el raton sobre el arbol. */
     foco?: string | null
     /** Varias memorias encendidas a la vez: la carpeta que se senala en el arbol. */
@@ -172,6 +178,8 @@
       atenuacion,
       arrastrando,
       color: true,
+      escalaNodo: compacto ? 2.2 : 1,
+      topeNombres: compacto ? 1 : undefined,
     })
 
     sucio = false
@@ -234,10 +242,12 @@
   function encuadraTodo(paso = 1) {
     if (!sim || !vista.w) return
     const c = sim.caja()
+    // Mas margen en el compacto: ahi los nombres salen al senalar y necesitan sitio a los lados,
+    // que en 276 px es lo primero que se acaba.
     const k = Math.min(
       vista.w / Math.max(c.x1 - c.x0, 1),
       vista.h / Math.max(c.y1 - c.y0, 1),
-    ) * 0.9
+    ) * (compacto ? 0.72 : 0.9)
     const cx = (c.x0 + c.x1) / 2
     const cy = (c.y0 + c.y1) / 2
     vista.k += (Math.min(k, 4) - vista.k) * paso
@@ -581,8 +591,10 @@
   class:agarrando
   bind:this={caja}
   role="application"
-  tabindex="0"
-  aria-label="Grafo de {model.nodes.length} memorias y {model.edges.length} vínculos. Flechas para saltar de vecino en vecino, más y menos para acercarse, Enter para abrir, Escape para soltar."
+  tabindex={compacto ? -1 : 0}
+  aria-label={compacto
+    ? `Vecindario de esta memoria: ${model.nodes.length - 1} conexiones`
+    : `Grafo de ${model.nodes.length} memorias y ${model.edges.length} vínculos. Flechas para saltar de vecino en vecino, más y menos para acercarse, Enter para abrir, Escape para soltar.`}
   onkeydown={tecla}
   onwheel={rueda}
   onpointerdown={abajo}
@@ -590,6 +602,25 @@
   onpointerup={arriba}
   onpointercancel={arriba}
 ></div>
+
+<!-- LA LISTA ACCESIBLE. Un lienzo no tiene elementos, asi que para un lector de pantalla el grafo
+     seria un rectangulo vacio por mucho `aria-label` que lleve. Esto son enlaces de verdad, fuera
+     de la vista pero dentro del arbol de accesibilidad: se tabulan, se anuncian con su titulo y su
+     proyecto, y llevan a la memoria.
+
+     No es una concesion: el mini grafo tenia esto por ser SVG, y era el unico argumento serio para
+     no pasarlo a lienzo. Poniendolo aqui lo ganan las DOS vistas, porque el grafo grande nunca lo
+     tuvo. -->
+<ul class="solo-lectores">
+  {#each model.nodes as n (n.id)}
+    <li>
+      <a href="#/m/{n.id}"
+         onfocus={() => onSelect?.(n.id)}
+         onblur={() => onSelect?.(null)}
+      >{n.title ?? '(sin título)'} · {n.path ?? ''} · {n.degree} vínculos</a>
+    </li>
+  {/each}
+</ul>
 
 <style>
   .caja {
@@ -604,4 +635,36 @@
   }
   .caja:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .caja.agarrando { cursor: grabbing; }
+
+  /* Fuera de la vista, dentro del arbol de accesibilidad. No se usa `display:none` ni
+     `visibility:hidden` porque eso lo retira tambien para el lector, que es justo lo contrario de
+     lo que se quiere. */
+  .solo-lectores {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  /* Al tabular hasta un enlace SI se ve: si no, el foco desaparece de pantalla y quien navega con
+     teclado y vista se pierde. */
+  .solo-lectores a:focus-visible {
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    z-index: 20;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: var(--ink);
+    font: 12px var(--font-sans);
+  }
 </style>
