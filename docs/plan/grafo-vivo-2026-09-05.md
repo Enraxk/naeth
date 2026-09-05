@@ -169,6 +169,71 @@ resalta el nodo en el grafo, y al revés. Es lo que hace que la aplicación se s
 con los que una nota más se relaciona es buena y es medible (hoy el **24% de las aristas cruzan
 proyecto**), pero es estética y va después, con su propia sub-fase, no mezclada aquí.
 
+## Defectos abiertos, del uso real del 05/09/2026 a las 13:59
+
+Feedback de Eneko sobre lo entregado en la fase 2. **Las cuatro causas están verificadas, no
+supuestas**: cada una lleva el fichero y la línea, o la prueba en el navegador que la reproduce.
+
+### D1. El botón de la franja huye justo cuando vas a pulsarlo
+
+**Reproducido**: se señala una fila del árbol y la franja dice `naeth/conventions, 14 de 16
+memorias en el grafo`; se mueve el ratón hacia la franja y pasa a `455 memorias, 650 vínculos...`,
+con `hay_boton_abrir: false`. El botón **desaparece en el camino hacia él**.
+
+**Causa raíz, y no es la franja**: la franja se alimenta del resalte, que es un estado de *hover*, y
+el hover muere al salir de la zona (`entrarArbol(false)` en `lib/ui.svelte.ts`, y `fuera()` en
+`Lienzo.svelte`). Un panel con acciones no puede alimentarse de un estado que se apaga al ir hacia
+él. Hoy no hay forma de FIJAR una memoria: el clic sobre un nodo abre la nota, no la fija.
+
+Dos salidas, y hay que elegir antes de tocar nada:
+
+- **La franja recuerda lo último señalado** y no se vacía hasta que señales otra cosa o pulses
+  Escape. Es un cambio pequeño y el botón deja de huir. Contra: la franja ya no vuelve sola a las
+  cuentas del grafo.
+- **El clic fija y el doble clic abre.** Más ortodoxo, pero cambia la interacción de un clic que
+  ya funciona y que gustó.
+
+### D2. La fila señalada se queda pegada al borde
+
+`components/Sidebar.svelte:41` usa `scrollIntoView({ block: 'nearest' })`, que por definición deja
+la fila en el borde más cercano y no la centra. Cambiar a `center` es una palabra, pero hay que
+comprobar que recorrer el grafo con el ratón no convierta el árbol en una máquina tragaperras.
+
+### D3. Señalar en el grafo reabre carpetas que habías cerrado
+
+`components/Sidebar.svelte:38` llama a `revealInTree()` dentro del efecto del *hover*. Colapsar una
+carpeta es una decisión deliberada, y pasar el ratón por encima de algo no puede deshacerla.
+Al quitarlo aparece la pregunta que hay que responder: qué se enseña cuando la fila está dentro de
+una carpeta cerrada. Lo razonable es encender la carpeta que la contiene.
+
+### D4. Sin nada señalado, el grafo escribe todos los nombres que le caben
+
+`lib/pintor-canvas.ts:214`: sin foco, si los nodos visibles no pasan de `TOPE_ETIQUETAS` (110) se
+escriben todos. Eneko lo prefiere en cero: nombres solo cuando hay algo señalado. Es coherente con
+lo que ya se arregló para el caso con foco y deja el grafo en reposo limpio.
+
+### D5. El buscador no habla ni con el árbol ni con el grafo
+
+`lib/search.svelte.ts` (103 líneas, con `qo`, `doSearch` y `choose`) no toca `resalte` en ningún
+sitio: buscar no enciende nada. **No es un defecto, es una pieza que falta**, y es la tercera vía de
+señalar junto al árbol y el grafo. Merece su propia fase, no un parche: hay que decidir si enciende
+mientras escribes o solo al recorrer los resultados, y qué pasa con los aciertos que están fuera del
+grafo.
+
+### Cómo se arreglan, decidido el 05/09/2026
+
+Van los cuatro ANTES de la fase 3: tres son defectos de lo entregado hace una hora y aparcarlos en
+la fase de ajustes los convertiría en deuda con nombre.
+
+| # | Qué se hace | Cómo se comprueba que quedó hecho |
+|---|---|---|
+| D1 | **La franja pierde el botón** y se queda como información pura. Para abrir, el clic sobre el nodo, que ya funciona. Decisión de Eneko: el problema desaparece en vez de resolverse, y es la salida más simple de las tres | La franja no tiene `.f-abrir` en ninguno de sus dos ramos, y el clic sobre un nodo sigue abriendo la nota |
+| D2 | `block: 'nearest'` pasa a `'center'` **solo en el efecto del hover**. El de navegar a una memoria no se toca, que ya estaba verificado y no molesta | Señalar un nodo y medir dónde queda la fila: cerca del centro del contenedor, no pegada a un borde |
+| D3 | Fuera `revealInTree` del efecto del hover. Si la fila está dentro de una carpeta cerrada, **se enciende la carpeta** en vez de abrirla | Colapsar una carpeta, señalar en el grafo una nota de dentro: la carpeta sigue cerrada y su fila se enciende |
+| D4 | `TOPE_ETIQUETAS` a **0**. No se retira el mecanismo: queda intacto para ser el deslizador de umbral de texto de la fase 3.5, así que no se pierde funcionalidad ni queda código muerto | Sin nada señalado, el lienzo no escribe ni un nombre; al señalar, salen los del vecindario |
+
+D5, el buscador, no entra aquí: es una pieza que falta, no un defecto, y va con su propia fase.
+
 ## Fase 3. El mini grafo de la ficha
 
 Hoy es radial, determinista y funciona (`components/MiniGraph.svelte`). Pasa a usar el motor nuevo
