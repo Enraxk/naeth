@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aMundo, aPantalla, opacidadTexto, partirEnLineas, pathForma, radioEnPantalla, TRAZO, trazarForma,
-  verticesForma, type Vista,
+  verticesForma, ZOOM_TEXTO_DESDE, ZOOM_TEXTO_PLENO, type Vista,
 } from './pintor'
 import type { MemType } from './types'
 
@@ -78,6 +78,32 @@ describe('el fundido del texto', () => {
   it('de lejos no hay nombres, de cerca si', () => {
     expect(opacidadTexto(0.4)).toBe(0)
     expect(opacidadTexto(3)).toBe(1)
+  })
+
+  it('con el grafo entero encuadrado NO hay texto, ni siquiera para lo senalado', () => {
+    // Los aumentos reales: el encuadre completo del grafo ronda 0,3 o 0,5. De lejos se viene a
+    // mirar la forma, y un titulo de tres lineas sobre puntos de dos pixeles es solo ruido.
+    expect(opacidadTexto(0.3)).toBe(0)
+    expect(opacidadTexto(0.5)).toBe(0)
+  })
+
+  it('acercarse a un nodo lo pone a plena luz', () => {
+    // 2,6 es el aumento al que lleva senalar en el arbol, y 3 el de la ruta `#/grafo/<id>`.
+    expect(opacidadTexto(2.6)).toBe(1)
+    expect(opacidadTexto(3)).toBe(1)
+  })
+
+  it('el mini grafo cae en pleno fundido, que es donde tiene sentido', () => {
+    // Alli el nombre es el del centro y el lienzo son 300 px: se quiere leer, pero sin gritar.
+    const enElMini = opacidadTexto(1.2)
+    expect(enElMini).toBeGreaterThan(0.3)
+    expect(enElMini).toBeLessThan(1)
+  })
+
+  it('los dos umbrales estan en orden y son los que dice la curva', () => {
+    expect(ZOOM_TEXTO_DESDE).toBeLessThan(ZOOM_TEXTO_PLENO)
+    expect(opacidadTexto(ZOOM_TEXTO_DESDE)).toBe(0)
+    expect(opacidadTexto(ZOOM_TEXTO_PLENO)).toBe(1)
   })
 
   it('funde en vez de cortar: hay valores intermedios', () => {

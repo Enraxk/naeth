@@ -206,17 +206,25 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // ⚠ CON ALGO SENALADO SE PINTAN SOLO SUS NOMBRES. Antes, si cabian, se pintaban los de todo
       // lo visible ademas del vecindario, y el resultado era un muro de texto alrededor de lo
       // unico que querias leer: el resalte se perdia entre el ruido que venia a quitar.
+      // ⚠ EL AUMENTO MANDA SOBRE TODO EL TEXTO, tambien sobre el de lo senalado. Antes el foco se
+      // saltaba esta regla y escribia su nombre a cualquier distancia, asi que con el grafo entero
+      // encuadrado aparecia un titulo de tres lineas flotando sobre una maraña de puntos de dos
+      // pixeles. De lejos se viene a mirar la FORMA; los nombres son para cuando te acercas, y
+      // mientras tanto quien dice que estas senalando es la franja de abajo, que tiene sitio.
       const op = opacidadTexto(v.k)
       const enc = hayFoco ? visibles.filter((nd) => enFoco(nd.id)) : []
-      const conNombre = hayFoco
-        ? enc.length <= (est.topeNombres ?? TOPE_ETIQUETAS_FOCO)
-          ? enc
-          : foco
-            ? [foco]
-            : []
-        : op > 0.02 && visibles.length <= TOPE_ETIQUETAS
-          ? visibles
-          : []
+      const conNombre =
+        op <= 0.02
+          ? []
+          : hayFoco
+            ? enc.length <= (est.topeNombres ?? TOPE_ETIQUETAS_FOCO)
+              ? enc
+              : foco
+                ? [foco]
+                : []
+            : visibles.length <= TOPE_ETIQUETAS
+              ? visibles
+              : []
 
       if (conNombre.length) {
         ctx.textAlign = 'center'
@@ -240,7 +248,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           ctx.lineWidth = esFoco ? 4 : 3
           const alto = esFoco ? 16 : 13
           const sep = esFoco ? r + 9 : r + 4
-          ctx.globalAlpha = hayFoco ? 1 : op
+          ctx.globalAlpha = op
           // EL TITULO ENTERO, partido en las lineas que haga falta. Recortarlo con puntos
           // suspensivos se comia media frase, y en este corpus los titulos son enunciados: dos
           // notas del mismo proyecto se distinguen justo por el final.

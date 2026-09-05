@@ -112,12 +112,25 @@ export const radioEnPantalla = (r: number, k: number) =>
   Math.min(Math.max(r * Math.pow(k, 0.6), 1.6), 40)
 
 /**
+ * A partir de que aumento empiezan a verse los nombres, y a partir de cual se ven del todo.
+ *
+ * Son los dos numeros del "text fade threshold" de Obsidian, y los que la fase 3.5 convertira en un
+ * deslizador. Los valores salen de los aumentos reales de la aplicacion: con el grafo entero
+ * encuadrado el aumento ronda 0,3 o 0,5, asi que ahi no hay texto; acercarse a un nodo lleva a 2,6
+ * y la ruta `#/grafo/<id>` a 3, donde ya se lee todo; el mini grafo de una ficha se queda entre 1 y
+ * 1,5, o sea en pleno fundido, que es donde tiene sentido porque ahi el nombre es el del centro.
+ */
+export const ZOOM_TEXTO_DESDE = 0.75
+export const ZOOM_TEXTO_PLENO = 1.65
+
+/**
  * Cuanto se ve el texto con este aumento.
  *
- * Es el "text fade threshold" del grafo de Obsidian. Va por fundido y no por umbral seco porque un
- * corte al cruzar el umbral hace parpadear medio lienzo con un pellizco de rueda.
+ * Va por fundido y no por umbral seco porque un corte al cruzar el umbral hace parpadear medio
+ * lienzo con un pellizco de rueda, y el ojo lee ese parpadeo como que han cambiado los datos.
  */
-export const opacidadTexto = (k: number) => Math.max(0, Math.min(1, (k - 0.75) / 0.9))
+export const opacidadTexto = (k: number) =>
+  Math.max(0, Math.min(1, (k - ZOOM_TEXTO_DESDE) / (ZOOM_TEXTO_PLENO - ZOOM_TEXTO_DESDE)))
 
 /**
  * Cuantos nombres se escriben SIN nada senalado. Hoy: ninguno.
