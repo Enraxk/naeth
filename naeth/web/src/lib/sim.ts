@@ -100,8 +100,13 @@ export interface Simulador {
   /** Sujeta un nodo donde diga la mano. */
   sujetar(id: string, x: number, y: number): void
   soltar(id: string): void
-  /** Cambia el modelo CONSERVANDO la posicion de los nodos que siguen estando. */
-  cambiar(model: GraphModel): void
+  /**
+   * Cambia el modelo CONSERVANDO la posicion de los nodos que siguen estando.
+   *
+   * `alpha` dice cuanto se reaviva para acomodar lo nuevo, y no es un detalle: gobierna cuanto se
+   * mueve lo que NO ha cambiado. Medido el 05/09/2026, ver `bench/vecindario.ts`.
+   */
+  cambiar(model: GraphModel, alpha?: number): void
   /** El nodo mas cercano a un punto dentro de un radio, o `null`. */
   cerca(x: number, y: number, r: number): NodoSim | null
   /** Vecinos de un nodo, en O(1). */
@@ -236,13 +241,13 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
       nd.fx = null
       nd.fy = null
     },
-    cambiar(m) {
+    cambiar(m, alpha = 0.3) {
       reconstruir(m)
       sim.nodes(nodos)
       const fl = sim.force('link') as ForceLink<NodoSim, AristaSim> | undefined
       fl?.links(aristas)
       // Reavivar poco: lo que sigue estando ya esta colocado y solo tiene que acomodarse.
-      sim.alpha(Math.max(sim.alpha(), 0.3)).alphaTarget(0)
+      sim.alpha(Math.max(sim.alpha(), alpha)).alphaTarget(0)
     },
     cerca(x, y, r) {
       let mejor: NodoSim | null = null

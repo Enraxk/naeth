@@ -258,7 +258,176 @@ async function arranca() {
   ].join('\n')
 
   if (ejemplo) dibuja(ejemplo)
+
+  // ---------------------------------------------------------------------------------------------
+  // SEGUNDA PARTE: como se sostiene el mapa cuando el corpus crece.
+  //
+  // La pregunta de Eneko: si la forma sale de un mapa guardado, una nota que gana relaciones tiene
+  // que CAMBIAR de forma, no quedarse con la de ayer. Asi que el mapa no puede congelarse: tiene
+  // que evolucionar. Se mide si eso es barato y, sobre todo, si evoluciona BIEN, es decir, si lo
+  // que no ha cambiado se queda donde estaba y solo se mueve lo que tiene motivo.
+  //
+  // Se compara mantener el mapa (`cambiar`, que conserva posiciones) contra rehacerlo desde cero.
+  estado.textContent = 'midiendo como envejece el mapa...'
+  await new Promise((r) => setTimeout(r, 10))
+  await creceElCorpus(tree, graph, model, posGlobal, muestra.map((n) => n.id))
+
   estado.textContent = 'terminado.'
+}
+
+/**
+ * Simula el crecimiento real del corpus y mide que le pasa al mapa.
+ *
+ * Las notas nuevas se enganchan a notas EXISTENTES, que es como crece de verdad: lo que se escribe
+ * hoy enlaza a lo de ayer. El ritmo medido el 05/09/2026 es de unas 230 memorias vigentes al mes.
+ */
+async function creceElCorpus(
+  tree: TreeRow[],
+  graph: GraphResponse,
+  model: GraphModel,
+  posAntes: Map<string, Punto>,
+  muestraIds: string[],
+) {
+  const filas: string[][] = []
+  const ids = model.nodes.map((n) => n.id)
+  let semilla = 7
+  const rnd = () => {
+    semilla = (semilla * 1664525 + 1013904223) >>> 0
+    return semilla / 4294967296
+  }
+
+  for (const [etiqueta, cuantas] of [['un dia', 8], ['un mes', 230], ['tres meses', 690]] as const) {
+    // Notas nuevas con su path y una o dos relaciones a notas ya existentes.
+    const nuevas: TreeRow[] = []
+    const aristas = [...graph.edges]
+    for (let i = 0; i < cuantas; i++) {
+      const id = `nueva-${etiqueta}-${i}`
+      nuevas.push({
+        id,
+        title: `nota nueva ${i}`,
+        memory_type: 'fact',
+        path: 'naeth/core',
+        tags: [],
+        created_at: '2026-10-01T10:00:00Z',
+      })
+      const cuantos = rnd() < 0.35 ? 2 : 1
+      for (let j = 0; j < cuantos; j++) {
+        aristas.push({
+          source_id: id,
+          target_id: ids[Math.floor(rnd() * ids.length)],
+          predicate: 'links_to',
+          n: 1,
+        })
+      }
+    }
+    const crecido = buildGraph([...tree, ...nuevas], { ...graph, edges: aristas }, new Map(), filtrosPorDefecto())
+
+    // MANTENIDO: el simulador que ya estaba, al que se le cuenta lo nuevo. Se prueban dos maneras
+    // de acomodarlo, porque la diferencia entre ellas es justo lo que decide si la forma de una
+    // nota significa algo o es el sorteo de hoy.
+    const mant = (alpha: number) => {
+      const s = crearSimulador(model)
+      asentar(s)
+      const t = performance.now()
+      s.cambiar(crecido, alpha)
+      const ticks = asentar(s, 400)
+      const ms = performance.now() - t
+      const pos = new Map<string, Punto>(s.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+      s.parar()
+      return { ticks, ms, pos }
+    }
+    const fuerte = mant(0.3)
+    const suave = mant(0.06)
+
+    /**
+     * E · ANCLADO SELECTIVO: lo que no ha cambiado NO se mueve, y punto.
+     *
+     * Es la respuesta literal al requisito: una nota cambia de forma cuando SU vecindario cambia,
+     * no cuando el vecino del vecino escribe algo. Se compara la adyacencia antes y despues, y los
+     * nodos con la misma lista de vecinos se clavan mientras lo nuevo se acomoda. Los que ganaron o
+     * perdieron vecinos quedan libres, que es justo lo que se quiere que se mueva.
+     */
+    const anclado = (() => {
+      const s = crearSimulador(model)
+      asentar(s)
+      const antes = new Map<string, string>()
+      for (const n of s.nodos) antes.set(n.id, [...s.vecinos(n.id)].sort().join(','))
+      const t = performance.now()
+      s.cambiar(crecido, 0.3)
+      let clavados = 0
+      for (const n of s.nodos) {
+        const a = antes.get(n.id)
+        if (a !== undefined && a === [...s.vecinos(n.id)].sort().join(',')) {
+          s.sujetar(n.id, n.x!, n.y!)
+          clavados++
+        }
+      }
+      const ticks = asentar(s, 400)
+      const ms = performance.now() - t
+      const pos = new Map<string, Punto>(s.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+      s.parar()
+      return { ms, ticks, pos, clavados }
+    })()
+    const ticksM = fuerte.ticks
+    const msM = fuerte.ms
+    const posM = fuerte.pos
+
+    // REHECHO: se tira el mapa y se calcula otra vez desde cero.
+    const tr = performance.now()
+    const rehecho = crearSimulador(crecido)
+    asentar(rehecho)
+    const msR = performance.now() - tr
+    const posR = new Map<string, Punto>(rehecho.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+
+    // Cuanto se movio la forma de los vecindarios que NO han cambiado, en cada caso. Lo que no ha
+    // cambiado no deberia moverse: si se mueve, cada nota nueva reordena el mapa entero y la forma
+    // deja de significar nada.
+    const vecinosDe = new Map<string, string[]>()
+    for (const id of muestraIds) {
+      const v = vecindario(model, id)
+      vecinosDe.set(id, v.nodes.map((n) => n.id))
+    }
+    const err = (pos: Map<string, Punto>) => {
+      const es: number[] = []
+      for (const [centro, vs] of vecinosDe) {
+        const sigueIgual = vs.every((x) => pos.has(x))
+        if (!sigueIgual) continue
+        es.push(errorAngular(relativas(posAntes, vs, centro), relativas(pos, vs, centro), vs))
+      }
+      return es.reduce((a, b) => a + b, 0) / Math.max(es.length, 1)
+    }
+
+    filas.push([
+      etiqueta + ' (+' + cuantas + ')',
+      Math.round(msM) + ' ms',
+      ticksM + ' ticks',
+      err(posM).toFixed(1) + ' grados',
+      Math.round(suave.ms) + ' ms',
+      err(suave.pos).toFixed(1) + ' grados',
+      Math.round(anclado.ms) + ' ms',
+      err(anclado.pos).toFixed(1) + ' grados',
+      anclado.clavados + '',
+      Math.round(msR) + ' ms',
+      err(posR).toFixed(1) + ' grados',
+    ])
+    rehecho.parar()
+    await new Promise((r) => setTimeout(r, 5))
+  }
+
+  const cab = ['crecimiento', 'normal', 'ticks', 'deriva', 'suave', 'deriva', 'anclado', 'deriva', 'clavados', 'rehacer', 'deriva']
+  const anchos = cab.map((c, i) => Math.max(c.length, ...filas.map((r) => r[i].length)))
+  const linea = (r: string[]) => r.map((v, i) => v.padEnd(anchos[i])).join('  ')
+  const bloque = [
+    'COMO ENVEJECE EL MAPA (notas nuevas enganchadas a notas existentes, como crece de verdad)',
+    '',
+    linea(cab),
+    anchos.map((a) => '-'.repeat(a)).join('  '),
+    ...filas.map(linea),
+    '',
+    'deriva = cuanto se mueve la forma de los vecindarios que NO han cambiado. Cuanto mas baja,',
+    'mas se puede confiar en que la forma de una nota significa algo y no es el sorteo de hoy.',
+  ]
+  salida.textContent += String.fromCharCode(10, 10) + bloque.join(String.fromCharCode(10))
 }
 
 /** El mismo vecindario dibujado con cada opcion, para poder mirarlo y no solo leerlo. */
