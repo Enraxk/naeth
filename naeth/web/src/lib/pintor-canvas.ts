@@ -20,6 +20,7 @@ import {
   opacidadTexto,
   radioEnPantalla,
   TOPE_ETIQUETAS,
+  TOPE_ETIQUETAS_FOCO,
   TRAZO,
   trazarForma,
   type EstadoPintado,
@@ -90,8 +91,8 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       const dentro = (p: { x: number; y: number }) =>
         p.x > -m && p.x < w + m && p.y > -m && p.y < h + m
 
-      const hayFoco = !!est.foco && !!est.vecinos && est.atenuacion > 0.001
-      const enFoco = (id: string) => !hayFoco || est.vecinos!.has(id) || id === est.foco
+      const hayFoco = !!est.encendidos?.size && est.atenuacion > 0.001
+      const enFoco = (id: string) => !hayFoco || est.encendidos!.has(id) || id === est.foco
       // Cuanto se apaga lo que no es del vecindario. Quartz usa 0,2 sobre fondo claro; aqui la
       // paleta ya esta desaturada y el fondo es oscuro, asi que a 0,18 el resto desaparecia del
       // todo y el grafo se quedaba sin contexto alrededor de lo que miras. A 0,3 el resto sigue
@@ -199,13 +200,20 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // escupiria 269 titulos superpuestos. Solo por cantidad, con el grafo entero en pantalla
       // saldrian etiquetas de cuatro pixeles. El enfocado lleva la suya siempre: si has apuntado a
       // algo, saber que es no deberia depender de a que distancia estas.
+      // ⚠ CON ALGO SENALADO SE PINTAN SOLO SUS NOMBRES. Antes, si cabian, se pintaban los de todo
+      // lo visible ademas del vecindario, y el resultado era un muro de texto alrededor de lo
+      // unico que querias leer: el resalte se perdia entre el ruido que venia a quitar.
       const op = opacidadTexto(v.k)
-      const conNombre =
-        op > 0.02 && visibles.length <= TOPE_ETIQUETAS
-          ? visibles
+      const enc = hayFoco ? visibles.filter((nd) => enFoco(nd.id)) : []
+      const conNombre = hayFoco
+        ? enc.length <= TOPE_ETIQUETAS_FOCO
+          ? enc
           : foco
-            ? [foco, ...visibles.filter((nd) => est.vecinos?.has(nd.id))]
+            ? [foco]
             : []
+        : op > 0.02 && visibles.length <= TOPE_ETIQUETAS
+          ? visibles
+          : []
 
       if (conNombre.length) {
         ctx.font = '11px ui-sans-serif, system-ui, sans-serif'
@@ -221,7 +229,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           // deja respirar al anillo y da una senal de que ese es el que estas mirando.
           const sep = nd.id === est.foco ? r + 8 : r + 4
           const t = corto(nd.n.title)
-          ctx.globalAlpha = nd.id === est.foco || est.vecinos?.has(nd.id) ? 1 : op
+          ctx.globalAlpha = hayFoco ? 1 : op
           ctx.strokeText(t, p.x, p.y + sep)
           ctx.fillStyle = tk.ink
           ctx.fillText(t, p.x, p.y + sep)

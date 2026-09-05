@@ -48,6 +48,8 @@ export interface GraphFilters {
   /** Solo las aristas que cruzan de un proyecto a otro. */
   soloTransversales: boolean
   ocultarAislados: boolean
+  /** Una memoria que se ve pase lo que pase, aunque los filtros la escondan. */
+  exento?: string | null
 }
 
 export interface GraphModel {
@@ -223,10 +225,16 @@ export function buildGraph(
     toca(e.target, e.source)
   }
 
+  // El EXENTO no lo esconde ningun filtro. Es para lo que se senala desde el arbol: pedir ver una
+  // nota y que el grafo se quede callado porque un filtro la tapaba es la peor respuesta posible,
+  // y ademas invisible (no hay forma de saber que el filtro fue la causa).
+  const exento = filters.exento ?? null
   const visibles = filters.projects
-    ? tree.filter((r) => filters.projects!.has(proyectoDe(r.path)))
+    ? tree.filter((r) => r.id === exento || filters.projects!.has(proyectoDe(r.path)))
     : tree
-  const candidatos = filters.ocultarAislados ? visibles.filter((r) => adj.has(r.id)) : visibles
+  const candidatos = filters.ocultarAislados
+    ? visibles.filter((r) => adj.has(r.id) || r.id === exento)
+    : visibles
   const aislados = visibles.length - visibles.filter((r) => adj.has(r.id)).length
 
   const comp = componentesDe(candidatos.map((r) => r.id), adj)
@@ -283,4 +291,5 @@ export const filtrosPorDefecto = (): GraphFilters => ({
   projects: null,
   soloTransversales: false,
   ocultarAislados: true,
+  exento: null,
 })

@@ -31,10 +31,14 @@ export interface Vista {
 }
 
 export interface EstadoPintado {
-  /** El nodo del que se habla ahora mismo: el del raton, el seleccionado o el del arbol. */
+  /** El nodo que lleva el anillo: el del raton, el seleccionado o el senalado en el arbol. */
   foco: string | null
-  /** Sus vecinos, para que el resto se apague. Los da `Simulador.vecinos`, en O(1). */
-  vecinos: ReadonlySet<string> | null
+  /**
+   * Lo que se queda a plena luz: un nodo con sus vecinos, o una carpeta entera del arbol con los
+   * suyos. Los vecinos entran a proposito, porque son lo que ensena hacia donde sale de su
+   * proyecto lo que estas mirando, y eso es lo unico que el grafo cuenta y el arbol no.
+   */
+  encendidos: ReadonlySet<string> | null
   /**
    * Cuanto se ha apagado el resto, de 0 a 1. Lo anima quien llama, no el pintor.
    *
@@ -105,6 +109,16 @@ export const opacidadTexto = (k: number) => Math.max(0, Math.min(1, (k - 0.75) /
  * primero; con 110 salen cuando el grafo empieza a tener sitio para ellos.
  */
 export const TOPE_ETIQUETAS = 110
+
+/**
+ * Cuantos nombres se escriben cuando hay algo senalado.
+ *
+ * Un nodo con sus vecinos son tres o cuatro (grado medio 2,35 medido el 04/09/2026) y se leen. Una
+ * carpeta del arbol pueden ser ochenta, y ochenta titulos superpuestos son el mismo muro de texto
+ * que se venia a quitar, solo que concentrado. Pasado este tope el lienzo se calla y quien dice
+ * que estas mirando es la franja de abajo, que tiene sitio para decirlo bien.
+ */
+export const TOPE_ETIQUETAS_FOCO = 26
 
 /**
  * Las cuatro formas del vocabulario cerrado de tipos, trazadas sobre el path que le pasen.

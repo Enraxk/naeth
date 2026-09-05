@@ -24,6 +24,7 @@
   let {
     model,
     foco = null,
+    grupo = null,
     seleccion = null,
     onSelect,
     onOpen,
@@ -31,6 +32,8 @@
     model: GraphModel
     /** Resaltado que viene de fuera: la ruta, o el raton sobre el arbol. */
     foco?: string | null
+    /** Varias memorias encendidas a la vez: la carpeta que se senala en el arbol. */
+    grupo?: string[] | null
     seleccion?: string | null
     onSelect?: (id: string | null) => void
     onOpen?: (id: string) => void
@@ -54,6 +57,8 @@
   let autoEncuadre = true
   /** Nodo al que la camara va acercandose sola. Ver `mirar`. */
   let siguiendo: string | null = null
+  /** Carpeta senalada, a cuyo centro va la camara. Ver `mirarGrupo`. */
+  let siguiendoGrupo: Set<string> | null = null
 
   // Lo unico que SI vive en Svelte, y solo porque lo lee el marcado: el cursor de agarrar. El
   // resto del estado del lienzo se queda fuera a proposito, arriba.
@@ -110,7 +115,7 @@
       vivo = true
     }
 
-    const objAten = foco || encima || seleccion ? 1 : 0
+    const objAten = foco || encima || seleccion || grupo?.length ? 1 : 0
     if (Math.abs(atenuacion - objAten) > 0.004) {
       atenuacion = reduce ? objAten : atenuacion + (objAten - atenuacion) * 0.18
       vivo = true
@@ -121,6 +126,28 @@
     if (autoEncuadre) {
       encuadraTodo(reduce ? 1 : 0.12)
       if (sim.viva()) vivo = true
+    } else if (grupo?.length && siguiendoGrupo) {
+      // Al senalar una carpeta la camara va a su centro pero NO cambia el aumento: una carpeta de
+      // 83 memorias y una de 2 pediran aumentos muy distintos, y recorrer el arbol con la rueda
+      // moviendose sola es mareante. Se llega, y desde ahi decide la mano.
+      let cx = 0
+      let cy = 0
+      let n = 0
+      for (const nd of sim.nodos)
+        if (siguiendoGrupo.has(nd.id)) {
+          cx += nd.x ?? 0
+          cy += nd.y ?? 0
+          n++
+        }
+      if (n) {
+        const dx = cx / n - vista.cx
+        const dy = cy / n - vista.cy
+        if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
+          vista.cx += dx * (reduce ? 1 : 0.12)
+          vista.cy += dy * (reduce ? 1 : 0.12)
+          vivo = true
+        }
+      }
     } else if (siguiendo) {
       // Se persigue la posicion ACTUAL del nodo, no la que tenia al empezar: mientras la
       // simulacion respira, el nodo se mueve, y una camara que va a donde estaba deja el nodo
@@ -142,7 +169,7 @@
     const id = encima ?? foco ?? seleccion
     pintor.dibujar(sim, vista, {
       foco: id,
-      vecinos: id ? sim.vecinos(id) : null,
+      encendidos: encendidos(id),
       atenuacion,
       arrastrando,
       color: true,
@@ -150,6 +177,37 @@
 
     sucio = false
     if (vivo) despertar()
+  }
+
+  /**
+   * Lo que se queda a plena luz, con cache.
+   *
+   * Se calcula al cambiar y no en cada frame: una carpeta de 83 memorias son 83 consultas de
+   * vecindario, y a 60 fps eso es trabajo repetido para un resultado que no ha cambiado. La cache
+   * compara por identidad del array, que es lo que Svelte recrea cuando el grupo cambia de verdad.
+   *
+   * LOS VECINOS ENTRAN EN EL CONJUNTO, y es la decision de fondo: senalar una carpeta enciende lo
+   * que hay dentro Y aquello con lo que habla, que es como se ve hacia donde sale de su proyecto.
+   * Si solo se encendiera lo de dentro, el grafo no contaria nada que el arbol no cuente ya.
+   */
+  let cacheGrupo: string[] | null = null
+  let cacheId: string | null = null
+  let cacheSet: Set<string> | null = null
+  function encendidos(id: string | null): Set<string> | null {
+    if (!sim) return null
+    if (grupo === cacheGrupo && id === cacheId) return cacheSet
+    cacheGrupo = grupo
+    cacheId = id
+    if (grupo?.length) {
+      const s = new Set(grupo)
+      for (const g of grupo) for (const v of sim.vecinos(g)) s.add(v)
+      cacheSet = s
+    } else if (id) {
+      cacheSet = new Set([id, ...sim.vecinos(id)])
+    } else {
+      cacheSet = null
+    }
+    return cacheSet
   }
 
   // --- encuadre ---------------------------------------------------------------------------
@@ -192,6 +250,17 @@
   export function reencuadrar() {
     autoEncuadre = true
     siguiendo = null
+    siguiendoGrupo = null
+    despertar()
+  }
+
+  /** Lleva la camara al centro de una carpeta senalada en el arbol. */
+  export function mirarGrupo(ids: string[] | null) {
+    siguiendoGrupo = ids?.length ? new Set(ids) : null
+    if (siguiendoGrupo) {
+      autoEncuadre = false
+      siguiendo = null
+    }
     despertar()
   }
 
@@ -203,9 +272,17 @@
    * diferencia del encuadre automatico, no vuelve al sitio al soltar, porque devolver la camara
    * a su posicion anterior cada vez que sales de una fila es la mitad del mareo restante.
    */
-  export function mirar(id: string | null) {
+  export function mirar(id: string | null, acercar = false) {
     siguiendo = id
-    if (id) autoEncuadre = false
+    if (id) {
+      autoEncuadre = false
+      siguiendoGrupo = null
+      // ACERCA, PERO NUNCA ALEJA. Con `max` el aumento solo sube: si ya estabas cerca, recorrer el
+      // arbol no te saca de donde estabas, y si estabas viendo el grafo entero te lleva a una
+      // distancia desde la que la nota se lee. Alejar tambien haria que pasar el raton por una
+      // lista diera bandazos de camara en los dos sentidos.
+      if (acercar) objetivoK = Math.max(vista.k, 2.6)
+    }
     despertar()
   }
 
@@ -266,6 +343,7 @@
     agarrando = !nd
     autoEncuadre = false
     siguiendo = null
+    siguiendoGrupo = null
     panv = { x: 0, y: 0 }
     ultimo = { x: ev.clientX, y: ev.clientY, t: performance.now() }
     if (nd) {
@@ -361,6 +439,7 @@
     anclaZoom = { wx: m.x, wy: m.y, sx, sy }
     autoEncuadre = false
     siguiendo = null
+    siguiendoGrupo = null
     objetivoK = Math.min(Math.max(objetivoK * (ev.deltaY < 0 ? 1.28 : 1 / 1.28), 0.08), 18)
     despertar()
   }

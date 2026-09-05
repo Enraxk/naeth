@@ -6,7 +6,7 @@
   import { data } from '../lib/data.svelte'
   import { navigate, route } from '../lib/router.svelte'
   import { resalte, resaltar } from '../lib/ui.svelte'
-  import { projColor, typeMeta, typeColor } from '../lib/colors'
+  import { typeMeta, typeColor } from '../lib/colors'
   import { buildGraph, filtrosPorDefecto, proyectoDe, type EdgeLayer } from '../lib/graph'
     import type { GraphResponse, KnnNeighbor } from '../lib/types'
 
@@ -29,7 +29,12 @@
   // el resalte compartido, que es el raton pasando por una fila del arbol.
   const foco = $derived(resalte.id ?? route.id)
 
-  const model = $derived(buildGraph(data.tree ?? [], grafo, knn, filtros))
+  // El exento entra en los filtros para que una nota senalada en el arbol no pueda quedar
+  // escondida por "ocultar sueltas". Pedir ver algo y que el grafo se quede callado porque un
+  // filtro lo tapaba es la peor respuesta, y ademas no hay forma de adivinar la causa.
+  const model = $derived(
+    buildGraph(data.tree ?? [], grafo, knn, { ...filtros, exento: resalte.id }),
+  )
 
   // Lo que cuenta la franja de abajo: lo resaltado si hay algo, y si no lo seleccionado.
   const idFranja = $derived(resalte.id ?? seleccion)
@@ -39,19 +44,13 @@
    * de dejar la franja en blanco, se dice, que ademas responde a la pregunta que uno se hace en
    * ese momento (por que no la veo).
    */
+  /** Cuantas de la carpeta senalada estan de verdad en el grafo. Las que no, no tienen vinculos. */
+  const encendidas = $derived(
+    resalte.grupo ? model.nodes.filter((n) => resalte.grupo!.includes(n.id)).length : 0,
+  )
   const filaSuelta = $derived(
     !nodoSel && idFranja ? ((data.tree ?? []).find((r) => r.id === idFranja) ?? null) : null,
   )
-
-  /** Proyectos presentes, de mas a menos, para los chips del filtro. */
-  const proyectos = $derived.by(() => {
-    const c = new Map<string, number>()
-    for (const r of data.tree ?? []) {
-      const p = proyectoDe(r.path)
-      c.set(p, (c.get(p) ?? 0) + 1)
-    }
-    return [...c.entries()].sort((a, b) => b[1] - a[1])
-  })
 
   const CAPAS: { k: EdgeLayer; label: string; trazo: string }[] = [
     { k: 'relation', label: 'relaciones', trazo: '' },
@@ -62,18 +61,6 @@
   function toggleCapa(k: EdgeLayer) {
     filtros = { ...filtros, layers: { ...filtros.layers, [k]: !filtros.layers[k] } }
   }
-
-  function toggleProyecto(p: string) {
-    const actual = filtros.projects
-    const s = new Set(actual ?? proyectos.map((x) => x[0]))
-    if (s.has(p)) s.delete(p)
-    else s.add(p)
-    // Todos marcados equivale a "sin filtro": asi el estado no se queda en un conjunto que hay
-    // que mantener al dia cada vez que nazca un proyecto nuevo.
-    filtros = { ...filtros, projects: s.size === proyectos.length ? null : s }
-  }
-
-  const activo = (p: string) => !filtros.projects || filtros.projects.has(p)
 
   /**
    * La capa semantica se pide POR NODO, nunca para todo el corpus: medido, el kNN global tarda
@@ -100,7 +87,12 @@
   $effect(() => {
     const id = resalte.desde === 'arbol' ? resalte.id : null
     if (!motor) return
-    motor.mirar(id && model.nodes.some((n) => n.id === id) ? id : null)
+    motor.mirar(id && model.nodes.some((n) => n.id === id) ? id : null, true)
+  })
+
+  /** Y si lo senalado es una carpeta entera, la camara va a donde vive esa carpeta. */
+  $effect(() => {
+    motor?.mirarGrupo(resalte.grupo)
   })
 
   // Al llegar por `#/grafo/<id>` se enfoca una vez que hay algo que enfocar.
@@ -148,14 +140,6 @@
     </div>
   </div>
 
-  <div class="proyectos">
-    {#each proyectos as [p, n] (p)}
-      <button class="pj" class:off={!activo(p)} onclick={() => toggleProyecto(p)}>
-        <span class="pt" style="background:{projColor(p)}"></span>{p}<span class="pn">{n}</span>
-      </button>
-    {/each}
-  </div>
-
   <div class="lienzo-wrap">
     {#if error}
       <div class="msg"><Icon name="triangle-alert" size={15} color="var(--warn)" /> {error}</div>
@@ -164,7 +148,7 @@
     {:else if !model.nodes.length}
       <div class="msg">Ningún vínculo con estos filtros.</div>
     {:else}
-      <Lienzo bind:this={motor} {model} {foco} {seleccion}
+      <Lienzo bind:this={motor} {model} {foco} {seleccion} grupo={resalte.grupo}
               onSelect={seleccionar} onOpen={(id) => navigate('memoria', id)} />
     {/if}
   </div>
@@ -172,8 +156,17 @@
   <!-- LA FRANJA, que antes era un panel flotante sobre la esquina del lienzo y tapaba justo la
        parte del grafo a la que uno acababa de llegar. Aqui no tapa nada: ocupa su propia banda,
        y cuando no hay nada que mirar se gana el sitio contando el grafo entero. -->
-  <div class="franja" class:vacia={!nodoSel && !filaSuelta}>
-    {#if nodoSel}
+  <div class="franja" class:vacia={!nodoSel && !filaSuelta && !resalte.grupo}>
+    {#if resalte.grupo}
+      <!-- Al senalar una carpeta el lienzo no escribe los nombres, porque ochenta titulos
+           superpuestos no se leen. Quien dice que estas mirando es esta linea. -->
+      <Icon name="folder" size={14} color="var(--dim)" />
+      <span class="f-tit">{resalte.etiqueta ?? 'carpeta'}</span>
+      <span class="f-vin">
+        {encendidas} de {resalte.grupo.length}
+        {resalte.grupo.length === 1 ? 'memoria' : 'memorias'} en el grafo
+      </span>
+    {:else if nodoSel}
       <Icon name={typeMeta(nodoSel.memory_type).icon} size={14} color={typeColor(nodoSel.memory_type)} />
       <span class="f-tit" title={nodoSel.title ?? ''}>{nodoSel.title ?? '(sin título)'}</span>
       <span class="f-meta">{nodoSel.path ?? ''}</span>
@@ -204,14 +197,6 @@
   .chip:hover { color: var(--ink); }
   .chip.on { color: var(--ink); border-color: var(--dim); }
 
-  .proyectos { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 20px 10px; }
-  .pj { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 2px 6px; border-radius: 5px; font: 10px var(--font-mono); color: var(--ink); }
-  .pj:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-  .pj.off { color: var(--dim); opacity: .45; }
-  .pt { width: 8px; height: 8px; border-radius: 2px; }
-  .pj.off .pt { opacity: .35; }
-  .pn { color: var(--dim); }
-
   .lienzo-wrap { position: relative; flex: 1 1 auto; min-height: 0; border-top: 1px solid var(--border); }
   .msg { display: flex; align-items: center; justify-content: center; gap: 8px; height: 100%; color: var(--dim); font: 13px var(--font-sans); }
 
@@ -230,10 +215,6 @@
 
   @media (max-width: 600px) {
     .barra { padding: 10px 12px 6px; }
-    /* Los 26 proyectos se apilan en ocho filas y se comian 301 px de los 812 de un movil,
-       dejando el lienzo en 387. Medido el 04/09/2026 a 375 px. Con dos filas y scroll siguen
-       estando todos y el grafo recupera su sitio, que es lo que se ha venido a mirar. */
-    .proyectos { padding: 0 12px 8px; max-height: 66px; overflow-y: auto; }
     .franja { padding: 6px 12px; gap: 8px; }
     /* En 375 px no caben las cuatro cosas: el path se va, que es lo que menos se echa de menos
        teniendo el titulo delante. */

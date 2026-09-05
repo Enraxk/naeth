@@ -176,6 +176,45 @@ describe('buildGraph · filtros', () => {
   })
 })
 
+describe('buildGraph · el exento, que ningun filtro puede esconder', () => {
+  // Es lo que sostiene el hilo entre el arbol y el grafo: senalar una nota en el arbol tiene que
+  // enseñarla, aunque este apagada por un filtro. Sin esto, pasar el raton por una fila del arbol
+  // no hacia NADA en algunos casos y no habia forma de saber por que.
+  const rel = resp({ edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }] })
+
+  it('sin exento, una nota sin vinculos se queda fuera', () => {
+    const m = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true }))
+    expect(m.nodes.map((n) => n.id)).not.toContain('z')
+    expect(m.aislados).toBeGreaterThan(0)
+  })
+
+  it('con exento, esa misma nota SI sale', () => {
+    const m = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true, exento: 'z' }))
+    expect(m.nodes.map((n) => n.id)).toContain('z')
+  })
+
+  it('el exento tambien se salta el filtro de proyecto', () => {
+    const m = buildGraph(TREE, rel, new Map(), filtros({
+      projects: new Set(['naeth']), ocultarAislados: false, exento: 'c',
+    }))
+    expect(m.nodes.map((n) => n.id)).toContain('c')
+  })
+
+  it('un exento que no existe no cambia nada', () => {
+    const a = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true }))
+    const b = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true, exento: 'nada' }))
+    expect(b.nodes.map((n) => n.id)).toEqual(a.nodes.map((n) => n.id))
+  })
+
+  it('el exento NO se cuela en el contador de sueltas', () => {
+    // El contador dice cuantas hay fuera; que enseñar una no cambie ese numero es lo que impide
+    // que el mensaje de la franja empiece a bailar con el raton.
+    const sin = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true }))
+    const con = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true, exento: 'z' }))
+    expect(con.aislados).toBe(sin.aislados)
+  })
+})
+
 describe('buildGraph · grado y componentes', () => {
   it('el grado cuenta vecinos distintos, no aristas', () => {
     const m = buildGraph(TREE, resp({

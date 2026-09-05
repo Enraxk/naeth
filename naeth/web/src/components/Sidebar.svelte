@@ -5,7 +5,7 @@
   import { collapsed, saveCollapsed, prefs, setSort, setSide } from '../lib/prefs.svelte'
   import { buildTree } from '../lib/tree'
   import { route, navigate } from '../lib/router.svelte'
-  import { ui, closeDrawer, resalte, resaltar } from '../lib/ui.svelte'
+  import { ui, closeDrawer, resalte, resaltar, resaltarGrupo, entrarArbol } from '../lib/ui.svelte'
   import { typeMeta, typeColor, projMeta, projColor } from '../lib/colors'
   import { fmtShort } from '../lib/format'
 
@@ -18,6 +18,29 @@
 
   const SORT_LABEL = { az: 'A-Z', 'date-desc': 'Nuevas', 'date-asc': 'Antiguas' } as const
   const SORT_NEXT = { az: 'date-desc', 'date-desc': 'date-asc', 'date-asc': 'az' } as const
+
+  /** Todo lo que cuelga de una carpeta, que es lo que se enciende en el grafo al senalarla. */
+  const idsDe = (leaves: { id: string }[]) => leaves.map((m) => m.id)
+  const idsProy = (p: { subtopics: { leaves: { id: string }[] }[] }) =>
+    p.subtopics.flatMap((s) => idsDe(s.leaves))
+
+  /**
+   * Lo que se senala en el GRAFO se busca aqui: se abre su rama y se lleva a la vista.
+   *
+   * Sin esto la fila se encendia igual, pero si estaba dentro de una carpeta cerrada o fuera del
+   * scroll no habia forma de verla, asi que la mitad del hilo entre las dos vistas solo funcionaba
+   * en una direccion.
+   */
+  $effect(() => {
+    const id = resalte.desde === 'grafo' ? resalte.id : null
+    if (!id) return
+    const row = (data.tree || []).find((r) => r.id === id)
+    revealInTree(row?.path ?? null)
+    tick().then(() => {
+      const el = document.querySelector(`#tree [data-id="${id}"]`) as HTMLElement | null
+      el?.scrollIntoView({ block: 'nearest' })
+    })
+  })
 
   function toggle(key: string) {
     untrackAuto(key)
@@ -58,7 +81,17 @@
   }
 </script>
 
-<nav class="sidebar" class:open={ui.drawer} aria-label="Árbol de memorias">
+<!-- El apagado del resto de la aplicacion se enciende AL ENTRAR EN EL ARBOL y no fila por fila.
+     Por fila daba un parpadeo en cada salto, y el ojo lee ese parpadeo como que algo ha cambiado
+     en los datos. Al entrar y salir de la zona, la aplicacion baja la voz una vez y la recupera
+     una vez. -->
+<nav
+  class="sidebar"
+  class:open={ui.drawer}
+  aria-label="Árbol de memorias"
+  onpointerenter={() => entrarArbol(true)}
+  onpointerleave={() => entrarArbol(false)}
+>
   <div class="tools">
     <button class="sortbtn" title="Cambiar orden" onclick={() => setSort(SORT_NEXT[prefs.sort])}>
       <Icon name="arrow-up-down" size={13} /><span>{SORT_LABEL[prefs.sort]}</span>
@@ -71,12 +104,14 @@
        encontraba ningun item, que es peor que no anunciar nada. Lo que es de verdad hoy es una
        lista de botones, y asi queda hasta que el rol se implemente entero. El aria-label del <nav>
        se queda: describe el contenido sin prometer una semantica que no se cumple. -->
-  <div id="tree" class="tree" class:senalando={resalte.id !== null}>
+  <div id="tree" class="tree"
+       class:senalando={route.view === 'grafo' && (resalte.id !== null || !!resalte.grupo)}>
     {#each projects as p (p.proj)}
       {@const pKey = 'p:' + p.proj}
       {@const pc = projColor(p.proj)}
       <div class="group" class:collapsed={collapsed.has(pKey)}>
-        <button class="row proj" onclick={() => toggle(pKey)}>
+        <button class="row proj" onclick={() => toggle(pKey)}
+                onpointerenter={() => resaltarGrupo(idsProy(p), p.proj)}>
           <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
           <span class="ico"><Icon name={projMeta(p.proj).icon} size={13} color={pc} /></span>
           <span class="label">{p.proj}</span>
@@ -88,7 +123,8 @@
                  `naeth-collapsed`. Cambiarla olvidaría los colapsos que Eneko ya tiene abiertos. -->
             {@const sKey = 'o:' + p.proj + '/' + s.subtopic}
             <div class="group" class:collapsed={collapsed.has(sKey)}>
-              <button class="row subtopic" onclick={() => toggle(sKey)}>
+              <button class="row subtopic" onclick={() => toggle(sKey)}
+                      onpointerenter={() => resaltarGrupo(idsDe(s.leaves), p.proj + '/' + s.subtopic)}>
                 <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
                 <span class="ico"><Icon name="folder" size={13} color={pc} /></span>
                 <span class="label">{s.subtopic}</span>
@@ -103,11 +139,11 @@
                     class="row leaf"
                     class:sel={route.view === 'memoria' && route.id === m.id}
                     class:eco={resalte.id === m.id}
+                    class:enGrupo={!!resalte.grupo?.includes(m.id)}
                     data-id={m.id}
                     title={m.title || '(sin título)'}
                     onclick={() => openMem(m.id)}
                     onpointerenter={() => resaltar(m.id, 'arbol')}
-                    onpointerleave={() => resaltar(null)}
                   >
                     <span class="ico"><Icon name={typeMeta(m.memory_type).icon} size={13} color={typeColor(m.memory_type)} /></span>
                     <span class="label">{m.title || '(sin título)'}</span>
@@ -161,7 +197,7 @@
      intensidad, que es lo que hace que el ojo vaya solo a lo senalado sin perder el mapa de
      donde estaba. El fundido se queda con `prefers-reduced-motion` siguiendo la politica de
      app.css: lo que esa preferencia retira es el desplazamiento, no un cambio de intensidad. */
-  .tree.senalando .row:not(.eco) { opacity: .38; }
+  .tree.senalando .row:not(.eco):not(.enGrupo) { opacity: .38; }
   .tree .row { transition: opacity var(--t-fast); }
   .children { display: flex; flex-direction: column; gap: 1px; }
   .indent { margin-left: 16px; border-left: 1px solid var(--border); padding-left: 6px; }

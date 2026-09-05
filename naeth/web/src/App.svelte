@@ -17,10 +17,15 @@
   import { startPolling } from './lib/data.svelte'
   import { ui, closeDrawer, resalte } from './lib/ui.svelte'
 
+  // Baja la voz SOLO en el grafo y SOLO mientras el raton esta en el arbol. Fuera del grafo no
+  // hay nada que senalar en dos sitios a la vez, asi que apagar la aplicacion no significaria
+  // nada; y por zona en vez de por fila, para que no de un parpadeo en cada salto de fila.
+  const bajandoLaVoz = $derived(route.view === 'grafo' && resalte.enArbol)
+
   onMount(() => startPolling())
 </script>
 
-<div class="app" class:senalando={resalte.id !== null}>
+<div class="app" class:senalando={bajandoLaVoz}>
   <Header />
   <div class="body" style="--side-w: {prefs.side}px">
     <Sidebar />
@@ -55,7 +60,7 @@
 <style>
   .app { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 
-  /* MIENTRAS SE SENALA UNA MEMORIA, EL RESTO DE NAETH BAJA LA VOZ.
+  /* MIENTRAS SE BUSCA EN EL ARBOL DESDE EL GRAFO, EL RESTO DE NAETH BAJA LA VOZ.
      Se apaga el cromo (cabecera, ruta, rail y pie), no el contenido: en el grafo lo que hay
      debajo ya se atenua por dentro, y en las demas vistas el contenido es lo que estas leyendo.
      Lo que se gana es que senalar algo se sienta como senalarlo en la aplicacion entera y no
