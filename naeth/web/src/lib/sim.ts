@@ -1,9 +1,10 @@
 // La fisica del grafo. Logica pura: sin DOM, sin Svelte, sin canvas.
 //
-// POR QUE EXISTE ESTE FICHERO. Hasta hoy el grafo se calculaba entero y se pintaba asentado, y la
-// cabecera de `GraphPlain.svelte` lo decia con todas las letras: "NO ANIMA EL LAYOUT". Eso resolvia
-// el rendimiento y mataba la sensacion, y la sensacion era el encargo. Aqui vive lo que le faltaba:
-// una simulacion que sigue viva, que se calma sola, que se deja empujar y que responde.
+// POR QUE EXISTE ESTE FICHERO. El prototipo del 04/09 calculaba el grafo entero y lo pintaba ya
+// asentado, y su cabecera lo decia con todas las letras: "NO ANIMA EL LAYOUT" (`GraphPlain.svelte`,
+// retirado al entrar esto). Aquella decision resolvia el rendimiento y mataba la sensacion, y la
+// sensacion era el encargo. Aqui vive lo que le faltaba: una simulacion que sigue viva, que se
+// calma sola, que se deja empujar y que responde.
 //
 // POR QUE d3-force Y NO EL FRUCHTERMAN-REINGOLD PROPIO. Medido el 05/09/2026 en
 // `docs/discovery/motor-grafo-2026-09-05.md`: con el corpus de hoy el propio gana por 0,6 ms

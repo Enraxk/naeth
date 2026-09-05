@@ -1,21 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Icon from '../components/Icon.svelte'
-  import GraphPlain from './graph/GraphPlain.svelte'
+  import Lienzo from './graph/Lienzo.svelte'
   import { getGraph, getKnn } from '../lib/api'
   import { data } from '../lib/data.svelte'
   import { navigate, route } from '../lib/router.svelte'
   import { projColor, typeMeta, typeColor } from '../lib/colors'
   import { buildGraph, filtrosPorDefecto, proyectoDe, type EdgeLayer } from '../lib/graph'
-  import { colocar } from '../lib/layout'
-  import type { GraphResponse, KnnNeighbor } from '../lib/types'
+    import type { GraphResponse, KnnNeighbor } from '../lib/types'
 
   let grafo = $state<GraphResponse | null>(null)
   let error = $state('')
   let filtros = $state(filtrosPorDefecto())
   let seleccion = $state<string | null>(null)
   let knn = $state(new Map<string, KnnNeighbor[]>())
-  let motor = $state<GraphPlain | null>(null)
+  let motor = $state<Lienzo | null>(null)
 
   onMount(async () => {
     try {
@@ -29,10 +28,6 @@
   const foco = $derived(route.id)
 
   const model = $derived(buildGraph(data.tree ?? [], grafo, knn, filtros))
-  // 160 iteraciones sobre la componente mayor son decenas de ms, asi que se recalcula entero al
-  // cambiar un filtro en vez de mantener estado incremental, que seria mas rapido y mucho mas
-  // facil de dejar desincronizado.
-  const colocacion = $derived(colocar(model, { ancho: 1600 }))
 
   const nodoSel = $derived(model.nodes.find((n) => n.id === seleccion) ?? null)
 
@@ -85,7 +80,7 @@
   // Al llegar con foco, se enfoca una vez que hay algo que enfocar.
   let enfocado = false
   $effect(() => {
-    if (!enfocado && foco && motor && colocacion.pos.has(foco)) {
+    if (!enfocado && foco && motor && model.nodes.some((n) => n.id === foco)) {
       enfocado = true
       motor.encuadrar(foco)
       seleccionar(foco)
@@ -144,8 +139,8 @@
     {:else if !model.nodes.length}
       <div class="msg">Ningún vínculo con estos filtros.</div>
     {:else}
-      <GraphPlain bind:this={motor} {model} {colocacion} {foco} {seleccion}
-                  onSelect={seleccionar} onOpen={(id) => navigate('memoria', id)} />
+      <Lienzo bind:this={motor} {model} {foco} {seleccion}
+              onSelect={seleccionar} onOpen={(id) => navigate('memoria', id)} />
     {/if}
 
     {#if nodoSel}
