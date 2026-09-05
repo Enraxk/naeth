@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  aMundo, aPantalla, opacidadTexto, partirEnLineas, pathForma, radioEnPantalla, TRAZO, trazarForma,
+  aMundo, aPantalla, opacidadTexto, partirEnLineas, pathForma, radioEnPantalla, recortarALinea,
+  TRAZO, trazarForma,
   verticesForma, ZOOM_TEXTO_DESDE, ZOOM_TEXTO_PLENO, type Vista,
 } from './pintor'
 import type { MemType } from './types'
@@ -243,5 +244,41 @@ describe('partirEnLineas · el titulo entero, sin puntos suspensivos', () => {
     const estrecho = partirEnLineas(t, 90, medir)
     expect(estrecho.length).toBeGreaterThan(ancho.length)
     expect(estrecho.join(' ')).toBe(t)
+  })
+})
+
+
+describe('recortarALinea · los vecinos van a una linea', () => {
+  // El titulo entero se reserva para lo senalado. Los vecinos estan para decir CON QUIEN habla una
+  // nota, no para leerlos: si todos salieran completos, un vecindario de cinco enunciados largos
+  // vuelve a ser el muro de texto que se quito, y ademas ninguno destacaria.
+  const medir = (t: string) => t.length * 6
+
+  it('lo que cabe se deja intacto, sin puntos', () => {
+    expect(recortarALinea('Naeth', 200, medir)).toBe('Naeth')
+  })
+
+  it('lo que no cabe se recorta y avisa con puntos suspensivos', () => {
+    const r = recortarALinea('CENIT · Paso 8 (multi-nodo) COMPLETO · estado al 2026-07-26', 60, medir)
+    expect(r.endsWith('…')).toBe(true)
+    expect(medir(r)).toBeLessThanOrEqual(60)
+  })
+
+  it('el recorte se mide por ANCHO, no por numero de letras', () => {
+    // Es el arreglo de contar caracteres: con un medidor donde la eme ocupa el triple, caben menos
+    // emes que eles en el mismo ancho. Contando letras las dos frases se cortarian igual.
+    const ancho = (t: string) => [...t].reduce((n, c) => n + (c === 'm' ? 18 : 6), 0)
+    const emes = recortarALinea('mmmmmmmmmmmmmmmm', 60, ancho)
+    const eles = recortarALinea('llllllllllllllll', 60, ancho)
+    expect(emes.length).toBeLessThan(eles.length)
+  })
+
+  it('no deja un espacio colgando antes de los puntos', () => {
+    expect(recortarALinea('uno dos tres cuatro', 30, medir)).not.toContain(' …')
+  })
+
+  it('con un ancho ridiculo sigue devolviendo algo, no cadena vacia', () => {
+    const r = recortarALinea('cualquier cosa', 1, medir)
+    expect(r.length).toBeGreaterThan(0)
   })
 })

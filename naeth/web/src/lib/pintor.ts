@@ -252,6 +252,27 @@ export function partirEnLineas(
   return out
 }
 
+/**
+ * Recorta un titulo a una sola linea, con puntos suspensivos si no cabe.
+ *
+ * Es para los VECINOS de lo senalado. El titulo entero se reserva para el nodo que estas mirando:
+ * si todos se escribieran completos, un vecindario de cinco enunciados largos vuelve a ser el muro
+ * de texto que se quito, y ademas ninguno destacaria sobre los demas.
+ *
+ * Se mide por ancho real y no por numero de caracteres, que es lo que habia antes: una eme y una
+ * ele no ocupan lo mismo, asi que contar letras recorta de mas en unos titulos y de menos en otros.
+ */
+export function recortarALinea(
+  texto: string,
+  anchoMax: number,
+  medir: (s: string) => number,
+): string {
+  if (medir(texto) <= anchoMax) return texto
+  let corte = texto.length
+  while (corte > 1 && medir(texto.slice(0, corte) + '…') > anchoMax) corte--
+  return texto.slice(0, corte).trimEnd() + '…'
+}
+
 /** El trazo de cada capa, en unidades de pantalla. Solida, punteada, discontinua. */
 export const TRAZO: Record<string, number[]> = {
   relation: [],

@@ -22,6 +22,7 @@ import {
   TOPE_ETIQUETAS,
   TOPE_ETIQUETAS_FOCO,
   partirEnLineas,
+  recortarALinea,
   TRAZO,
   trazarForma,
   type EstadoPintado,
@@ -206,25 +207,24 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // ⚠ CON ALGO SENALADO SE PINTAN SOLO SUS NOMBRES. Antes, si cabian, se pintaban los de todo
       // lo visible ademas del vecindario, y el resultado era un muro de texto alrededor de lo
       // unico que querias leer: el resalte se perdia entre el ruido que venia a quitar.
-      // ⚠ EL AUMENTO MANDA SOBRE TODO EL TEXTO, tambien sobre el de lo senalado. Antes el foco se
-      // saltaba esta regla y escribia su nombre a cualquier distancia, asi que con el grafo entero
-      // encuadrado aparecia un titulo de tres lineas flotando sobre una maraña de puntos de dos
-      // pixeles. De lejos se viene a mirar la FORMA; los nombres son para cuando te acercas, y
-      // mientras tanto quien dice que estas senalando es la franja de abajo, que tiene sitio.
+      // QUIEN LLEVA NOMBRE, EN TRES REGLAS.
+      //
+      //  1. Lo SENALADO, siempre y a cualquier aumento: si has apuntado a algo, saber que es no
+      //     puede depender de a que distancia estas.
+      //  2. Sus VECINOS, solo a partir del aumento en el que el texto empieza a leerse. De lejos se
+      //     viene a mirar la forma, y cinco enunciados largos alrededor solo tapan.
+      //  3. Sin nada senalado, lo que diga `TOPE_ETIQUETAS`, hoy cero.
       const op = opacidadTexto(v.k)
       const enc = hayFoco ? visibles.filter((nd) => enFoco(nd.id)) : []
-      const conNombre =
-        op <= 0.02
-          ? []
-          : hayFoco
-            ? enc.length <= (est.topeNombres ?? TOPE_ETIQUETAS_FOCO)
-              ? enc
-              : foco
-                ? [foco]
-                : []
-            : visibles.length <= TOPE_ETIQUETAS
-              ? visibles
-              : []
+      const vecinos =
+        op > 0.02 && enc.length <= (est.topeNombres ?? TOPE_ETIQUETAS_FOCO)
+          ? enc.filter((nd) => nd.id !== est.foco)
+          : []
+      const conNombre = foco
+        ? [foco, ...vecinos]
+        : op > 0.02 && visibles.length <= TOPE_ETIQUETAS
+          ? visibles
+          : []
 
       if (conNombre.length) {
         ctx.textAlign = 'center'
@@ -248,13 +248,17 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           ctx.lineWidth = esFoco ? 4 : 3
           const alto = esFoco ? 16 : 13
           const sep = esFoco ? r + 9 : r + 4
-          ctx.globalAlpha = op
-          // EL TITULO ENTERO, partido en las lineas que haga falta. Recortarlo con puntos
-          // suspensivos se comia media frase, y en este corpus los titulos son enunciados: dos
-          // notas del mismo proyecto se distinguen justo por el final.
-          const lineas = partirEnLineas(nd.n.title ?? '(sin título)', anchoLinea, (t) =>
-            ctx.measureText(t).width,
-          )
+          // El senalado a plena luz siempre; los vecinos se funden con el aumento.
+          ctx.globalAlpha = esFoco ? 1 : op
+          // EL TITULO ENTERO SOLO PARA LO SENALADO, partido en las lineas que haga falta. En este
+          // corpus los titulos son enunciados y dos notas del mismo proyecto se distinguen por el
+          // final, asi que recortar el que miras se comia justo lo que lo identifica. Los vecinos
+          // van a una linea recortada: estan para decir CON QUIEN habla, no para leerlos.
+          const medir = (t: string) => ctx.measureText(t).width
+          const titulo = nd.n.title ?? '(sin título)'
+          const lineas = esFoco
+            ? partirEnLineas(titulo, anchoLinea, medir)
+            : [recortarALinea(titulo, anchoLinea, medir)]
           for (let i = 0; i < lineas.length; i++) {
             const y = p.y + sep + i * alto
             ctx.strokeText(lineas[i], p.x, y)
