@@ -102,13 +102,18 @@ export const radioEnPantalla = (r: number, k: number) =>
 export const opacidadTexto = (k: number) => Math.max(0, Math.min(1, (k - 0.75) / 0.9))
 
 /**
- * Cuantas etiquetas caben antes de que dejen de leerse y pasen a ser ruido.
+ * Cuantos nombres se escriben SIN nada senalado. Hoy: ninguno.
  *
- * Se cuenta sobre lo que hay DENTRO del lienzo, no sobre el corpus, asi que acercarse baja el
- * numero solo y los nombres van apareciendo. Con 60 habia que acercarse demasiado para ver el
- * primero; con 110 salen cuando el grafo empieza a tener sitio para ellos.
+ * Se cuenta sobre lo que hay dentro del lienzo, no sobre el corpus, asi que con un numero alto los
+ * nombres iban apareciendo al acercarse. Probado con 110 el 05/09/2026 y el grafo en reposo se
+ * leia como un muro de texto: nadie esta buscando ahi un titulo concreto, y el ruido tapaba la
+ * forma del grafo, que es lo que se ha venido a mirar.
+ *
+ * EL MECANISMO SE QUEDA, solo se pone a cero. Es exactamente el "text fade threshold" de Obsidian,
+ * y en la fase 3.5 pasa a ser un deslizador. Retirarlo ahora seria tirar la pieza para volver a
+ * escribirla dentro de dos fases.
  */
-export const TOPE_ETIQUETAS = 110
+export const TOPE_ETIQUETAS = 0
 
 /**
  * Cuantos nombres se escriben cuando hay algo senalado.

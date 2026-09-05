@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { TreeRow } from './types'
-import { buildTree } from './tree'
+import { buildTree, carpetaQueEsconde } from './tree'
 
 // Contrato del agrupado del arbol: `path` es `proyecto/subtema`, dos niveles, y de ahi salen las
 // dos ramas de la sidebar. Lo que se fija aqui es que un path incompleto degrade a un sitio
@@ -105,5 +105,43 @@ describe('buildTree · la fecha que se muestra en la fila', () => {
     const sinFecha: TreeRow = { ...NAE_1, id: 'nf', created_at: null }
     expect(() => buildTree([sinFecha, NAE_2], 'date-desc')).not.toThrow()
     expect(buildTree([sinFecha, NAE_2], 'date-desc')[0].proj).toBe('naeth')
+  })
+})
+
+
+describe('carpetaQueEsconde · senalar no puede abrir lo que cerraste', () => {
+  // Defecto D3 del 05/09/2026: pasar el raton por un nodo del grafo reabria la carpeta colapsada
+  // donde vivia esa nota. Colapsar es una decision deliberada y un hover no puede deshacerla, asi
+  // que en vez de abrirla se enciende, y esta funcion dice cual.
+
+  it('si no hay nada colapsado, no esconde nadie', () => {
+    expect(carpetaQueEsconde('naeth/core', new Set())).toBe(null)
+  })
+
+  it('el subtema colapsado la esconde', () => {
+    expect(carpetaQueEsconde('naeth/core', new Set(['o:naeth/core']))).toBe('o:naeth/core')
+  })
+
+  it('el proyecto colapsado gana al subtema: es el grupo mas externo', () => {
+    // Importa cual se devuelve: encender el subtema no serviria de nada si su proyecto esta
+    // cerrado, porque esa fila tampoco se ve.
+    const c = new Set(['p:naeth', 'o:naeth/core'])
+    expect(carpetaQueEsconde('naeth/core', c)).toBe('p:naeth')
+  })
+
+  it('un colapso de OTRA rama no la esconde', () => {
+    expect(carpetaQueEsconde('naeth/core', new Set(['p:cenit', 'o:naeth/viewer']))).toBe(null)
+  })
+
+  it('una nota sin path cae en el mismo sitio que la pone `buildTree`', () => {
+    // `buildTree` manda las notas sin path a `(sin path)` con subtema `·`. Si esta funcion
+    // calculara otra clave, la carpeta se encenderia sola o no se encenderia nunca, y las dos
+    // fallan en silencio.
+    expect(carpetaQueEsconde(null, new Set(['p:(sin path)']))).toBe('p:(sin path)')
+    expect(carpetaQueEsconde('', new Set(['o:(sin path)/·']))).toBe('o:(sin path)/·')
+  })
+
+  it('un path de un solo nivel usa el subtema por defecto', () => {
+    expect(carpetaQueEsconde('naeth', new Set(['o:naeth/·']))).toBe('o:naeth/·')
   })
 })

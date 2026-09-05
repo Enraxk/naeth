@@ -171,13 +171,11 @@
       <span class="f-tit" title={nodoSel.title ?? ''}>{nodoSel.title ?? '(sin título)'}</span>
       <span class="f-meta">{nodoSel.path ?? ''}</span>
       <span class="f-vin">{nodoSel.degree} {nodoSel.degree === 1 ? 'vínculo' : 'vínculos'}</span>
-      <button class="f-abrir" onclick={() => navigate('memoria', nodoSel.id)}>Abrir</button>
     {:else if filaSuelta}
       <Icon name={typeMeta(filaSuelta.memory_type).icon} size={14} color={typeColor(filaSuelta.memory_type)} />
       <span class="f-tit" title={filaSuelta.title ?? ''}>{filaSuelta.title ?? '(sin título)'}</span>
       <span class="f-meta">{filaSuelta.path ?? ''}</span>
       <span class="f-vin fuera">fuera del grafo con estos filtros</span>
-      <button class="f-abrir" onclick={() => navigate('memoria', filaSuelta.id)}>Abrir</button>
     {:else}
       <span class="f-cuentas">
         <b>{model.nodes.length}</b> memorias · <b>{model.edges.length}</b> vínculos ·
@@ -207,8 +205,6 @@
      titulo, asi que la mano lo encuentra sin mirar. */
   .f-vin { margin-left: auto; font: 11px var(--font-mono); color: var(--dim); white-space: nowrap; }
   .f-vin.fuera { color: var(--warn); }
-  .f-abrir { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px; font: 12px var(--font-sans); color: var(--ink); white-space: nowrap; }
-  .f-abrir:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
   .f-cuentas { font: 11px var(--font-mono); color: var(--dim); }
   .f-cuentas b { color: var(--ink); font-weight: 500; }
   .franja.vacia { background: none; }

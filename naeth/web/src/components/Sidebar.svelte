@@ -3,7 +3,7 @@
   import Icon from './Icon.svelte'
   import { data, revealInTree, collapseAuto, untrackAuto } from '../lib/data.svelte'
   import { collapsed, saveCollapsed, prefs, setSort, setSide } from '../lib/prefs.svelte'
-  import { buildTree } from '../lib/tree'
+  import { buildTree, carpetaQueEsconde } from '../lib/tree'
   import { route, navigate } from '../lib/router.svelte'
   import { ui, closeDrawer, resalte, resaltar, resaltarGrupo, entrarArbol } from '../lib/ui.svelte'
   import { typeMeta, typeColor, projMeta, projColor } from '../lib/colors'
@@ -34,12 +34,29 @@
   $effect(() => {
     const id = resalte.desde === 'grafo' ? resalte.id : null
     if (!id) return
-    const row = (data.tree || []).find((r) => r.id === id)
-    revealInTree(row?.path ?? null)
+    // ⚠ NO SE ABRE LO QUE ESTA CERRADO. Aqui habia un `revealInTree` y era un error: colapsar una
+    // carpeta es una decision deliberada, y pasar el raton por un nodo no puede deshacerla. Si la
+    // fila esta dentro de una carpeta cerrada no hay nada que enfocar, y lo que se enciende es la
+    // carpeta que la contiene (ver `carpetaEco`), que ademas dice donde buscarla.
     tick().then(() => {
       const el = document.querySelector(`#tree [data-id="${id}"]`) as HTMLElement | null
-      el?.scrollIntoView({ block: 'nearest' })
+      // `center` y no `nearest`: `nearest` deja la fila pegada al borde por definicion, que es
+      // justo donde peor se lee y donde no se ve que hay alrededor.
+      el?.scrollIntoView({ block: 'center' })
     })
+  })
+
+  /**
+   * La carpeta que hay que encender cuando la nota senalada esta dentro de una cerrada.
+   *
+   * Devuelve la clave del grupo colapsado mas externo que la esconde, o `null` si la fila se ve.
+   * Es lo que sustituye a abrir la carpeta por la cara: se senala donde esta sin tocar nada.
+   */
+  const carpetaEco = $derived.by(() => {
+    const id = resalte.id
+    if (!id) return null
+    const row = (data.tree || []).find((r) => r.id === id)
+    return row ? carpetaQueEsconde(row.path, collapsed) : null
   })
 
   function toggle(key: string) {
@@ -110,7 +127,7 @@
       {@const pKey = 'p:' + p.proj}
       {@const pc = projColor(p.proj)}
       <div class="group" class:collapsed={collapsed.has(pKey)}>
-        <button class="row proj" onclick={() => toggle(pKey)}
+        <button class="row proj" class:eco={carpetaEco === pKey} onclick={() => toggle(pKey)}
                 onpointerenter={() => resaltarGrupo(idsProy(p), p.proj)}>
           <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
           <span class="ico"><Icon name={projMeta(p.proj).icon} size={13} color={pc} /></span>
@@ -123,7 +140,7 @@
                  `naeth-collapsed`. Cambiarla olvidaría los colapsos que Eneko ya tiene abiertos. -->
             {@const sKey = 'o:' + p.proj + '/' + s.subtopic}
             <div class="group" class:collapsed={collapsed.has(sKey)}>
-              <button class="row subtopic" onclick={() => toggle(sKey)}
+              <button class="row subtopic" class:eco={carpetaEco === sKey} onclick={() => toggle(sKey)}
                       onpointerenter={() => resaltarGrupo(idsDe(s.leaves), p.proj + '/' + s.subtopic)}>
                 <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
                 <span class="ico"><Icon name="folder" size={13} color={pc} /></span>
@@ -191,8 +208,8 @@
   .row.leaf.sel { background: var(--sel); box-shadow: inset 2px 0 0 var(--accent); }
   /* EL ECO DEL GRAFO. Cuando el raton pasa por un nodo del grafo, su fila se enciende aqui. Es
      mas tenue que `.sel` a proposito: aquello dice "estas aqui" y esto dice solo "es esta". */
-  .row.leaf.eco { box-shadow: inset 2px 0 0 var(--accent); }
-  .row.leaf.eco .label { color: var(--accent); }
+  .row.eco { box-shadow: inset 2px 0 0 var(--accent); }
+  .row.eco .label { color: var(--accent); }
   /* MIENTRAS SE SENALA ALGO, EL RESTO DEL ARBOL SE APAGA. No se esconde ni se mueve: baja de
      intensidad, que es lo que hace que el ojo vaya solo a lo senalado sin perder el mapa de
      donde estaba. El fundido se queda con `prefers-reduced-motion` siguiendo la politica de

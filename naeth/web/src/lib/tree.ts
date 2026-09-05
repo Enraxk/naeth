@@ -55,3 +55,30 @@ export function buildTree(rows: TreeRow[], sort: SortMode): Project[] {
   projects.sort((a, b) => orderCmp(a.proj, b.proj, a.d, b.d, sort))
   return projects
 }
+
+/**
+ * Que carpeta esconde una memoria, si es que alguna la esconde.
+ *
+ * Devuelve la clave del grupo colapsado mas externo que la tapa, o `null` si su fila se ve. Es lo
+ * que permite que senalar un nodo en el grafo ENCIENDA la carpeta donde vive en vez de abrirla:
+ * colapsar es una decision deliberada del usuario y pasar el raton por encima de algo no puede
+ * deshacerla, que era el defecto D3 del 05/09/2026.
+ *
+ * Vive aqui y no en la sidebar porque es logica pura y se prueba sin DOM, que es como se verifica
+ * en este repo. Comprobarlo a base de acertar con el raton sobre un lienzo no es verificar.
+ *
+ * Las claves son las mismas que guarda `naeth-collapsed` en localStorage: `p:<proyecto>` y
+ * `o:<proyecto>/<subtema>`. El fallback `(sin path)` y el `·` replican lo que hace `buildTree` con
+ * las notas sin path, para que la clave calculada aqui coincida con la que pinta el arbol.
+ */
+export function carpetaQueEsconde(
+  path: string | null | undefined,
+  colapsadas: ReadonlySet<string>,
+): string | null {
+  const parts = (path || '(sin path)').split('/')
+  const proj = parts[0] || '(sin path)'
+  const pKey = 'p:' + proj
+  if (colapsadas.has(pKey)) return pKey
+  const sKey = 'o:' + proj + '/' + (parts[1] || '·')
+  return colapsadas.has(sKey) ? sKey : null
+}
