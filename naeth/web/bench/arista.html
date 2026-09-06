@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Naeth · banco del canal de la arista</title>
+    <style>
+      body { margin: 0; padding: 20px; font: 13px ui-monospace, Consolas, monospace; background: #14151a; color: #d8d8de; }
+      h1 { font-size: 15px; font-weight: 500; margin: 0 0 4px; }
+      h2 { font-size: 12px; font-weight: 500; margin: 26px 0 8px; color: #8a8a95; letter-spacing: .08em; }
+      .sub { color: #8a8a95; margin: 0 0 16px; max-width: 82ch; line-height: 1.55; }
+      #estado { color: #8a8a95; }
+      pre { margin: 16px 0 0; line-height: 1.6; white-space: pre; overflow-x: auto; }
+      table { border-collapse: collapse; }
+      th { font-weight: 400; color: #8a8a95; text-align: center; padding: 0 10px 8px; vertical-align: bottom; }
+      th small, .nom small { color: #62636d; font-weight: 400; }
+      td { padding: 5px 10px; border-top: 1px solid #22232a; vertical-align: middle; }
+      td.nom { color: #d8d8de; white-space: nowrap; text-align: right; }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <h1>El canal de la arista: cuanto sitio hay para decir algo</h1>
+    <p class="sub">
+      La direccion de la relacion (G-A) y su tipo (G-B) quieren hablar las dos por el mismo trazo, y
+      el patron ya esta ocupado por las tres capas. Antes de elegir como se pinta cada una hay que
+      saber cuanto mide una arista de verdad en pantalla. Abajo, las candidatas pintadas A SU TAMANO
+      REAL medido, que es la unica forma de contestar si una punta de flecha se lee a nueve pixeles.
+    </p>
+    <div id="estado">arrancando...</div>
+    <pre id="salida"></pre>
+    <div id="muestras"></div>
+    <script type="module" src="./arista.ts"></script>
+  </body>
+</html>

@@ -61,8 +61,8 @@ digan las mediciones.
 
 | # | Qué | Medido | Qué medir o probar antes |
 |---|---|---|---|
-| A | **Dirección** de las relaciones | 501 relaciones, **0 recíprocas** | Si las flechas se leen a los aumentos reales o son ruido: a encuadre completo una arista mide pocos píxeles. Prototipo con punta de flecha contra arista degradada (más limpia a tamaño pequeño) |
-| B | **Tipo** de relación | `links_to` 286, `derived_from` **165**, `depends_on` 48, y dos sueltas | Con qué se codifica sin chocar: la forma del trazo ya la ocupan las tres capas, así que quedan color y grosor. Hay que ver si `derived_from` merece además dirección propia |
+| A | **Dirección** de las relaciones · **MEDIDO el 06/09** | 501 relaciones, **0 recíprocas** | ✅ Hecho: [`canal-arista-2026-09-06.md`](../discovery/canal-arista-2026-09-06.md). **Cabe con margen**: la arista mediana mide 19 px a encuadre completo y la punta de flecha se lee en el 97%. El degradado y la curva se caen. El caso apretado es el móvil (56%), no el mini, y ahí la salida es el punto en el destino |
+| B | **Tipo** de relación · **MEDIDO el 06/09** | `links_to` 286, `derived_from` **165**, `depends_on` 48, y dos sueltas | ✅ Gana el **color**, tres tintes legibles ya a 11,5 px; el grosor se cae porque no se separa hasta 38 px. ⚠ Queda una cosa por ver antes de construir: el color de la arista **hoy codifica el estado** (apagado/encendido del resalte), y hay que ver pintado si tono y opacidad conviven |
 | C | **Etiquetas** como nodos | **695 distintas**, más que memorias | Cuántas aristas nuevas salen y cuántas cruzan proyecto, igual que se midió con los wikilinks (+162, 31% transversales). Y el coste: 695 nodos más sobre 455 es más que doblar el grafo |
 | D | **Autoría** | 299 `code`, 41 `web`, 3 `visor`, **186 sin marcar** | Poco que medir, mucho que decidir: es otra dimensión compitiendo por el color, que ya lo ocupa el proyecto. Puede que sea filtro y no color |
 

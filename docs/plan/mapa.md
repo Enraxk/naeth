@@ -27,8 +27,8 @@ una medición.
 
 | | Qué | Estado | Nota |
 |---|---|---|---|
-| G-A | Dirección de las relaciones | `listo` | 0 recíprocas de 501 |
-| G-B | Tipo de relación | `listo` | 286 `links_to`, 165 `derived_from`, 48 `depends_on` |
+| G-A | Dirección de las relaciones | **`medido`** | Cabe: punta de flecha en el 97% del escritorio. [Medición](../discovery/canal-arista-2026-09-06.md) |
+| G-B | Tipo de relación | **`medido`** | Color, tres tintes, legible a 11,5 px. ⚠ Falta ver cómo convive con el resalte |
 | G-C | Etiquetas como nodos | **`muerto`** | 403 de 695 tags se usan una vez: la mitad serían hojas de grado 1 |
 | G-D | Autoría | `bloqueado` | 186 sin marcar. Decidir antes si es color o filtro |
 
@@ -114,9 +114,18 @@ una medición.
 4. **F3 se come a I-K** y arrastra el `sync.py` de CENIT, que aborta ante una tabla sin clasificar.
 5. **G-H (el buscador) y F2 (la PWA) no dependen de nada.** Son las dos únicas piezas sueltas.
 
-## Y una que se vio al dibujar el mapa
+## Los dos canales saturados, que se vieron al dibujar el mapa
 
-**G-A, G-B y G-J compiten por el mismo canal: la arista.** Dirección, tipo y degradado de color
-quieren decir cosas distintas en el mismo trazo, y a encuadre completo una arista mide poquísimos
-píxeles. **Antes de decidir cómo se pinta cada una hay que medir cuánto sitio hay**, y esa medición
-sirve a las tres a la vez.
+No es uno, son dos, y esto ordena media lista del grafo:
+
+- **La arista**: la quieren G-A (dirección) y G-B (tipo). El patrón ya lo ocupan las tres capas, y el
+  color ya lo ocupa el estado apagado/encendido del resalte. **Medido el 06/09**: caben las dos a la
+  vez, flecha en el extremo y color en el trazo. Ver
+  [`canal-arista-2026-09-06.md`](../discovery/canal-arista-2026-09-06.md).
+- **El nodo**: hoy el color es el proyecto y la forma es el tipo de memoria, las dos ocupadas. Y lo
+  quieren **G-D** (autoría), **G-E** (edad) y **G-J** (degradado por vecindario). Sin medir. Es el
+  cuello de botella real de la lista, y la pregunta previa es cuántas dimensiones puede llevar un
+  nodo de 4 px de radio sin volverse ruido.
+
+⚠ Corrección del 06/09: este mapa decía en su primera versión que G-J competía por la arista. Es del
+**nodo**: la idea era que una nota tire hacia el color de los proyectos con los que más habla.
