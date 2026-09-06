@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Naeth · fase 0 del panel: el coste de mover un deslizador</title>
+    <style>
+      body { margin: 0; padding: 20px; font: 13px ui-monospace, Consolas, monospace; background: #14151a; color: #d8d8de; }
+      h1 { font-size: 15px; font-weight: 500; margin: 0 0 4px; }
+      .sub { color: #8a8a95; margin: 0 0 16px; max-width: 86ch; line-height: 1.55; }
+      #estado { color: #8a8a95; }
+      pre { margin: 16px 0 0; line-height: 1.65; white-space: pre; overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Fase 0: cuanto cuesta mover un deslizador de fisica</h1>
+    <p class="sub">
+      Reconstruir el simulador cuesta cientos de milisegundos, asi que un deslizador que reconstruya
+      congela el grafo. La alternativa es reconfigurar la fuerza viva, y eso obliga a reinicializarla
+      (en d3, cambiar la distancia no recalcula nada por si solo). El criterio va declarado antes de
+      mirar: por debajo de 16 ms, que es un frame a 60 fps, los deslizadores van en continuo.
+    </p>
+    <div id="estado">arrancando...</div>
+    <pre id="salida"></pre>
+    <script type="module" src="./fuerzas.ts"></script>
+  </body>
+</html>

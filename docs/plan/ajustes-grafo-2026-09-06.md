@@ -96,14 +96,40 @@ separación por proyecto), y por eso son los que pueden dejar el grafo raro.
   simple que funciona: `#/grafo?reset` limpia las preferencias antes de montar nada.
 - Lo experimental va marcado como tal en el panel. Es información honesta, no un descargo.
 
-## Fase 5 · Ajustes enlaza, y el banco se retira
+## Fase 5 · Ajustes enlaza. Y el banco NO se retira
 
 - `Ajustes` gana una sección **Grafo** que resume los valores activos y enlaza al panel.
 - ⚠ La frase "Solo lectura. Nada de esta página se puede cambiar desde aquí" **se matiza, no se
   borra**: sigue siendo verdad para las memorias, que es de lo que hablaba. Las preferencias de
   dibujo no pasan por los enforce de autoría ni de digest porque no son contenido.
-- Los bancos `arista.html` y `canal-vivo.html` **se quedan** como registro de cómo se decidió, con
-  una nota diciendo que el visor ya hace su trabajo.
+
+### El banco es una herramienta del proyecto, no un andamio de esta semana
+
+Una versión anterior de este plan decía que los bancos "se retiran" cuando exista el panel. **Es
+falso, y lo desmiente el propio repo**: en dos días hay cuatro, y cada uno decidió algo que no se
+podía decidir discutiendo.
+
+| Banco | Cuándo | Qué decidió |
+|---|---|---|
+| `motor` | 05/09 12:54 | Canvas contra SVG, con 45 fps contra 19 a diez veces el corpus |
+| `vecindario` | 05/09 15:31 | El mapa compartido, y tumbó el anclado selectivo, que era idea mía |
+| `arista` | 06/09 14:44 | Mató el degradado y el grosor, y midió cuánto sitio hay en un trazo |
+| `canal-vivo` | 06/09 18:23 | Que "cabe" no es "se lee", y de ahí salió el control de tinte |
+
+**Panel y banco no hacen lo mismo, y por eso conviven:**
+
+- El **banco compara variantes lado a lado**, con el mismo grafo y el mismo encuadre. Sirve para
+  elegir ENTRE opciones que todavía no existen en el código, y para tumbar una idea antes de
+  construirla.
+- El **panel afina UNA configuración** sobre el visor real. Sirve para llevar un valor de "casi" a
+  "eso es", y para que cada persona tenga el suyo.
+
+Lo que sí cambia con el panel: **deja de hacer falta un banco para ajustar un número**, que era el
+caso de `canal-vivo` con el tinte. Para eso ya está el deslizador. El banco se reserva para lo que de
+verdad es una comparación entre alternativas.
+
+Los cuatro se quedan, y `bench/` gana un `README.md` corto que diga qué decidió cada uno y cuándo
+merece la pena escribir uno nuevo.
 
 ## Lo que NO entra, dicho
 
