@@ -412,8 +412,20 @@ dos nodos. Y un efecto de rebote afortunado, porque `memory.enraxk.dev` apunta a
 17:17: el despliegue de esta noche fue al nodo que está sirviendo al mundo.
 
 Se arregla en CENIT con `core recover` desde el PC, que para este caso (manda el peer) trae lo suyo,
-le pide que ceda, reclama, repunta y deja el mirror en solo lectura. **No se ejecutó esta noche**:
-son las 23:45, no hay nada roto, y un failover a la carrera es como empiezan los incidentes largos.
+le pide que ceda, reclama, repunta y deja el mirror en solo lectura. **No se ejecutó esa noche**:
+eran las 23:45, no había nada roto, y un failover a la carrera es como empiezan los incidentes
+largos.
+
+**Y no hizo falta: se cerró solo a la mañana siguiente, el 06/09 a las 11:13.** El árbitro guarda la
+secuencia entera: `154` takeover, `155` `finally` cede, `156` local recupera el mando. Lo disparó el
+arranque de CENIT al despertar el PC, no un reinicio (el equipo llevaba encendido desde el 30/08).
+Comprobado después: `finally` en `read_only = on`, el vigía repitiendo `stand_down`, el árbitro
+sincronizado en los dos nodos y **907 memorias, 529 vigentes y la misma última fecha en ambos**, sin
+una sola divergencia pese a las seis horas con los dos escribibles.
+
+La lección que queda no es del failover, que funcionó: es que **un takeover con el PC encendido no
+lo ve nadie hasta el siguiente arranque**, porque el árbitro solo se lee ahí. Seis horas de
+invariante roto y en silencio. Eso sí es de CENIT.
 
 ---
 

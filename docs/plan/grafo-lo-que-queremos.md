@@ -90,7 +90,8 @@ digan las mediciones.
 - ~~`finally` sigue con el build del 28/08~~ · **cerrado el 05/09/2026 a las 23:00**. Los dos nodos
   corren `2.2026.09` con el mismo bundle y el mismo `/api/graph`. Ver la fase 4 de
   `grafo-vivo-2026-09-05.md`.
-- ⚠ **Lo que destapó ese despliegue, y es de CENIT:** los dos nodos están escribibles a la vez.
-  Manda `finally` desde un TAKEOVER del vigía de hoy a las 17:17 (epoch 154, tras un corte de red de
-  cinco minutos), y el PC se quedó con el epoch viejo creyendo que mandaba él. Sin divergencia de
-  datos. Se cierra con `core recover` desde el PC, y no de noche.
+- ~~Los dos nodos escribibles a la vez~~ · **cerrado solo el 06/09 a las 11:13**. Fue un TAKEOVER del
+  vigía el 05/09 a las 17:17 (epoch 154, tras un corte de red de cinco minutos) que el PC no vio, y
+  lo deshizo el arranque de CENIT a la mañana siguiente (epochs 155 y 156). Sin divergencia de datos.
+  ⚠ Lo que sigue abierto **en CENIT, no aquí**: un takeover con el PC encendido no se detecta hasta
+  el siguiente arranque, porque el árbitro solo se lee ahí.
