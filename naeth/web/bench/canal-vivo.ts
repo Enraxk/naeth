@@ -57,7 +57,17 @@ let aumento = 1 // multiplicador sobre el encuadre completo
 // no cabe hay que descartar que el problema fuera esa eleccion mia: una muestra aislada y un grafo
 // de 651 aristas no perdonan lo mismo.
 let puntaPx = 5
-let puntaMedio = false // en el extremo (como Obsidian) o a media arista, donde no hay nodos encima
+// Arranca A MEDIA ARISTA por lo que dijo Eneko el 06/09 mirando el banco: "las flechas en 5 px me
+// gustan porque no se notan mucho pero ayudan" y "a lo mejor en medio se ve mejor". El extremo
+// sigue a un clic para poder compararlos.
+let puntaMedio = true
+
+// FUERZA DEL TINTE. Tambien de ese repaso: "las lineas con colores me gusta pero si fueran en tonos
+// mas apagados que no resalten tanto". En vez de elegir yo un apagado, el tinte se mezcla con el
+// gris del tema y se puede recorrer: 1 es el color puro, 0 seria el gris de hoy. Los tres valores
+// se ven, se compara, y se elige.
+const FUERZAS = [1, 0.55, 0.3]
+let fuerza = 0.55
 
 let sim: Simulador | null = null
 let model: GraphModel | null = null
@@ -100,10 +110,36 @@ function vistaDe(s: Simulador) {
   return { k, cx, cy, w: W, h: H }
 }
 
+const hex = (c: string) => [
+  parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16),
+]
+const aHex = (v: number[]) => '#' + v.map((n) => Math.round(n).toString(16).padStart(2, '0')).join('')
+
+/** Mezcla el tinte con el gris del tema. `f`=1 es el color puro, `f`=0 el gris de hoy. */
+function apaga(color: string, gris: string, f: number) {
+  const a = hex(color)
+  const b = hex(gris)
+  return aHex(a.map((v, i) => v * f + b[i] * (1 - f)))
+}
+
+/** Contraste WCAG de un color contra el fondo. No es texto, pero por debajo de 1,5 se pierde. */
+function contraste(c1: string, c2: string) {
+  const L = (c: string) => {
+    const [r, g, b] = hex(c).map((v) => {
+      const s = v / 255
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+  }
+  const a = L(c1)
+  const b = L(c2)
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+}
+
 function colorArista(e: GraphEdge, tintes: boolean, t: typeof TEMA.dark) {
   if (!tintes) return t.dim
   const par = e.layer === 'relation' ? (TINTE[e.predicate ?? ''] ?? TINTE_OTRO) : TINTE_OTRO
-  return par[modo === 'dark' ? 0 : 1]
+  return apaga(par[modo === 'dark' ? 0 : 1], t.dim, fuerza)
 }
 
 function pinta(cv: HTMLCanvasElement, v: { flechas: boolean; tintes: boolean }) {
@@ -199,9 +235,16 @@ function pintaTodo() {
     const cv = document.getElementById('cv-' + v.id) as HTMLCanvasElement
     if (cv) pinta(cv, v)
   }
-  info.textContent =
+  const t = TEMA[modo]
+  const cs = ['links_to', 'derived_from', 'depends_on'].map((k) => {
+    const c = apaga(TINTE[k][modo === 'dark' ? 0 : 1], t.dim, fuerza)
+    return `${k} ${c} (${contraste(c, t.bg).toFixed(1)}:1)`
+  })
+  info.innerHTML =
     `tema ${modo} · resalte ${resalte ? 'ON (' + encendidos.size + ' encendidos)' : 'off'} · ` +
-    `aumento ${aumento}x el encuadre completo · punta ${puntaPx} px ${puntaMedio ? 'a media arista' : 'en el extremo'}`
+    `aumento ${aumento}x · punta ${puntaPx} px ${puntaMedio ? 'a media arista' : 'en el extremo'} · ` +
+    `<b>tinte al ${Math.round(fuerza * 100)}%</b><br><small>contraste contra el fondo: ` +
+    `${cs.join(' · ')} · el gris de hoy da ${contraste(t.dim, t.bg).toFixed(1)}:1</small>`
 }
 
 function monta() {
@@ -275,6 +318,10 @@ async function main() {
   })
   document.getElementById('donde')!.addEventListener('click', () => {
     puntaMedio = !puntaMedio
+    pintaTodo()
+  })
+  document.getElementById('fuerza')!.addEventListener('click', () => {
+    fuerza = FUERZAS[(FUERZAS.indexOf(fuerza) + 1) % FUERZAS.length]
     pintaTodo()
   })
 }
