@@ -215,3 +215,97 @@ No son retóricas: cada una cambia qué se construye.
 6. **¿El visor es para trabajar o para mirar?** El grafo es contemplativo, la ficha es de trabajo, y
    ahora conviven. Si es para trabajar, la siguiente pieza es el buscador. Si es para mirar, es el
    tiempo.
+
+---
+
+## 6. Lo que contestó Eneko, y los tres frentes que abre
+
+Respondido el 06/09/2026 sobre las preguntas de arriba. Las tres respuestas terminan igual: **hay que
+investigar más a fondo**. Así que esto no propone soluciones, deja cada frente con su pregunta.
+
+### Las respuestas, literales en lo esencial
+
+1. **Interlocutor de verdad**, y va más lejos de lo que preguntaba: *"tener una forma de Inteligencia
+   dentro de Naeth va a hacer que Naeth pueda tener hasta personalidad"*.
+2. **Le molesta "un poco todo"**: lo caducado, lo no verificado y el volumen.
+3. **Multi-usuario de verdad y con corpus COMPARTIDO**: primero Tania, luego los trabajadores que
+   usen IA, y algún día venderlo como producto. Y el motivo del compartido es concreto: *"quiero que
+   se puedan llegar a compartir notas, crear notas conjuntas"*.
+4. **El canal de aviso es una app Android propia** que hable con el back y el front. Textual: *"más
+   que esto en sí, abre muchas posibilidades"*.
+5. **La mano de Naeth: "puede que un conjunto de todo"**, sin elegir todavía entre proponer, escribir
+   lo suyo o escribir de verdad.
+
+### F1 · La inteligencia dentro de Naeth
+
+Hoy **toda la inteligencia está fuera**: Postgres, FastAPI, worker y MCP. Quien piensa es siempre el
+cliente. Meter algo dentro pide un proceso que corra en el servidor sin sesión abierta, y esa
+infraestructura ya existe a medias: **el worker de embeddings con lease es exactamente eso**.
+
+Y la voz no hay que inventarla: **está en el corpus**. 907 memorias con reglas de escritura muy
+marcadas. Un Naeth con personalidad no necesita un prompt de carácter, necesita leerse a sí mismo.
+
+- **Qué investigar**: qué hacen los sistemas de memoria con agente dentro (mem0, Letta, Zep) y en qué
+  se equivocaron; y qué acciones del corpus son reversibles. Aquí hay ventaja: **con ADD-only casi
+  todo lo es**, y eso permite ser más atrevido de lo que parece.
+- **La pregunta que lo decide**: no es qué puede escribir, es **qué pasa cuando se equivoca**. Un
+  supersede automático malo es reversible; cien lo son en teoría y no en la práctica.
+- **Lo que ya se puede afirmar**: sin el pase de mantenimiento (F4), la personalidad es solo tono, y
+  el tono sin contenido propio es lo que hace huecos a los asistentes con carácter.
+
+### F2 · El móvil, que no es un canal de avisos sino un cliente
+
+⚠ **Antes de plantear una app nativa, hay un atajo que probablemente cubre todo lo descrito.** El
+visor v2 ya es una web moderna tras SSO, y convertirla en **PWA instalable con Web Push** da: icono
+en el escritorio del móvil, pantalla completa, funcionamiento sin conexión para lo ya cargado, y
+**notificaciones push reales en Android**. Sin tienda, sin firma, sin app aparte que mantener, y
+contra la misma API que ya existe.
+
+- **Qué investigar**: qué NO cubre una PWA de lo que Eneko quiera hacer. Compartir a Naeth desde otra
+  app (el menú Compartir de Android), widgets en la pantalla de inicio, dictado con la app cerrada,
+  atajos del sistema. Si nada de eso está en la lista, la app nativa no se justifica.
+- **Y lo que abre de verdad, que es lo que él intuye**: capturar una memoria por voz de camino a
+  algún sitio, leer el corpus en el metro, aprobar desde el móvil una propuesta de F1. El aviso es la
+  excusa; el cliente móvil es la idea.
+- **Ojo con el SSO**: hoy el visor va detrás de Pocket-ID. Una PWA con push necesita que la sesión
+  sobreviva bastante más que una pestaña.
+
+### F3 · Corpus compartido, que es el frente más profundo
+
+**Dato duro medido el 06/09: no hay UNA sola columna de usuario, dueño o tenant en todo el esquema
+`memory`.** Las quince tablas, cero. La autoría dice qué modelo y qué superficie escribieron, no qué
+persona. Naeth es monousuario **por construcción**.
+
+Lo que juega a favor, y no es poco: las memorias son **append-only con PK UUID y se funden por
+unión** entre nodos. Eso es exactamente lo que necesita un corpus con dos personas escribiendo a la
+vez desde sitios distintos. La pieza que falta es saber de quién es cada fila.
+
+- **Qué investigar, por orden**:
+  1. **Dónde vive la identidad**: ¿una columna en `memory`, un espacio en el `path`, o una tabla de
+     pertenencia aparte? La respuesta condiciona cada consulta del sistema.
+  2. ⚠ **Qué le hace eso al sync de CENIT.** `classify()` en `sync.py` **aborta el sync ante
+     cualquier tabla del esquema `memory` sin clasificar**: ya tumbó la idea de una tabla
+     `memory_knn` cacheada. Cualquier tabla nueva para multi-usuario pasa por ahí.
+  3. **Qué es una "nota conjunta"**, que es lo que Eneko pidió y no es lo mismo que compartir: ¿dos
+     autores en una versión, versiones alternas por persona, o un espacio común donde ambos escriben?
+     Son tres diseños distintos y solo uno es barato.
+  4. **Qué ve cada uno del grafo y del árbol**: un corpus compartido con partes privadas hace que la
+     misma vista tenga que dar resultados distintos por persona.
+- **Y la tensión que no arregla ningún permiso**: el valor de este corpus viene de escribir con total
+  franqueza sobre precios, clientes y personas. Con más ojos se escribe distinto, y ese cambio es
+  irreversible.
+- **La otra tensión, que sale de juntar F1 y F3**: si la personalidad nace del corpus, **el Naeth de
+  Tania no sería el de Eneko**: sería otro, con su voz. Precioso como producto ("tu memoria suena a
+  ti") y un problema si lo que se quiere es un personaje reconocible que sea *Naeth*.
+
+### F4 · El pase de mantenimiento, que es lo que da contenido a todo lo demás
+
+Sale de la respuesta "un poco todo": lo caducado, lo no verificado y el volumen **no se atacan por
+separado**. Un pase periódico que lea el corpus y traiga un informe los ataca a la vez. Es el ritual
+del checkpoint mirando hacia atrás: en vez de mirar la sesión, mira la memoria.
+
+Es además la pieza que hace que F1 tenga algo que decir y F2 algo que notificar. Si de esta ronda
+sale una sola cosa, probablemente es esta.
+
+- **Qué investigar**: con qué frecuencia y con qué presupuesto. Un pase que lea 529 memorias no es
+  gratis, y a 230 nuevas al mes eso crece. Medir el coste de una pasada antes de prometer una diaria.
