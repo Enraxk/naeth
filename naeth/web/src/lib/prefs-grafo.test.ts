@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  CATALOGO, CLAVES, fabrica, grafoPrefs, mandosDe, olvidarPrefs, poner, restaurar, sanea,
+  CATALOGO, CLAVES, fabrica, grafoPrefs, GRUPOS, mandosDe, olvidarPrefs, poner, restaurar, sanea,
   usarAlmacen, valida, type Almacen, type Valores,
 } from './prefs-grafo.svelte'
 
@@ -51,11 +51,12 @@ describe('el catalogo', () => {
     }
   })
 
-  it('cada mando pertenece a un grupo que el panel sabe pintar', () => {
-    const grupos = ['texto', 'nodos', 'aristas', 'fisica']
-    for (const k of CLAVES) expect(grupos, k).toContain(CATALOGO[k].grupo)
-    // Y ningun grupo se queda vacio, que seria una seccion en blanco en el panel.
-    for (const g of grupos) expect(mandosDe(g as never).length, g).toBeGreaterThan(0)
+  it('cada mando pertenece a un grupo declarado, y ningun grupo se queda vacio', () => {
+    // La lista sale de `GRUPOS` y no se copia aqui: la primera version la duplicaba y cayo en cuanto
+    // entro `experimental`, avisando de algo que no estaba mal. Un grupo vacio si es un defecto de
+    // verdad: seria una seccion en blanco en el panel.
+    for (const k of CLAVES) expect(GRUPOS as readonly string[], k).toContain(CATALOGO[k].grupo)
+    for (const g of GRUPOS) expect(mandosDe(g).length, g).toBeGreaterThan(0)
   })
 
   it('la fabrica de los valores heredados es la constante que habia en el codigo', () => {

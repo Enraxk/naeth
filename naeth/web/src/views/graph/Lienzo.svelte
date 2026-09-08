@@ -78,6 +78,9 @@
     distancia: grafoPrefs.distancia * (compacto ? F_DISTANCIA : 1),
     repulsion: grafoPrefs.repulsion * (compacto ? F_REPULSION : 1),
     frenado: grafoPrefs.frenado,
+    // En el compacto NO se agrupa por proyecto: un vecindario de tres nodos no tiene proyectos que
+    // separar, y la fuerza solo conseguiria deformarlo.
+    agruparProyecto: compacto ? 0 : grafoPrefs.separaProyectos,
   })
 
   // ESTADO DEL LIENZO, DELIBERADAMENTE FUERA DE SVELTE. Se toca hasta seis veces por frame, y
@@ -236,6 +239,12 @@
       puntaMedio: grafoPrefs.puntaMedio,
       tintado: grafoPrefs.tintado,
       tinteFuerza: grafoPrefs.tinteFuerza,
+      curvatura: grafoPrefs.curvatura,
+      pesoCapa: {
+        relation: grafoPrefs.opRelacion,
+        wikilink: grafoPrefs.opWikilink,
+        semantic: grafoPrefs.opSemantica,
+      },
       // El mini juega con las MISMAS tres reglas que el grande, solo que con menos sitio: en 300 px
       // un vecindario de quince nombres no cabe. Con seis, un vecindario pequeño los enseña ya y
       // uno grande solo enseña el del centro hasta que te acercas; y al acercarte el culling deja
@@ -738,6 +747,7 @@
         distancia: todo.distancia * (compacto ? F_DISTANCIA : 1),
         repulsion: todo.repulsion * (compacto ? F_REPULSION : 1),
         frenado: todo.frenado,
+        agruparProyecto: compacto ? 0 : todo.separaProyectos,
       },
       0.12,
     )

@@ -88,6 +88,46 @@ function fuerzaComponente(fuerza = 0.9) {
   return f
 }
 
+/**
+ * Fuerza EXPERIMENTAL que junta cada proyecto consigo mismo.
+ *
+ * La pregunta que contesta es de Eneko: si el grafo agrupara por proyecto, ¿se leerian mejor los
+ * vinculos que cruzan? El 24% de las aristas van de un proyecto a otro (medido el 04/09), y son
+ * justo las que el arbol no puede enseñar, asi que separando los proyectos esas aristas se
+ * convierten en los puentes visibles entre islas.
+ *
+ * Tira de cada nodo hacia el CENTROIDE de su proyecto, no lo ancla a una celda fija. La diferencia
+ * importa y ya se pago una vez en la fase 0 del motor: anclar a un punto aplasta los grupos
+ * grandes, mientras que corregir hacia el centroide los mueve sin comprimirlos. O(n) por tick.
+ *
+ * A fuerza 0 no hace absolutamente nada, ni siquiera recorre los nodos.
+ */
+function fuerzaProyecto(getFuerza: () => number) {
+  let nodos: NodoSim[] = []
+  const f = (alpha: number) => {
+    const k = getFuerza()
+    if (k <= 0.001) return
+    const acc = new Map<string, { x: number; y: number; n: number }>()
+    for (const nd of nodos) {
+      let a = acc.get(nd.n.project)
+      if (!a) acc.set(nd.n.project, (a = { x: 0, y: 0, n: 0 }))
+      a.x += nd.x ?? 0
+      a.y += nd.y ?? 0
+      a.n++
+    }
+    for (const nd of nodos) {
+      const a = acc.get(nd.n.project)!
+      if (a.n < 2) continue
+      nd.vx = (nd.vx ?? 0) + (a.x / a.n - (nd.x ?? 0)) * k * 0.35 * alpha
+      nd.vy = (nd.vy ?? 0) + (a.y / a.n - (nd.y ?? 0)) * k * 0.35 * alpha
+    }
+  }
+  f.initialize = (ns: NodoSim[]) => {
+    nodos = ns
+  }
+  return f
+}
+
 export interface Simulador {
   readonly nodos: NodoSim[]
   readonly aristas: AristaSim[]
@@ -143,7 +183,10 @@ export interface Simulador {
    * `alpha` bajo mientras se arrastra y alto al soltar: un tick ya cuesta entre 3 y 17 ms con este
    * corpus, asi que reavivar del todo en cada pixel del deslizador va a tirones.
    */
-  ajustar(opts: { distancia?: number; repulsion?: number; frenado?: number }, alpha?: number): void
+  ajustar(
+    opts: { distancia?: number; repulsion?: number; frenado?: number; agruparProyecto?: number },
+    alpha?: number,
+  ): void
 }
 
 export interface OpcionesSim {
@@ -155,6 +198,8 @@ export interface OpcionesSim {
   repulsion?: number
   /** Cuanto frena el movimiento en cada tick. Alto se para antes. */
   frenado?: number
+  /** EXPERIMENTAL: cuanto se agrupa cada proyecto consigo mismo. 0 lo desactiva. */
+  agruparProyecto?: number
 }
 
 /**
@@ -170,6 +215,10 @@ export interface OpcionesSim {
 export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simulador {
   const distancia = opts.distancia ?? 34
   const repulsion = opts.repulsion ?? -38
+  // La agrupacion por proyecto se lee por closure en cada tick, no se fija al crear: asi el
+  // deslizador la mueve en vivo sin reinicializar la fuerza, que es mas barato todavia que el
+  // `initialize` que si necesitan `link` y `charge`.
+  let agrupa = opts.agruparProyecto ?? 0
 
   const porId = new Map<string, NodoSim>()
   const nodos: NodoSim[] = []
@@ -240,6 +289,7 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
     .force('charge', forceManyBody<NodoSim>().strength(repulsion).distanceMax(600))
     .force('collide', forceCollide<NodoSim>((d) => radioNodo(d.n) + 2))
     .force('comp', fuerzaComponente())
+    .force('proy', fuerzaProyecto(() => agrupa))
     .velocityDecay(opts.frenado ?? 0.35)
     .stop()
 
@@ -389,6 +439,8 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
         fCarga.initialize(nodos, Math.random)
       }
       if (opts.frenado !== undefined) sim.velocityDecay(opts.frenado)
+      // Sin `initialize`: la fuerza lee este valor por closure en cada tick.
+      if (opts.agruparProyecto !== undefined) agrupa = opts.agruparProyecto
       // Reavivar, no reiniciar: `alphaTarget` a cero deja que se vuelva a dormir sola en cuanto
       // acomode el cambio, en vez de quedarse corriendo para siempre.
       if (sim.alpha() < alpha) sim.alpha(alpha)

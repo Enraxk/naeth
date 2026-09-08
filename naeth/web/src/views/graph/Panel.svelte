@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../../components/Icon.svelte'
   import {
-    CATALOGO, grafoPrefs, mandosDe, poner, restaurar,
+    CATALOGO, grafoPrefs, GRUPOS, mandosDe, poner, restaurar,
     type Clave, type Grupo,
   } from '../../lib/prefs-grafo.svelte'
 
@@ -16,12 +16,16 @@
 
   let { abierto = $bindable(false) }: { abierto?: boolean } = $props()
 
-  const SECCIONES: { g: Grupo; titulo: string; icono: string }[] = [
-    { g: 'texto', titulo: 'Texto', icono: 'file-text' },
-    { g: 'nodos', titulo: 'Nodos', icono: 'circle' },
-    { g: 'aristas', titulo: 'Aristas', icono: 'share-2' },
-    { g: 'fisica', titulo: 'Física', icono: 'zap' },
-  ]
+  // Un `Record<Grupo, ...>`, no una lista: asi añadir un grupo al catalogo y olvidarse de darle
+  // titulo aqui NO COMPILA, en vez de quedarse como una seccion que no se pinta y de la que nadie se
+  // entera. El orden lo pone `GRUPOS`, que es de donde tira el `{#each}`.
+  const SECCIONES: Record<Grupo, { titulo: string; icono: string }> = {
+    texto: { titulo: 'Texto', icono: 'file-text' },
+    nodos: { titulo: 'Nodos', icono: 'circle' },
+    aristas: { titulo: 'Aristas', icono: 'share-2' },
+    fisica: { titulo: 'Física', icono: 'zap' },
+    experimental: { titulo: 'Experimental', icono: 'flask-conical' },
+  }
 
   /** Cuantos decimales enseñar, deducidos del paso: un paso de 1 no quiere ver "34,00". */
   function fmt(v: number, paso: number) {
@@ -50,17 +54,25 @@
     </header>
 
     <div class="cuerpo">
-      {#each SECCIONES as s (s.g)}
+      {#each GRUPOS as g (g)}
+        {@const s = SECCIONES[g]}
         <section>
           <div class="sec-cab">
             <Icon name={s.icono} size={12} color="var(--dim)" />
             <span>{s.titulo}</span>
-            <button class="mini" onclick={() => restaurar(s.g)} title="Devolver esta sección a sus valores de fábrica">
+            <button class="mini" onclick={() => restaurar(g)} title="Devolver esta sección a sus valores de fábrica">
               restaurar
             </button>
           </div>
 
-          {#each mandosDe(s.g) as { clave, mando } (clave)}
+          {#if g === 'experimental'}
+            <!-- Aviso honesto, no un descargo: estos son los que pueden dejar el grafo raro, y por
+                 eso el pie del panel enseña la salida que funciona incluso entonces. -->
+            <p class="aviso">
+              Estos cambian cómo se lee el grafo entero. Si lo dejas ilegible, la salida está abajo.
+            </p>
+          {/if}
+          {#each mandosDe(g) as { clave, mando } (clave)}
             {@const id = 'aj-' + clave}
             {#if mando.tipo === 'bool'}
               <div class="mando bool">
@@ -104,7 +116,12 @@
         <Icon name="refresh" size={12} color="currentColor" />
         Restaurar todo
       </button>
-      <span class="pista">Se guarda solo, en este navegador.</span>
+      <!-- LA SALIDA DE EMERGENCIA, escrita donde se pueda copiar. El boton de arriba no sirve si el
+           grafo queda ilegible, porque el boton vive dentro del grafo; la barra de direcciones sigue
+           ahi pase lo que pase. -->
+      <span class="pista">
+        Se guarda en este navegador. Si algo queda ilegible: <code>#/grafo?reset</code>
+      </span>
     </footer>
   </aside>
 {/if}
@@ -222,7 +239,17 @@
     cursor: pointer;
   }
   .todo:hover { border-color: var(--dim); }
-  .pista { font-size: 10.5px; color: var(--dim); }
+  .pista { font-size: 10.5px; color: var(--dim); line-height: 1.35; }
+  .pista code { font-family: var(--mono, ui-monospace, monospace); font-size: 10px; }
+
+  .aviso {
+    margin: 0 0 10px;
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: var(--dim);
+    border-left: 2px solid var(--warn);
+    padding-left: 7px;
+  }
 
   /* EN EL MOVIL, CAJON DESDE ABAJO A MEDIA ALTURA, y no un panel lateral ni una pantalla completa.
      Elegido por Eneko el 08/09 con el motivo escrito: a pantalla completa se pierde el efecto en

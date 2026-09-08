@@ -103,6 +103,17 @@ export interface EstadoPintado {
    */
   tintado?: boolean
   tinteFuerza?: number
+
+  // ── Experimental ────────────────────────────────────────────────────────────────────────
+  /**
+   * Cuanto se arquea una arista, como fraccion de su largo. 0 son rectas.
+   *
+   * Sirve para distinguir dos vinculos entre el mismo par de memorias, que hoy se pintan
+   * exactamente encima uno del otro. El precio es que el grafo deja de leerse como una malla.
+   */
+  curvatura?: number
+  /** Peso de cada capa, de 0 a 1. Multiplica su opacidad: bajarla la deja de fondo, no la apaga. */
+  pesoCapa?: Record<string, number>
 }
 
 export interface Pintor {

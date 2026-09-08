@@ -162,6 +162,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       const conFlechas = (est.flechas ?? false) && (est.puntaPx ?? 0) > 0
       const puntaPx = est.puntaPx ?? 5
       const puntaMedio = est.puntaMedio ?? true
+      const curva = est.curvatura ?? 0
 
       ctx.lineCap = 'round'
       for (const l of Object.values(capas)) {
@@ -170,30 +171,42 @@ export function pintorCanvas(host: HTMLElement): Pintor {
         // se lee en el tono y el resalte en cuanta luz tiene.
         const tinte = l.pred ? predColor(l.pred) : null
         const flechasAqui = conFlechas && l.capa === 'relation'
+        // Peso de la capa: multiplica su opacidad. A 0 la capa desaparece SIN salir del modelo, que
+        // es distinto de apagarla en los filtros: los nodos que solo cuelgan de ella siguen ahi.
+        const peso = est.pesoCapa?.[l.capa] ?? 1
+        if (peso <= 0.001) continue
+
+        /** Recta, o arco si hay curvatura. Una sola via para que el fondo y el foco no discrepen. */
+        const traza = (x1: number, y1: number, x2: number, y2: number) => {
+          ctx.moveTo(x1, y1)
+          if (curva > 0.001) {
+            // Punto de control perpendicular al punto medio: el arco sale siempre al mismo lado, y
+            // eso es lo que separa visualmente dos vinculos que van del mismo A al mismo B.
+            const mx = (x1 + x2) / 2
+            const my = (y1 + y2) / 2
+            ctx.quadraticCurveTo(mx - (y2 - y1) * curva, my + (x2 - x1) * curva, x2, y2)
+          } else {
+            ctx.lineTo(x2, y2)
+          }
+          if (flechasAqui) punta(x1, y1, x2, y2, puntaPx, puntaMedio)
+        }
+
         if (l.fondo.length) {
-          ctx.globalAlpha = (hayFoco ? apagado : 1) * 0.55
+          ctx.globalAlpha = (hayFoco ? apagado : 1) * 0.55 * peso
           ctx.strokeStyle = tinte ? mezcla(tinte, tk.dim, fuerza) : tk.dim
           ctx.lineWidth = 1
           ctx.setLineDash(TRAZO[l.capa] ?? [])
           ctx.beginPath()
-          for (const [x1, y1, x2, y2] of l.fondo) {
-            ctx.moveTo(x1, y1)
-            ctx.lineTo(x2, y2)
-            if (flechasAqui) punta(x1, y1, x2, y2, puntaPx, puntaMedio)
-          }
+          for (const [x1, y1, x2, y2] of l.fondo) traza(x1, y1, x2, y2)
           ctx.stroke()
         }
         if (l.foco.length) {
-          ctx.globalAlpha = 1
+          ctx.globalAlpha = peso
           ctx.strokeStyle = tinte ? mezcla(tinte, tk.ink, fuerza) : tk.ink
           ctx.lineWidth = 1.5
           ctx.setLineDash(TRAZO[l.capa] ?? [])
           ctx.beginPath()
-          for (const [x1, y1, x2, y2] of l.foco) {
-            ctx.moveTo(x1, y1)
-            ctx.lineTo(x2, y2)
-            if (flechasAqui) punta(x1, y1, x2, y2, puntaPx, puntaMedio)
-          }
+          for (const [x1, y1, x2, y2] of l.foco) traza(x1, y1, x2, y2)
           ctx.stroke()
         }
       }

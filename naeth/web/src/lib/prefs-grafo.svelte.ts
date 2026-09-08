@@ -20,7 +20,16 @@
 // lo que sale del almacen se comprueba contra su rango y lo que no cuadra cae a fabrica en silencio.
 // La otra mitad de esa red es `#/grafo?reset`, en la fase 4.
 
-export type Grupo = 'texto' | 'nodos' | 'aristas' | 'fisica'
+/**
+ * Los grupos, en el orden en que los enseña el panel.
+ *
+ * Es una lista y no solo un tipo porque la necesitan los dos lados: el panel para pintar una seccion
+ * por grupo (tipada, asi que olvidarse de uno no compila) y su test para comprobar que ninguno se
+ * queda vacio. Escrita dos veces, añadir un grupo obliga a acordarse en tres sitios, y ya fallo a la
+ * primera: `experimental` entro en el catalogo y el test cayo por no estar en su copia de la lista.
+ */
+export const GRUPOS = ['texto', 'nodos', 'aristas', 'fisica', 'experimental'] as const
+export type Grupo = (typeof GRUPOS)[number]
 
 type Comun = { grupo: Grupo; etiqueta: string; nota?: string }
 export type MandoNum = Comun & { tipo: 'num'; fabrica: number; min: number; max: number; paso: number }
@@ -117,6 +126,38 @@ export const CATALOGO = {
     etiqueta: 'Frenado',
     nota: 'Alto se para antes; bajo se mueve mas rato.',
   },
+
+  // ── Experimental ───────────────────────────────────────────────────────────────────────
+  //
+  // Lo que NO existia ni como constante. Van aparte y marcados porque son los que pueden dejar el
+  // grafo raro, y por eso la fase 4 trae ademas `#/grafo?reset`: un mando que puede estropear la
+  // vista necesita una salida que funcione con la vista ya estropeada.
+  //
+  // TODOS NACEN NEUTROS (0 de curvatura, opacidades a 1, separacion a 0). Encendidos de fabrica
+  // serian un rediseño colado por la puerta de atras.
+  curvatura: {
+    tipo: 'num', grupo: 'experimental', fabrica: 0, min: 0, max: 0.4, paso: 0.02,
+    etiqueta: 'Curvar las aristas',
+    nota: 'A 0 son rectas. Curvadas se distinguen dos vinculos entre el mismo par.',
+  },
+  opRelacion: {
+    tipo: 'num', grupo: 'experimental', fabrica: 1, min: 0, max: 1, paso: 0.05,
+    etiqueta: 'Peso de las relaciones',
+  },
+  opWikilink: {
+    tipo: 'num', grupo: 'experimental', fabrica: 1, min: 0, max: 1, paso: 0.05,
+    etiqueta: 'Peso de los wikilinks',
+  },
+  opSemantica: {
+    tipo: 'num', grupo: 'experimental', fabrica: 1, min: 0, max: 1, paso: 0.05,
+    etiqueta: 'Peso de los vecinos semanticos',
+    nota: 'Bajar una capa sin apagarla: se queda de fondo en vez de desaparecer.',
+  },
+  separaProyectos: {
+    tipo: 'num', grupo: 'experimental', fabrica: 0, min: 0, max: 1, paso: 0.05,
+    etiqueta: 'Separar por proyecto',
+    nota: 'Empuja a las memorias de distinto proyecto. El 24% de los vinculos cruzan, asi que subirlo mucho estira el grafo.',
+  },
 } as const satisfies Record<string, Mando>
 
 export type Clave = keyof typeof CATALOGO
@@ -175,6 +216,41 @@ export const almacenLocal: Almacen = {
 }
 
 let almacen: Almacen = almacenLocal
+
+/**
+ * LA SALIDA DE EMERGENCIA: `#/grafo?reset` borra los ajustes ANTES de que se lea nada.
+ *
+ * Por que existe teniendo ya un boton de restaurar: el boton vive DENTRO del panel, y el panel vive
+ * DENTRO del grafo. Si un mando experimental deja el lienzo en blanco o ilegible, el boton se va con
+ * el, y la unica salida seria abrir las herramientas del navegador. Esto se escribe en la barra de
+ * direcciones, que sigue ahi pase lo que pase.
+ *
+ * Se ejecuta al IMPORTAR el modulo, antes del `$state` de abajo, que es el unico momento en el que
+ * llega a tiempo. Va en try/catch porque en el entorno `node` de los tests no hay `location`.
+ */
+function reseteoPorURL(): boolean {
+  try {
+    if (typeof location === 'undefined') return false
+    const h = location.hash || ''
+    if (!/[?&]reset\b/.test(h)) return false
+    localStorage.removeItem(CLAVE_LS)
+    // Se limpia de la barra para que recargar no vuelva a resetear sin querer.
+    //
+    // ⚠ CON `replaceState` Y NO ASIGNANDO `location.hash`. Asignar el hash dispara una navegacion, y
+    // esto corre al IMPORTAR el modulo, o sea antes de que la aplicacion monte: el router procesaba
+    // ese cambio a destiempo y el lienzo se quedaba sin medir, con el canvas en su tamaño por
+    // defecto de 300x150 y sin pintar nada. O sea que la salida de emergencia dejaba el grafo tan
+    // roto como lo habia encontrado, solo que por otro motivo. `replaceState` cambia la barra en
+    // silencio, sin navegar.
+    const limpio = h.replace(/[?&]reset\b/, '').replace(/[?&]$/, '')
+    history.replaceState(null, '', location.pathname + location.search + limpio)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export const reseteado = reseteoPorURL()
 
 /**
  * Valida UN valor contra su mando. Devuelve el de fabrica si no cuadra.
