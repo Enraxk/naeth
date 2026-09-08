@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import Icon from '../components/Icon.svelte'
   import Lienzo from './graph/Lienzo.svelte'
+  import Panel from './graph/Panel.svelte'
   import { getGraph, getKnn } from '../lib/api'
   import { data } from '../lib/data.svelte'
   import { navigate, route } from '../lib/router.svelte'
@@ -18,6 +19,25 @@
   let seleccion = $state<string | null>(null)
   let knn = $state(new Map<string, KnnNeighbor[]>())
   let motor = $state<Lienzo | null>(null)
+
+  // Si el panel de ajustes queda abierto o cerrado, recordado entre visitas. No va al catalogo de
+  // `prefs-grafo` a proposito: aquello es lo que gobierna el DIBUJO, y esto es estado de la vista.
+  // Mezclarlos obligaria a validar y restaurar a fabrica algo que no pinta nada.
+  const PANEL_LS = 'naeth-grafo-panel'
+  let ajustes = $state(((): boolean => {
+    try {
+      return localStorage.getItem(PANEL_LS) === '1'
+    } catch {
+      return false
+    }
+  })())
+  $effect(() => {
+    try {
+      localStorage.setItem(PANEL_LS, ajustes ? '1' : '0')
+    } catch {
+      // En modo privado no se recuerda, y no pasa nada: el panel abre cerrado.
+    }
+  })
 
   onMount(async () => {
     try {
@@ -153,6 +173,10 @@
       <button class="chip" title="Volver al encuadre completo" onclick={() => motor?.reencuadrar()}>
         <Icon name="refresh" size={12} color="currentColor" />encuadre
       </button>
+      <button class="chip" class:on={ajustes} title="Ajustes del grafo"
+              aria-expanded={ajustes} onclick={() => (ajustes = !ajustes)}>
+        <Icon name="sliders-horizontal" size={12} color="currentColor" />ajustes
+      </button>
     </div>
   </div>
 
@@ -167,6 +191,9 @@
       <Lienzo bind:this={motor} {model} {foco} {seleccion} grupo={resalte.grupo}
               onSelect={seleccionar} onOpen={(id) => navigate('memoria', id)} />
     {/if}
+    <!-- Dentro del `lienzo-wrap` a proposito: se posiciona contra el lienzo, no contra la vista, y
+         asi el cajon del movil se apoya en el borde de abajo del grafo y no tapa la franja. -->
+    <Panel bind:abierto={ajustes} />
   </div>
 
   <!-- LA FRANJA, que antes era un panel flotante sobre la esquina del lienzo y tapaba justo la
