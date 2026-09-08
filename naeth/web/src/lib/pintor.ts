@@ -69,6 +69,40 @@ export interface EstadoPintado {
    * solo el nodo que estas apuntando.
    */
   topeNombres?: number
+
+  // ── Lo que el panel de ajustes gobierna ──────────────────────────────────────────────────
+  //
+  // TODOS OPCIONALES Y CON EL VALOR DE SIEMPRE POR DEFECTO. Este objeto ya era el canal de opciones
+  // del pintor (`color`, `escalaNodo`, `topeNombres`), asi que los mandos entran por aqui en vez de
+  // por una via nueva. Y siendo opcionales, quien no los pase (el mini, los tests) sigue viendo
+  // exactamente el grafo de antes.
+
+  /** Umbrales del fundido del texto. Ver `opacidadTexto`. */
+  textoDesde?: number
+  textoPleno?: number
+  /** Reparto del tamaño del nodo entre pantalla y mundo, y sus topes. Ver `radioEnPantalla`. */
+  nodoExp?: number
+  nodoMin?: number
+  nodoMax?: number
+  /**
+   * Punta de flecha en las aristas de relacion, y de que tamaño.
+   *
+   * De 501 relaciones medidas el 05/09 no hay UNA sola reciproca, asi que la direccion nunca es
+   * redundante. El tamaño de 5 px y la posicion a media arista los eligio Eneko mirando el banco:
+   * en el extremo la punta compite con el nodo y con lo que se cruce ahi.
+   */
+  flechas?: boolean
+  puntaPx?: number
+  puntaMedio?: boolean
+  /**
+   * Color de la arista por tipo de relacion, y cuanto tiñe.
+   *
+   * `tinteFuerza` mezcla con el gris de siempre: 1 es el color puro y 0 el gris de hoy. A 0,3 el
+   * contraste contra el fondo es 5,5:1, practicamente el 5,2:1 del gris, o sea que informa sin
+   * pesar mas. Medido el 06/09 en `bench/canal-vivo.html`.
+   */
+  tintado?: boolean
+  tinteFuerza?: number
 }
 
 export interface Pintor {
@@ -107,9 +141,14 @@ export const aMundo = (sx: number, sy: number, v: Vista) => ({
  * el mundo, el grafo entero se ve como polvo de lejos y como pelotas gigantes de cerca.
  *
  * El exponente 0,6 es el reparto: acercarse el triple agranda el nodo casi el doble.
+ *
+ * ⚠ LOS TRES NUMEROS SON AHORA PARAMETROS CON EL VALOR DE SIEMPRE POR DEFECTO. No es un capricho de
+ * firma: es lo que permite que el panel de ajustes los mueva sin que ninguna de las 34 pruebas de
+ * `pintor.test.ts` cambie una linea. Que esos tests sigan verdes llamando con dos argumentos ES la
+ * prueba de que convertir constantes en mandos no ha movido el grafo de sitio.
  */
-export const radioEnPantalla = (r: number, k: number) =>
-  Math.min(Math.max(r * Math.pow(k, 0.6), 1.6), 40)
+export const radioEnPantalla = (r: number, k: number, exp = 0.6, min = 1.6, max = 40) =>
+  Math.min(Math.max(r * Math.pow(k, exp), min), max)
 
 /**
  * A partir de que aumento empiezan a verse los nombres, y a partir de cual se ven del todo.
@@ -129,8 +168,10 @@ export const ZOOM_TEXTO_PLENO = 1.65
  * Va por fundido y no por umbral seco porque un corte al cruzar el umbral hace parpadear medio
  * lienzo con un pellizco de rueda, y el ojo lee ese parpadeo como que han cambiado los datos.
  */
-export const opacidadTexto = (k: number) =>
-  Math.max(0, Math.min(1, (k - ZOOM_TEXTO_DESDE) / (ZOOM_TEXTO_PLENO - ZOOM_TEXTO_DESDE)))
+export const opacidadTexto = (k: number, desde = ZOOM_TEXTO_DESDE, pleno = ZOOM_TEXTO_PLENO) =>
+  // Con los dos umbrales pegados la division se va a Infinity y el texto parpadea entre 0 y 1. El
+  // panel deja moverlos por separado, asi que el suelo tiene que estar aqui y no en el panel.
+  Math.max(0, Math.min(1, (k - desde) / Math.max(pleno - desde, 0.01)))
 
 /**
  * Cuantos nombres se escriben SIN nada senalado. Hoy: ninguno.
@@ -278,4 +319,32 @@ export const TRAZO: Record<string, number[]> = {
   relation: [],
   wikilink: [2, 3],
   semantic: [5, 3],
+}
+
+/**
+ * Mezcla dos colores hex. `f` es cuanto pesa el primero: 1 lo deja tal cual, 0 devuelve el segundo.
+ *
+ * Es lo que hace utilizable el color por tipo de relacion. A plena saturacion los tintes cambian el
+ * caracter del grafo entero y compiten con el apagado del resalte; mezclados con el gris de siempre
+ * informan sin pesar mas. Medido el 06/09 en `bench/canal-vivo.html`: a fuerza 0,3 el contraste
+ * contra el fondo es 5,5:1, donde el gris de hoy da 5,2:1.
+ *
+ * Acepta `#rgb` y `#rrggbb`. Lo que no entienda lo devuelve intacto, porque un color mal escrito
+ * tiene que pintar raro y no romper el frame.
+ */
+export function mezcla(a: string, b: string, f: number): string {
+  const h = (c: string): [number, number, number] | null => {
+    const s = c.trim()
+    if (s[0] !== '#') return null
+    const t = s.length === 4 ? '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3] : s
+    if (t.length !== 7) return null
+    const n = Number.parseInt(t.slice(1), 16)
+    return Number.isNaN(n) ? null : [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+  }
+  const x = h(a)
+  const y = h(b)
+  if (!x || !y) return a
+  const p = Math.max(0, Math.min(1, f))
+  const v = x.map((c, i) => Math.round(c * p + y[i] * (1 - p)))
+  return '#' + v.map((c) => c.toString(16).padStart(2, '0')).join('')
 }

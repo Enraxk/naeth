@@ -75,6 +75,26 @@ export const PROJECT: Record<string, Meta> = {
 
 const FALLBACK: Meta = { icon: 'folder', c: ['#8a8e95', '#72767e'] }
 
+/**
+ * Color por TIPO DE RELACION, para las aristas del grafo. [oscuro, claro].
+ *
+ * Aqui el color no es decoracion: de las 501 relaciones vivas, 286 son `links_to`, 165
+ * `derived_from` y 48 `depends_on`, y hasta ahora las tres se pintaban exactamente igual. El trazo
+ * no podia contarlo porque su patron ya distingue las tres CAPAS (relacion, wikilink, semantica), y
+ * el grosor se descarto midiendo: no se separa hasta unos 38 px y la arista mediana mide 19.
+ *
+ * ⚠ Nunca se usan a pelo: el pintor los mezcla con el gris del tema segun `tinteFuerza`, porque a
+ * plena saturacion el grafo entero se vuelve azul (el 57% de las relaciones son `links_to`) y pelea
+ * con el apagado del resalte. Ver `mezcla` en `pintor.ts`.
+ */
+export const PREDICATE: Record<string, Pair> = {
+  links_to: ['#6ba6e8', '#2f6fb8'],
+  derived_from: ['#b394e3', '#7a4fb5'],
+  depends_on: ['#4dbba7', '#2b8574'],
+}
+
+export const predColor = (p: string) => (PREDICATE[p] ?? FALLBACK.c)[themeIdx()]
+
 export const typeMeta = (t: string): Meta => TYPE[t] ?? TYPE.fact
 export const projMeta = (p: string): Meta => PROJECT[p] ?? FALLBACK
 export const typeColor = (t: string) => typeMeta(t).c[themeIdx()]

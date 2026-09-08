@@ -128,6 +128,22 @@ export interface Simulador {
    */
   colocar(pos: ReadonlyMap<string, { x: number; y: number }>): void
   parar(): void
+  /**
+   * Cambia las fuerzas SIN reconstruir nada, y reaviva un poco para que se note.
+   *
+   * Es lo que permite que el panel de ajustes lleve deslizadores de fisica de verdad, que se mueven
+   * en continuo. Medido el 06/09/2026 (`bench/fuerzas.html`): reconfigurar cuesta entre 0,05 y 0,2
+   * ms, contra los 121-269 ms de crear el simulador otra vez. Tres ordenes de magnitud.
+   *
+   * ⚠ EL `initialize` NO SOBRA. En d3, `forceLink.distance(v)` guarda el valor pero no recalcula el
+   * array interno de distancias, que se rellena al asignar la fuerza a la simulacion. Sin volver a
+   * inicializarla, mover el deslizador no cambiaria nada en pantalla y pareceria que el mando esta
+   * roto.
+   *
+   * `alpha` bajo mientras se arrastra y alto al soltar: un tick ya cuesta entre 3 y 17 ms con este
+   * corpus, asi que reavivar del todo en cada pixel del deslizador va a tirones.
+   */
+  ajustar(opts: { distancia?: number; repulsion?: number; frenado?: number }, alpha?: number): void
 }
 
 export interface OpcionesSim {
@@ -137,6 +153,8 @@ export interface OpcionesSim {
   distancia?: number
   /** Repulsion entre nodos. Negativa. */
   repulsion?: number
+  /** Cuanto frena el movimiento en cada tick. Alto se para antes. */
+  frenado?: number
 }
 
 /**
@@ -222,7 +240,7 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
     .force('charge', forceManyBody<NodoSim>().strength(repulsion).distanceMax(600))
     .force('collide', forceCollide<NodoSim>((d) => radioNodo(d.n) + 2))
     .force('comp', fuerzaComponente())
-    .velocityDecay(0.35)
+    .velocityDecay(opts.frenado ?? 0.35)
     .stop()
 
   return {
@@ -357,6 +375,24 @@ export function crearSimulador(model: GraphModel, opts: OpcionesSim = {}): Simul
     },
     parar() {
       sim.stop()
+    },
+
+    ajustar(opts, alpha = 0.15) {
+      const fLink = sim.force('link') as ReturnType<typeof forceLink<NodoSim, AristaSim>> | undefined
+      const fCarga = sim.force('charge') as ReturnType<typeof forceManyBody<NodoSim>> | undefined
+      if (opts.distancia !== undefined && fLink) {
+        fLink.distance(opts.distancia)
+        fLink.initialize(nodos, Math.random)
+      }
+      if (opts.repulsion !== undefined && fCarga) {
+        fCarga.strength(opts.repulsion)
+        fCarga.initialize(nodos, Math.random)
+      }
+      if (opts.frenado !== undefined) sim.velocityDecay(opts.frenado)
+      // Reavivar, no reiniciar: `alphaTarget` a cero deja que se vuelva a dormir sola en cuanto
+      // acomode el cambio, en vez de quedarse corriendo para siempre.
+      if (sim.alpha() < alpha) sim.alpha(alpha)
+      sim.alphaTarget(0)
     },
   }
 }

@@ -12,11 +12,12 @@
 //  2. Culling: lo que cae fuera del lienzo no se dibuja. Es lo que hace que acercarse SALGA MAS
 //     BARATO en vez de mas caro, que es justo cuando el usuario esta interactuando.
 
-import { projColor } from './colors'
+import { predColor, projColor } from './colors'
 import type { NodoSim, Simulador } from './sim'
 import { radioNodo } from './sim'
 import {
   aPantalla,
+  mezcla,
   opacidadTexto,
   radioEnPantalla,
   TOPE_ETIQUETAS,
@@ -101,7 +102,8 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // ahi, como fondo, que es lo que hace que resaltar signifique algo.
       const apagado = 1 - 0.7 * est.atenuacion
       const esc = est.escalaNodo ?? 1
-      const radio = (nd: NodoSim) => radioEnPantalla(radioNodo(nd.n) * esc, v.k)
+      const radio = (nd: NodoSim) =>
+        radioEnPantalla(radioNodo(nd.n) * esc, v.k, est.nodoExp, est.nodoMin, est.nodoMax)
 
       visibles.length = 0
       for (const nd of sim.nodos) if (dentro(P(nd))) visibles.push(nd)
@@ -110,7 +112,15 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       //
       // Se agrupan por capa, no por arista: un `setLineDash` y un `stroke` por capa en vez de por
       // linea. Las del vecindario van aparte y encima, con el color de tinta.
-      const capas: Record<string, { fondo: [number, number, number, number][]; foco: [number, number, number, number][] }> = {}
+      // El grupo era la capa; ahora es capa mas tipo de relacion, porque cada tipo puede llevar su
+      // tinte. Siguen siendo pocos grupos (tres capas por tres predicados como mucho), asi que la
+      // optimizacion de un `stroke` por grupo se conserva entera.
+      const tintado = est.tintado ?? false
+      const fuerza = est.tinteFuerza ?? 0
+      const capas: Record<string, {
+        capa: string; pred: string
+        fondo: [number, number, number, number][]; foco: [number, number, number, number][]
+      }> = {}
       for (const e of sim.aristas) {
         const a = e.source as NodoSim
         const b = e.target as NodoSim
@@ -119,34 +129,70 @@ export function pintorCanvas(host: HTMLElement): Pintor {
         // Basta con que uno de los dos extremos se vea: si no, las aristas largas se cortarian al
         // acercarse, que es cuando mas se miran.
         if (!dentro(pa) && !dentro(pb)) continue
-        const c = (capas[e.e.layer] ??= { fondo: [], foco: [] })
+        const capa = e.e.layer
+        const pred = tintado && capa === 'relation' ? (e.e.predicate ?? '') : ''
+        const c = (capas[capa + '|' + pred] ??= { capa, pred, fondo: [], foco: [] })
         const destino = hayFoco && enFoco(a.id) && enFoco(b.id) ? c.foco : c.fondo
         destino.push([pa.x, pa.y, pb.x, pb.y])
       }
 
+      /**
+       * Mete la punta de flecha en el MISMO path que la arista, para no pagar un `stroke` por linea.
+       *
+       * Se para antes del nodo destino, o a media arista si asi se pide: en el extremo la punta
+       * compite con el propio nodo y con todo lo que se cruce ahi, y Eneko la prefirio en medio
+       * viendo las dos en el banco. `d * 0.35` evita que en una arista muy corta la punta sea mas
+       * larga que la propia arista.
+       */
+      const punta = (x1: number, y1: number, x2: number, y2: number, px: number, medio: boolean) => {
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const d = Math.hypot(dx, dy)
+        if (d < 6) return
+        const retro = medio ? d * 0.5 : 7
+        const ex = x2 - (dx / d) * retro
+        const ey = y2 - (dy / d) * retro
+        const ang = Math.atan2(dy, dx)
+        const l = Math.min(px, d * 0.35)
+        ctx.moveTo(ex, ey)
+        ctx.lineTo(ex - l * Math.cos(ang - 0.42), ey - l * Math.sin(ang - 0.42))
+        ctx.moveTo(ex, ey)
+        ctx.lineTo(ex - l * Math.cos(ang + 0.42), ey - l * Math.sin(ang + 0.42))
+      }
+      const conFlechas = (est.flechas ?? false) && (est.puntaPx ?? 0) > 0
+      const puntaPx = est.puntaPx ?? 5
+      const puntaMedio = est.puntaMedio ?? true
+
       ctx.lineCap = 'round'
-      for (const [capa, l] of Object.entries(capas)) {
+      for (const l of Object.values(capas)) {
+        // El tinte tiñe el trazo; el estado (apagado o encendido) sigue mandando en la OPACIDAD y en
+        // si el color base es `dim` o `ink`. Son dos canales distintos y por eso conviven: el tipo
+        // se lee en el tono y el resalte en cuanta luz tiene.
+        const tinte = l.pred ? predColor(l.pred) : null
+        const flechasAqui = conFlechas && l.capa === 'relation'
         if (l.fondo.length) {
           ctx.globalAlpha = (hayFoco ? apagado : 1) * 0.55
-          ctx.strokeStyle = tk.dim
+          ctx.strokeStyle = tinte ? mezcla(tinte, tk.dim, fuerza) : tk.dim
           ctx.lineWidth = 1
-          ctx.setLineDash(TRAZO[capa] ?? [])
+          ctx.setLineDash(TRAZO[l.capa] ?? [])
           ctx.beginPath()
           for (const [x1, y1, x2, y2] of l.fondo) {
             ctx.moveTo(x1, y1)
             ctx.lineTo(x2, y2)
+            if (flechasAqui) punta(x1, y1, x2, y2, puntaPx, puntaMedio)
           }
           ctx.stroke()
         }
         if (l.foco.length) {
           ctx.globalAlpha = 1
-          ctx.strokeStyle = tk.ink
+          ctx.strokeStyle = tinte ? mezcla(tinte, tk.ink, fuerza) : tk.ink
           ctx.lineWidth = 1.5
-          ctx.setLineDash(TRAZO[capa] ?? [])
+          ctx.setLineDash(TRAZO[l.capa] ?? [])
           ctx.beginPath()
           for (const [x1, y1, x2, y2] of l.foco) {
             ctx.moveTo(x1, y1)
             ctx.lineTo(x2, y2)
+            if (flechasAqui) punta(x1, y1, x2, y2, puntaPx, puntaMedio)
           }
           ctx.stroke()
         }
@@ -214,7 +260,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       //  2. Sus VECINOS, solo a partir del aumento en el que el texto empieza a leerse. De lejos se
       //     viene a mirar la forma, y cinco enunciados largos alrededor solo tapan.
       //  3. Sin nada senalado, lo que diga `TOPE_ETIQUETAS`, hoy cero.
-      const op = opacidadTexto(v.k)
+      const op = opacidadTexto(v.k, est.textoDesde, est.textoPleno)
       const enc = hayFoco ? visibles.filter((nd) => enFoco(nd.id)) : []
       const vecinos =
         op > 0.02 && enc.length <= (est.topeNombres ?? TOPE_ETIQUETAS_FOCO)

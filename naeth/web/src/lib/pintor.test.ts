@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  aMundo, aPantalla, opacidadTexto, partirEnLineas, pathForma, radioEnPantalla, recortarALinea,
+  aMundo, aPantalla, mezcla, opacidadTexto, partirEnLineas, pathForma, radioEnPantalla, recortarALinea,
   TRAZO, trazarForma,
   verticesForma, ZOOM_TEXTO_DESDE, ZOOM_TEXTO_PLENO, type Vista,
 } from './pintor'
@@ -280,5 +280,37 @@ describe('recortarALinea · los vecinos van a una linea', () => {
   it('con un ancho ridiculo sigue devolviendo algo, no cadena vacia', () => {
     const r = recortarALinea('cualquier cosa', 1, medir)
     expect(r.length).toBeGreaterThan(0)
+  })
+})
+
+describe('mezcla · el tinte de las aristas', () => {
+  // El color por tipo de relacion solo es utilizable mezclado. A plena saturacion cambia el caracter
+  // del grafo (el 57% de las relaciones son `links_to`, asi que el conjunto se vuelve azul) y pelea
+  // con el apagado del resalte, que es quien manda de verdad en el color de la arista.
+
+  it('con fuerza 1 devuelve el color tal cual, y con 0 el gris', () => {
+    expect(mezcla('#6ba6e8', '#8a929e', 1)).toBe('#6ba6e8')
+    expect(mezcla('#6ba6e8', '#8a929e', 0)).toBe('#8a929e')
+  })
+
+  it('a media fuerza cae entre los dos', () => {
+    const m = mezcla('#000000', '#ffffff', 0.5)
+    expect(m).toBe('#808080')
+  })
+
+  it('la fuerza se acota, no se cree lo que le den', () => {
+    expect(mezcla('#000000', '#ffffff', 5)).toBe('#000000')
+    expect(mezcla('#000000', '#ffffff', -2)).toBe('#ffffff')
+  })
+
+  it('entiende la forma corta de tres digitos', () => {
+    expect(mezcla('#fff', '#000', 1)).toBe('#ffffff')
+  })
+
+  it('un color que no entiende lo devuelve intacto, sin romper el frame', () => {
+    // Un color mal escrito tiene que pintar raro, no tirar el pintado entero: esto corre dentro del
+    // bucle de dibujo, a 60 veces por segundo.
+    expect(mezcla('rojo', '#000000', 0.5)).toBe('rojo')
+    expect(mezcla('#zzzzzz', '#000000', 0.5)).toBe('#zzzzzz')
   })
 })

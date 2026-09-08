@@ -4,6 +4,7 @@
   import { pintorCanvas } from '../../lib/pintor-canvas'
   import { aMundo, radioEnPantalla, type Pintor, type Vista } from '../../lib/pintor'
   import { theme } from '../../lib/theme.svelte'
+  import { grafoPrefs } from '../../lib/prefs-grafo.svelte'
   import type { GraphModel } from '../../lib/graph'
 
   // El lienzo del grafo: fisica, pintado e interaccion cosidos, y nada mas.
@@ -55,6 +56,29 @@
   let caja = $state<HTMLDivElement | null>(null)
   let sim: Simulador | null = null
   let pintor: Pintor | null = null
+
+  // ── EL MINI HEREDA EN PROPORCION, no tiene sus propios numeros ────────────────────────────
+  //
+  // Antes el compacto llevaba `{distancia: 96, repulsion: -140}` escritos a fuego. Ahora esos dos
+  // numeros son FACTORES sobre lo que ajuste Eneko en el panel, para que al mover la fisica del
+  // grafo grande el mini se mueva con el y las dos vistas sigan pareciendose, que es exactamente lo
+  // que se pidio el 05/09: "el mini grafo quiero que se vea y se sienta como el grafo normal".
+  //
+  // Los factores son los de esos valores: 96/34 y 140/38. Con los ajustes de fabrica, el mini queda
+  // EXACTAMENTE como estaba, que es lo que hace que esto sea un refactor y no un rediseño.
+  //
+  // (Por que el compacto necesita otra fisica, en la nota larga de mas abajo: con la distancia corta
+  // del grafo grande, un vecindario de quince nodos satura su anillo y sale como un racimo.)
+  const F_DISTANCIA = 96 / 34
+  const F_REPULSION = 140 / 38
+  const F_NODO = 2.2
+  const F_NOMBRES = 6 / 26
+
+  const fisicaDePrefs = () => ({
+    distancia: grafoPrefs.distancia * (compacto ? F_DISTANCIA : 1),
+    repulsion: grafoPrefs.repulsion * (compacto ? F_REPULSION : 1),
+    frenado: grafoPrefs.frenado,
+  })
 
   // ESTADO DEL LIENZO, DELIBERADAMENTE FUERA DE SVELTE. Se toca hasta seis veces por frame, y
   // pasarlo por `$state` seria invalidar el grafo de dependencias de Svelte 60 veces por segundo
@@ -201,13 +225,27 @@
       atenuacion,
       arrastrando,
       color: true,
-      escalaNodo: compacto ? 2.2 : 1,
+      escalaNodo: grafoPrefs.escalaNodo * (compacto ? F_NODO : 1),
+      textoDesde: grafoPrefs.textoDesde,
+      textoPleno: grafoPrefs.textoPleno,
+      nodoExp: grafoPrefs.nodoExponente,
+      nodoMin: grafoPrefs.nodoMin,
+      nodoMax: grafoPrefs.nodoMax,
+      flechas: grafoPrefs.flechas,
+      puntaPx: grafoPrefs.puntaPx,
+      puntaMedio: grafoPrefs.puntaMedio,
+      tintado: grafoPrefs.tintado,
+      tinteFuerza: grafoPrefs.tinteFuerza,
       // El mini juega con las MISMAS tres reglas que el grande, solo que con menos sitio: en 300 px
       // un vecindario de quince nombres no cabe. Con seis, un vecindario pequeño los enseña ya y
       // uno grande solo enseña el del centro hasta que te acercas; y al acercarte el culling deja
       // menos nodos a la vista, asi que el conjunto encendido baja y los nombres van saliendo. Es
-      // la misma mecanica del grafo grande, con el tope ajustado al hueco.
-      topeNombres: compacto ? 6 : undefined,
+      // la misma mecanica del grafo grande, con el tope ajustado al hueco. Los seis de antes son
+      // ahora la misma proporcion (6/26) sobre el tope que ajuste Eneko, para que bajarlo en el
+      // grafo grande no acabe subiendolo en el mini.
+      topeNombres: compacto
+        ? Math.max(1, Math.round(grafoPrefs.topeNombres * F_NOMBRES))
+        : grafoPrefs.topeNombres,
     })
 
     if (vivo) despertar()
@@ -574,7 +612,10 @@
     // Con la distancia larga, las aristas vuelven a ser lineas que salen del centro, que es la
     // forma que tiene el vecindario cuando lo miras en el grafo grande. Y la repulsion sube para
     // que los vecinos se repartan por el anillo en vez de agruparse por un lado.
-    sim = crearSimulador(model, compacto ? { distancia: 96, repulsion: -140, ancho: 420 } : {})
+    sim = crearSimulador(model, {
+      ...fisicaDePrefs(),
+      ...(compacto ? { ancho: 420 } : {}),
+    })
 
     const ro = new ResizeObserver(() => {
       if (!caja) return
@@ -658,6 +699,43 @@
   $effect(() => {
     theme.value
     pintor?.tema()
+    despertar()
+  })
+
+  /**
+   * Los ajustes del panel, aplicados en vivo.
+   *
+   * DOS COSAS, Y LA SEGUNDA ES LA QUE NO SE VE VENIR:
+   *
+   * 1. La fisica se reconfigura SIN reconstruir el simulador. Medido el 06/09 en
+   *    `bench/fuerzas.html`: cuesta entre 0,05 y 0,2 ms contra los 121-269 ms de crearlo otra vez,
+   *    asi que el deslizador puede moverse en continuo. El alpha va bajo (0,12) porque un tick ya
+   *    cuesta entre 3 y 17 ms con este corpus, y reavivar del todo en cada pixel del deslizador iria
+   *    a tirones.
+   *
+   * 2. `despertar()` no es opcional NI para los ajustes de apariencia. El grafo se duerme cuando
+   *    esta quieto (esa es media razon de que no queme CPU), y dormido no vuelve a pintar. Sin esta
+   *    llamada, mover el tinte o el tamaño de los nodos no cambiaria nada en pantalla hasta rozar el
+   *    raton por encima, y el mando pareceria roto.
+   */
+  $effect(() => {
+    const f = fisicaDePrefs()
+    // Leidos aqui a proposito, aunque no se usen: es lo que hace que este efecto tambien corra
+    // cuando se mueve un mando de apariencia, que necesita el `despertar()` de abajo.
+    void grafoPrefs.escalaNodo
+    void grafoPrefs.textoDesde
+    void grafoPrefs.textoPleno
+    void grafoPrefs.topeNombres
+    void grafoPrefs.nodoExponente
+    void grafoPrefs.nodoMin
+    void grafoPrefs.nodoMax
+    void grafoPrefs.flechas
+    void grafoPrefs.puntaPx
+    void grafoPrefs.puntaMedio
+    void grafoPrefs.tintado
+    void grafoPrefs.tinteFuerza
+    if (!sim || !listo) return
+    sim.ajustar(f, 0.12)
     despertar()
   })
 
