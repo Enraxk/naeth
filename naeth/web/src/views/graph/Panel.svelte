@@ -65,8 +65,10 @@
             {#if mando.tipo === 'bool'}
               <div class="mando bool">
                 <input type="checkbox" {id}
-                       checked={grafoPrefs[clave] as boolean}
-                       onchange={(e) => poner(clave as Clave, e.currentTarget.checked as never)} />
+                       bind:checked={
+                         () => grafoPrefs[clave] as boolean,
+                         (v) => poner(clave as Clave, v as never)
+                       } />
                 <label for={id}>{mando.etiqueta}</label>
               </div>
             {:else}
@@ -77,10 +79,18 @@
                        ("subelo un poco" no es un ajuste) ni comparar con lo que se midio. -->
                   <output for={id}>{fmt(grafoPrefs[clave] as number, mando.paso)}</output>
                 </label>
+                <!-- ⚠ `bind:` CON GETTER Y SETTER, no `value=` mas `oninput`.
+                     Con el atributo controlado, cada cambio vuelve a renderizar el input a mitad del
+                     arrastre y el navegador se pelea con la mano por la posicion del pulgar: el
+                     sintoma es que mover el deslizador no hace nada hasta soltarlo o hasta hacer
+                     clic en otra parte, que es justo lo que reporto Eneko el 08/09. Con `bind:` el
+                     valor lo lleva el propio input y el setter solo lo propaga. -->
                 <input type="range" {id}
                        min={mando.min} max={mando.max} step={mando.paso}
-                       value={grafoPrefs[clave] as number}
-                       oninput={(e) => poner(clave as Clave, e.currentTarget.valueAsNumber as never)} />
+                       bind:value={
+                         () => grafoPrefs[clave] as number,
+                         (v) => poner(clave as Clave, v as never)
+                       } />
               </div>
             {/if}
             {#if mando.nota}<p class="nota">{mando.nota}</p>{/if}

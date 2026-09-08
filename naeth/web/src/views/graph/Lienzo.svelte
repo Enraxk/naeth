@@ -719,23 +719,28 @@
    *    raton por encima, y el mando pareceria roto.
    */
   $effect(() => {
-    const f = fisicaDePrefs()
-    // Leidos aqui a proposito, aunque no se usen: es lo que hace que este efecto tambien corra
-    // cuando se mueve un mando de apariencia, que necesita el `despertar()` de abajo.
-    void grafoPrefs.escalaNodo
-    void grafoPrefs.textoDesde
-    void grafoPrefs.textoPleno
-    void grafoPrefs.topeNombres
-    void grafoPrefs.nodoExponente
-    void grafoPrefs.nodoMin
-    void grafoPrefs.nodoMax
-    void grafoPrefs.flechas
-    void grafoPrefs.puntaPx
-    void grafoPrefs.puntaMedio
-    void grafoPrefs.tintado
-    void grafoPrefs.tinteFuerza
-    if (!sim || !listo) return
-    sim.ajustar(f, 0.12)
+    // ⚠ UNA COPIA, NO DOCE LECTURAS SUELTAS. La primera version enumeraba cada mando con `void
+    // grafoPrefs.loQueSea` para declarar la dependencia, y eso es frágil por dos motivos: se olvida
+    // un mando al añadirlo y nadie se entera (el mando queda mudo hasta que algo mas despierte el
+    // bucle), y una sentencia `void` sin uso es justo lo que un empaquetador puede decidir que no
+    // hace nada. Extender el objeto lee TODAS las claves de una vez y no hay nada que olvidar.
+    const todo = { ...grafoPrefs }
+    // ⚠ AQUI NO SE MIRA `listo`, Y ESO ES EL ARREGLO. La primera version copiaba la guarda
+    // `if (!sim || !listo)` de los efectos de al lado sin preguntarse si aplicaba, y no aplica:
+    // `listo` existe para que el MARCADO sepa cuando puede enseñar el cursor de agarrar, no para
+    // decir si se puede pintar. Con ella, el efecto salia por el return y el grafo no se enteraba
+    // de ningun ajuste hasta que un clic despertaba el bucle por la via de la interaccion, que es
+    // exactamente el sintoma que reporto Eneko el 08/09. Si hay simulador, hay con que ajustar y
+    // con que pintar; no hace falta nada mas.
+    if (!sim) return
+    sim.ajustar(
+      {
+        distancia: todo.distancia * (compacto ? F_DISTANCIA : 1),
+        repulsion: todo.repulsion * (compacto ? F_REPULSION : 1),
+        frenado: todo.frenado,
+      },
+      0.12,
+    )
     despertar()
   })
 
