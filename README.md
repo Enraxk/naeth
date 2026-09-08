@@ -112,7 +112,7 @@ loss.
 
 ```
 naeth/app/           core, API, MCP server, embedding worker, viewer
-naeth/app/tests/     pytest suite (12 tests) against an ephemeral database
+naeth/app/tests/     pytest suite (72 tests) against an ephemeral database
 naeth/bench/         the two benchmarks above
 naeth/db/            schema and migrations
 naeth/web/           Svelte 5 + Vite + Tailwind viewer

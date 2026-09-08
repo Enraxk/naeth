@@ -31,7 +31,7 @@ módulo funcionando o tiene rollback inmediato.
 **Pila viva:** `naeth/up.ps1` (o `up.sh`). Visor + API en `127.0.0.1:8800`; MCP en loopback sin auth
 en `127.0.0.1:8801` (es por donde entra Claude Code, con `?s=code`).
 
-**Tests del backend**, 28 en `app/tests/`:
+**Tests del backend**, 72 en `app/tests/`:
 
 ```
 docker compose --profile test run --rm test
