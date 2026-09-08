@@ -5,15 +5,41 @@
   import { getAuthors, getHealth } from '../lib/api'
   import { fmtLag } from '../lib/format'
   import { prefs } from '../lib/prefs.svelte'
+  import { cambiados, CLAVES } from '../lib/prefs-grafo.svelte'
+  import { navigate } from '../lib/router.svelte'
   import { theme } from '../lib/theme.svelte'
   import type { AuthorCount, Health } from '../lib/types'
 
-  // Esta vista es de SOLO LECTURA a proposito. Escribir desde el visor no pasa por los enforce de
-  // autoria ni de digest, que cuelgan solo de las tools MCP, asi que un panel de ajustes con
-  // escritura seria justo la puerta que esos dos interruptores existen para cerrar.
+  // Esta vista es de SOLO LECTURA SOBRE EL CORPUS, a proposito. Escribir MEMORIAS desde el visor no
+  // pasa por los enforce de autoria ni de digest, que cuelgan solo de las tools MCP, asi que un
+  // panel con esa escritura seria justo la puerta que esos dos interruptores existen para cerrar.
+  //
+  // ⚠ MATIZADO EL 08/09/2026, y el matiz importa para no leer esto al reves dentro de tres meses:
+  // las PREFERENCIAS (tema, orden del arbol, ajustes del grafo) si se cambian, y siempre se han
+  // cambiado. No son contenido: viven en el `localStorage` de este navegador, no tocan el corpus y
+  // por eso no tienen nada que ver con esos enforce. Lo que sigue siendo cierto es que desde aqui no
+  // se escribe, se lee y se enlaza a donde se cambia cada cosa.
 
   // `data` no tiene ni flag de carga ni de error (solo `null` y `online`), asi que los dos
   // endpoints que estrena esta vista se gestionan en local, con el mismo patron que Memoria.
+  const tocados = $derived(cambiados())
+
+  /**
+   * Lleva al grafo con el panel ya abierto.
+   *
+   * Deja escrito el mismo interruptor que usa el Grafo para recordar si el panel queda abierto, en
+   * vez de inventar un canal aparte: quien pulsa "abrir los ajustes del grafo" espera encontrarlos
+   * abiertos al llegar, y no un boton mas que pulsar.
+   */
+  function abrirPanelDelGrafo() {
+    try {
+      localStorage.setItem('naeth-grafo-panel', '1')
+    } catch {
+      // Sin sitio o sin permiso: se llega al grafo igual y el panel se abre a mano.
+    }
+    navigate('grafo')
+  }
+
   let authors = $state<AuthorCount[] | null>(null)
   let health = $state<Health | null>(null)
   let error = $state('')
@@ -68,7 +94,7 @@
   <div class="aj-conn">
     <span class="aj-dot" class:bad={!data.online}></span>
     <span class="aj-state">{data.online ? 'Conectado' : 'Sin conexion'}</span>
-    <span class="aj-sub">Solo lectura. Nada de esta pagina se puede cambiar desde aqui.</span>
+    <span class="aj-sub">Del corpus, solo lectura. Las preferencias se cambian donde se usan.</span>
   </div>
 
   {#if enDesarrollo}
@@ -172,10 +198,27 @@
         <dt>Ancho de la barra lateral</dt>
         <dd>{prefs.side} px<span class="dd-sub">se cambia arrastrando su borde</span></dd>
       </div>
+      <div>
+        <dt>Ajustes del grafo</dt>
+        <dd>
+          {#if tocados.length === 0}
+            todo de fábrica
+          {:else}
+            {tocados.length} de {CLAVES.length} cambiados
+          {/if}
+          <span class="dd-sub">
+            <!-- Enlace y no una copia de los mandos: un deslizador cuyo efecto no se ve mientras se
+                 mueve es tocar a ciegas, y por eso los quince viven ENCIMA del grafo. Aqui solo se
+                 dice si estan tocados y por donde se llega. -->
+            <button class="enlace" onclick={abrirPanelDelGrafo}>abrir los ajustes del grafo</button>
+          </span>
+        </dd>
+      </div>
     </dl>
     <p class="nota">
       Viven en el <code>localStorage</code> de este navegador con el prefijo <code>naeth-</code>, no
-      en el servidor: otro dispositivo tiene las suyas.
+      en el servidor: otro dispositivo tiene las suyas. Si algún ajuste del grafo lo deja ilegible,
+      <code>#/grafo?reset</code> los borra todos antes de dibujar nada.
     </p>
   </section>
 </div>
@@ -219,6 +262,20 @@
   .nota { margin: 10px 2px 0; font: 11px/1.6 var(--font-sans); color: var(--dim); }
   .nota code, .aviso code { font: 11px var(--font-mono); }
   .empty { color: var(--dim); font: 13px var(--font-sans); }
+
+  /* Un boton que se lee como enlace: navega dentro de la aplicacion, asi que un `<a href="#/grafo">`
+     duplicaria la ruta en dos sitios, pero visualmente tiene que invitar a pulsarlo igual. */
+  .enlace {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .enlace:hover { text-decoration-thickness: 2px; }
 
   @media (max-width: 600px) {
     .ajustes { padding: 24px 16px; }

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  CATALOGO, CLAVES, fabrica, grafoPrefs, GRUPOS, mandosDe, olvidarPrefs, poner, restaurar, sanea,
+  cambiados, CATALOGO, CLAVES, fabrica, grafoPrefs, GRUPOS, mandosDe, olvidarPrefs, poner, restaurar, sanea,
   usarAlmacen, valida, type Almacen, type Valores,
 } from './prefs-grafo.svelte'
 
@@ -196,5 +196,27 @@ describe('lo que degrada sin romper', () => {
     usarAlmacen(almacenFalso({ distancia: 70, mandoQueNoExiste: 12 }))
     expect(grafoPrefs.distancia).toBe(70)
     expect((grafoPrefs as Record<string, unknown>).mandoQueNoExiste).toBeUndefined()
+  })
+})
+
+describe('cambiados · el resumen que enseña Ajustes', () => {
+  it('recien restaurado no hay ninguno', () => {
+    restaurar()
+    expect(cambiados()).toEqual([])
+  })
+
+  it('enumera solo lo que se ha movido', () => {
+    restaurar()
+    poner('distancia', 90)
+    poner('flechas', false)
+    expect(cambiados().sort()).toEqual(['distancia', 'flechas'])
+  })
+
+  it('poner un valor igual al de fabrica NO cuenta como cambiado', () => {
+    // Importa porque el deslizador puede volver a su sitio, y entonces Ajustes tiene que decir
+    // "todo de fabrica" en vez de seguir contandolo.
+    restaurar()
+    poner('distancia', 34)
+    expect(cambiados()).toEqual([])
   })
 })

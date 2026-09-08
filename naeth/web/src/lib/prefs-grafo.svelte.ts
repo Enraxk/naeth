@@ -331,6 +331,17 @@ export function usarAlmacen(a: Almacen) {
   for (const k of CLAVES) grafoPrefs[k] = v[k] as never
 }
 
+/**
+ * Que mandos estan fuera de fabrica ahora mismo.
+ *
+ * Lo usa Ajustes para resumir el grafo en una linea. Es mas util que enseñar los quince valores:
+ * lo que se quiere saber de un vistazo es si esto esta tocado o no, y cuanto.
+ */
+export function cambiados(): Clave[] {
+  const f = fabrica()
+  return CLAVES.filter((k) => grafoPrefs[k] !== f[k])
+}
+
 /** Los mandos de un grupo, en el orden del catalogo. Lo usa el panel. */
 export function mandosDe(grupo: Grupo): { clave: Clave; mando: Mando }[] {
   return CLAVES.filter((k) => CATALOGO[k].grupo === grupo).map((k) => ({ clave: k, mando: CATALOGO[k] }))
