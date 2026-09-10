@@ -5,13 +5,13 @@ Claude Code sin atarse a un vendor.
 
 **Es código en producción.** Desde el cutover del 17/07/2026 es el módulo `memory` de CENIT,
 repartido entre este PC y el VPS `finally`. **Cuál de los dos manda cambia solo** (failover
-local-preferente): para saber quién escribe ahora, mira `core/ops/failover-status.ps1` en CENIT — no
+local-preferente): para saber quién escribe ahora, mira `core/ops/failover-status.ps1` en CENIT, no
 lo supongas. Lo que se rompa aquí se nota en todas las sesiones, así que cualquier cambio deja el
 módulo funcionando o tiene rollback inmediato.
 
 ## Qué hay aquí
 
-- `naeth/` — el código: Postgres+pgvector, API FastAPI, worker de embeddings, servidor MCP y visor.
+- `naeth/`, el código: Postgres+pgvector, API FastAPI, worker de embeddings, servidor MCP y visor.
 - `naeth/web/`: visor v2 (Vite + Svelte 5 + TS + Tailwind v4). **Es lo que se sirve desde el
   22/08/2026**. **Ya no queda ninguna vista en stub**: el Grafo se entregó el 05/09/2026 con motor
   propio sobre canvas y d3-force (`lib/sim.ts`, `lib/pintor*.ts`, `views/graph/Lienzo.svelte`), y el
@@ -21,9 +21,9 @@ módulo funcionando o tiene rollback inmediato.
   comandos, despliegue y trampas del editor en [`naeth/web/README.md`](naeth/web/README.md): míralo
   en vez de suponer hasta dónde llega. El visor v1 (`naeth/app/viewer/index.html`) se conserva sin
   ruta, como rollback (basta quitar `NAETH_VIEWER_DIR`) y como referencia.
-- `pasos/` — histórico de diseño, Pasos 0-10. **Índice comentado en [`pasos/README.md`](pasos/README.md)**.
+- `pasos/`: histórico de diseño, Pasos 0-10. **Índice comentado en [`pasos/README.md`](pasos/README.md)**.
   Contiene material derogado; no lo apliques sin mirar antes ese índice.
-- `docs/discovery/naeth.md` — qué es, arco del proyecto, convenciones y quirks. **Léelo antes de
+- `docs/discovery/naeth.md`: qué es, arco del proyecto, convenciones y quirks. **Léelo antes de
   re-escanear el repo.**
 
 ## Comandos
