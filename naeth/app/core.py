@@ -24,19 +24,28 @@ _pool: ConnectionPool | None = None
 
 
 def pool() -> ConnectionPool:
+    """El pool de conexiones del proceso, creado la primera vez que alguien lo pide.
+
+    Returns:
+        Un `ConnectionPool` sobre `DSN`, de 1 a 10 conexiones, con `dict_row` para que cada
+        fila salga como dict.
+
+    Notes:
+        `check=ConnectionPool.check_connection` VALIDA LA CONEXIÓN ANTES DE ENTREGARLA, y si está
+        muerta abre otra. Sin esto, la primera petición que recibía una conexión caída fallaba con
+        "consuming input failed: terminating connection due to administrator command" y solo la
+        segunda funcionaba. Medido en el failover multi-nodo de CENIT (8.6 P8): al cambiar de
+        nodo líder se cierran las conexiones del rol para que el cambio de read-only surta
+        efecto, y el usuario se comía ese primer error justo después del relevo, exactamente en
+        el momento en que el sistema debería parecer continuo. Vale para cualquier corte, no solo
+        el failover: un reinicio de Postgres, un idle timeout o una red que se corta dejan el
+        mismo tipo de conexión zombi en el pool.
+
+        `conftest.py` sobreescribe `DSN` y pone `_pool` a `None` para apuntar a la base de test:
+        si el pool se creara al importar, ese truco no serviría.
+    """
     global _pool
     if _pool is None:
-        # check=: valida la conexion ANTES de entregarla, y si esta muerta abre otra.
-        #
-        # Sin esto, la primera peticion que reciba una conexion caida FALLA con
-        # "consuming input failed: terminating connection due to administrator command",
-        # y solo la segunda funciona. Medido en el failover multi-nodo de CENIT (8.6 P8): al
-        # cambiar de nodo lider se cierran las conexiones del rol para que el cambio de
-        # read-only surta efecto, y el usuario se comia ese primer error justo despues del
-        # relevo -- exactamente en el momento en que el sistema deberia parecer continuo.
-        #
-        # Vale para cualquier corte, no solo el failover: un reinicio de Postgres, un idle
-        # timeout o una red que se corta dejan el mismo tipo de conexion zombi en el pool.
         _pool = ConnectionPool(DSN, min_size=1, max_size=10,
                                check=ConnectionPool.check_connection,
                                kwargs={"row_factory": dict_row})
@@ -45,11 +54,31 @@ def pool() -> ConnectionPool:
 
 @contextmanager
 def conn():
+    """Una conexión del pool como context manager; vuelve al pool al salir del `with`.
+
+    Es el único punto por el que `core` toca la base: todo lo demás hace `with conn() as c`.
+    La transacción la gestiona psycopg: commit al salir sin excepción, rollback si la hay.
+    """
     with pool().connection() as c:
         yield c
 
 
 def content_hash(title: str | None, content: str) -> str:
+    """SHA-256 de título y contenido, separados por un byte nulo; es la clave de idempotencia de `add`.
+
+    Example:
+        >>> content_hash(None, "hola")
+        '8647f10af4f6c1bf806c0b8396af4dd3f737f9ff24d099bdcabc1e0edeac2f04'
+        >>> content_hash("ab", "c") == content_hash("a", "bc")
+        False
+
+    Notes:
+        El separador `\\x00` es lo que hace que la segunda línea del ejemplo sea `False`: sin él,
+        `("ab", "c")` y `("a", "bc")` concatenarían al mismo texto y colisionarían. Un título
+        `None` cuenta como vacío, así que `(None, x)` y `("", x)` son la misma memoria.
+        `digest`, `tags` y `path` no entran en el hash: reenviar el mismo texto con otro digest
+        devuelve la fila existente sin tocarla (ver `add`).
+    """
     h = hashlib.sha256()
     h.update((title or "").encode("utf-8"))
     h.update(b"\x00")
@@ -72,6 +101,16 @@ def _digest(d: str | None) -> str | None:
     Recortar produciria un resumen cortado a mitad de frase que sigue firmando como resumen entero,
     y nadie se enteraria. Un error le dice a quien escribe que lo reescriba mas corto, que es lo que
     de verdad hay que hacer. Es el mismo criterio instructivo de `_enforce_model` en el MCP.
+
+    Example:
+        >>> _digest("  Afirma dos cosas.  ")
+        'Afirma dos cosas.'
+        >>> _digest("   ") is None
+        True
+        >>> _digest("x" * 301)
+        Traceback (most recent call last):
+        ...
+        ValueError: el digest ocupa 301 caracteres y el tope son 300. Reescribelo mas corto: es un resumen de dos o tres afirmaciones, no un extracto.
     """
     if d is None:
         return None
@@ -166,6 +205,17 @@ def tombstone(target_id: str, *, target_kind: str = "memory",
 # ============================================================
 def relation_add(source_id: str, target_id: str, predicate: str,
                  *, metadata: dict | None = None, source_client: str = "web") -> dict:
+    """Inserta una arista explícita entre dos memorias y devuelve su id con sus extremos.
+
+    Notes:
+        Los dos extremos son FK a `memory(id)`, así que solo se pueden relacionar memorias,
+        no bloques de código ni nada externo: es la razón de que CodeDoc Archive necesite su
+        propia tabla de anotaciones. ADD-only: una relación no se edita, se retira con
+        `tombstone(target_kind='relation')` y se crea otra.
+
+        ⚠ `predicate` ES TEXTO LIBRE, sin CHECK en la base ni aquí. La convención declara cuatro
+        y el corpus usa cinco (`tested_by` entró solo). Medido el 10/09/2026.
+    """
     with conn() as c:
         row = c.execute(
             """INSERT INTO relation (source_id, target_id, predicate, metadata, source_client)
@@ -254,6 +304,19 @@ def relation_list(memory_id: str) -> list[dict]:
 # Lecturas
 # ============================================================
 def get(memory_id: str) -> dict | None:
+    """Una fila de `memory` por id, vigente o no, con su cadena de supersesión.
+
+    Returns:
+        `{"memory": fila entera, "supersession": filas donde es hijo o padre, por fecha}`, o
+        `None` si el id no existe. La fila trae todas las columnas, `digest` y `metadata`
+        incluidas; lo que cada fachada deja pasar de ahí es cosa suya.
+
+    Notes:
+        LEE `memory` Y NO `memory_current`, a propósito: es la única puerta al histórico, porque
+        `search` va solo sobre lo vigente (40 de 297 supersesiones eran correctivas, medido el
+        28/08/2026, y devolver una versión refutada sin su corrección al lado sería peor que
+        no devolverla). `is_current` viene en la fila y dice en qué caso está.
+    """
     with conn() as c:
         m = c.execute("SELECT * FROM memory WHERE id = %s", (memory_id,)).fetchone()
         if not m:
@@ -271,6 +334,12 @@ def _like_escape(s: str) -> str:
     Sin esto, un `path_prefix` de `naeth_` casaria tambien con `naethX`, porque en LIKE el guion
     bajo es "un caracter cualquiera". Y el corpus tiene rutas con guion bajo, asi que no es
     hipotetico.
+
+    Example:
+        >>> _like_escape("naeth_core")
+        'naeth\\\\_core'
+        >>> _like_escape("100%")
+        '100\\\\%'
     """
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 

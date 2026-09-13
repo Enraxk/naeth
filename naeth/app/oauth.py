@@ -17,6 +17,14 @@ CSRF token (un solo usuario, superficie minima). Se endurece en `finally` si hac
 
 Las queries a Postgres son sincronas (pool de core) y se ejecutan en un threadpool para
 no bloquear el event loop. El trafico OAuth de un solo usuario es esporadico.
+
+⚠ ESTADO REAL, anotado el 13/09/2026: ESTE MÓDULO NO CORRE EN PRODUCCIÓN desde el cutover a
+CENIT del 17/07/2026. El proveedor vivo es `OIDCProxy` contra Pocket-ID (`OAUTH_PROVIDER: oidc`
+en `docker-compose.yml`), y `mcp_server._build_auth` solo construye `NaethOAuthProvider` con
+`OAUTH_PROVIDER=postgres`, como rollback de la fase 3b. La tabla `oauth_client` está muerta desde
+entonces. Las rutas `/login` siguen montadas en `mcp_server.py` con cualquier proveedor, pero con
+`oidc` nadie crea pendings y responden 400 siempre. Se conserva entero como vuelta atrás; si algún
+día se reactiva, releer antes las notas de seguridad de arriba.
 """
 from __future__ import annotations
 
@@ -54,7 +62,25 @@ def _db(fn, *a):
 
 
 class NaethOAuthProvider(OAuthProvider):
-    """Authorization Server propio, persistido en Postgres. Un solo usuario."""
+    """Authorization Server propio, persistido en Postgres, con login de un solo usuario.
+
+    Implementa los ganchos que `OAuthProvider` de FastMCP llama en cada paso del flujo: registro
+    dinámico de clientes (DCR), `authorize`, códigos de autorización, tokens de acceso y de
+    refresco, y revocación. FastMCP pone el resto: discovery, PKCE y los endpoints HTTP.
+
+    Notes:
+        ⚠ NO CORRE EN PRODUCCIÓN desde el cutover a CENIT del 17/07/2026: es el rollback de la
+        fase 3b. Ver la cabecera del módulo, que dice qué proveedor manda hoy y por qué esta
+        clase se conserva.
+
+        Todas las consultas van por `_db` en un hilo aparte (`to_thread.run_sync`), porque el pool
+        de `core` es síncrono y estos métodos corren en el event loop de Starlette. Un solo usuario
+        y tráfico esporádico: el coste del hilo no importa.
+
+        Los tokens nacen emparejados (`_issue` guarda en cada uno el `paired_token` del otro) y
+        caen emparejados (`_revoke_pair`). Esa pareja es lo que hace que la rotación del refresh
+        sea segura: usar un refresh revoca también el access que salió con él.
+    """
 
     def __init__(self, base_url: str, client_registration_options=None,
                  revocation_options=None, required_scopes=None):
@@ -65,6 +91,11 @@ class NaethOAuthProvider(OAuthProvider):
 
     # ---------------------------------------------------------------- clientes (DCR)
     async def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
+        """Devuelve el cliente registrado con ese `client_id`, o `None` si no existe.
+
+        Returns:
+            El `OAuthClientInformationFull` reconstruido desde `oauth_client.client_data`.
+        """
         def q(c):
             r = c.execute("SELECT client_data FROM oauth_client WHERE client_id=%s",
                           (client_id,)).fetchone()
@@ -73,6 +104,13 @@ class NaethOAuthProvider(OAuthProvider):
         return OAuthClientInformationFull.model_validate(data) if data else None
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
+        """Registra un cliente por DCR, o actualiza sus datos si ese `client_id` ya existía.
+
+        Notes:
+            Es un upsert (`ON CONFLICT (client_id) DO UPDATE`) y no un insert: un cliente que
+            repita el registro con el mismo id no falla, se sobrescribe. Razón técnica, no
+            decisión registrada: el commit inicial no explica por qué se eligió.
+        """
         data = client_info.model_dump(mode="json")
         def q(c):
             c.execute(
@@ -96,6 +134,13 @@ class NaethOAuthProvider(OAuthProvider):
     # ---------------------------------------------------------------- codigos
     async def load_authorization_code(self, client: OAuthClientInformationFull,
                                       authorization_code: str) -> AuthorizationCode | None:
+        """Carga un code vigente de este cliente: no usado y no caducado, o `None`.
+
+        Returns:
+            El `AuthorizationCode` reconstruido desde `oauth_code.code_data`, o `None` si el code
+            no existe, es de otro cliente, ya se consumió o su `expires_at` pasó. La caducidad se
+            filtra en SQL (`expires_at > now()`), al contrario que en los tokens.
+        """
         def q(c):
             r = c.execute(
                 """SELECT code_data FROM oauth_code
@@ -107,6 +152,18 @@ class NaethOAuthProvider(OAuthProvider):
 
     async def exchange_authorization_code(self, client: OAuthClientInformationFull,
                                           authorization_code: AuthorizationCode) -> OAuthToken:
+        """Consume el code una sola vez y emite el par access/refresh.
+
+        Raises:
+            TokenError: `invalid_grant` si el code no existe o ya se había usado.
+
+        Notes:
+            EL CONSUMO ES UN SOLO `UPDATE ... WHERE code=%s AND NOT used RETURNING code`: marcar y
+            comprobar en la misma sentencia es lo que impide que dos intercambios simultáneos del
+            mismo code emitan dos pares de tokens. Separarlo en un SELECT y un UPDATE abriría esa
+            ventana. Es el mismo patrón que la reserva atómica de plazas de Yogin
+            (`findOneAndUpdate` con la condición en el filtro).
+        """
         def consume(c):
             r = c.execute("UPDATE oauth_code SET used=true WHERE code=%s AND NOT used "
                           "RETURNING code", (authorization_code.code,)).fetchone()
@@ -120,6 +177,14 @@ class NaethOAuthProvider(OAuthProvider):
     # ---------------------------------------------------------------- refresh
     async def load_refresh_token(self, client: OAuthClientInformationFull,
                                  refresh_token: str) -> RefreshToken | None:
+        """Carga un refresh token vigente de este cliente, o `None` si no existe, está revocado o caducó.
+
+        Notes:
+            La caducidad se comprueba en Python y no en el SQL porque `expires_at` puede ser NULL:
+            `REFRESH_TTL` es `None` (sin expiración) y un `expires_at > now()` en el WHERE
+            descartaría justo esos tokens. El SQL filtra `kind`, cliente y `revoked`; el tiempo,
+            aquí.
+        """
         def q(c):
             r = c.execute(
                 """SELECT token_data FROM oauth_token
@@ -137,6 +202,21 @@ class NaethOAuthProvider(OAuthProvider):
     async def exchange_refresh_token(self, client: OAuthClientInformationFull,
                                      refresh_token: RefreshToken,
                                      scopes: list[str]) -> OAuthToken:
+        """Rota el par: revoca el refresh usado con su access, y emite un par nuevo.
+
+        Args:
+            client: el cliente que presenta el refresh; FastMCP ya comprobó que es el suyo.
+            refresh_token: el que se va a rotar, ya cargado por `load_refresh_token`.
+            scopes: los que pide el cliente; vacío significa "los mismos que tenía el refresh".
+
+        Raises:
+            TokenError: `invalid_scope` si se piden scopes que el refresh original no tenía.
+
+        Notes:
+            ROTACIÓN EN CADA USO: el refresh que entra se revoca junto con su access emparejado
+            antes de emitir el par nuevo. Un refresh robado y reutilizado deja de valer en cuanto
+            el legítimo lo use, y al revés. Los scopes solo pueden estrecharse, nunca ampliarse.
+        """
         if not set(scopes).issubset(set(refresh_token.scopes)):
             raise TokenError("invalid_scope", "Scopes exceden los autorizados.")
         await self._revoke_pair(refresh_token.token)  # rotacion
@@ -145,6 +225,13 @@ class NaethOAuthProvider(OAuthProvider):
 
     # ---------------------------------------------------------------- access / verify
     async def load_access_token(self, token: str) -> AccessToken | None:
+        """Carga un access token vigente, o `None` si no existe, está revocado o caducó.
+
+        Notes:
+            Misma forma que `load_refresh_token`: el SQL filtra `kind='access'` y `revoked`, y la
+            caducidad se mira en Python. Aquí `expires_at` siempre existe (`ACCESS_TTL`, una hora),
+            pero se comprueba el `None` igual para que las dos cargas sean simétricas.
+        """
         def q(c):
             r = c.execute("SELECT token_data FROM oauth_token "
                           "WHERE token=%s AND kind='access' AND NOT revoked", (token,)).fetchone()
@@ -158,14 +245,23 @@ class NaethOAuthProvider(OAuthProvider):
         return at
 
     async def verify_token(self, token: str) -> AccessToken | None:
+        """El gancho que FastMCP llama en cada petición a `/mcp`: delega en `load_access_token`."""
         return await self.load_access_token(token)
 
     async def revoke_token(self, token) -> None:
+        """Revoca el token recibido y su pareja: access y refresh caen juntos, sea cual sea el que llegue."""
         await self._revoke_pair(token.token)
 
     # ---------------------------------------------------------------- internos
     async def _issue(self, client_id: str, scopes: list[str],
                      subject: str | None = None) -> OAuthToken:
+        """Emite un par access (una hora) y refresh (sin caducidad), emparejados en `oauth_token`.
+
+        Notes:
+            Cada fila guarda en `paired_token` el token del otro, en las dos direcciones, y es lo
+            que `_revoke_pair` usa para tumbar los dos con uno solo. Los prefijos `nae_at_` y
+            `nae_rt_` distinguen a ojo un access de un refresh en un log.
+        """
         access = f"nae_at_{secrets.token_urlsafe(32)}"
         refresh = f"nae_rt_{secrets.token_urlsafe(32)}"
         access_exp = int(time.time() + ACCESS_TTL)
@@ -190,6 +286,7 @@ class NaethOAuthProvider(OAuthProvider):
                           refresh_token=refresh, scope=" ".join(scopes))
 
     async def _revoke_pair(self, token: str) -> None:
+        """Marca `revoked` el token y el que tenga como `paired_token`, en un solo UPDATE."""
         def q(c):
             # revoca el token y su par (access<->refresh)
             c.execute("""UPDATE oauth_token SET revoked=true
@@ -199,12 +296,27 @@ class NaethOAuthProvider(OAuthProvider):
 
 
 def _ts(epoch: int) -> str:
+    """Convierte un epoch en segundos a ISO 8601 en UTC, que es lo que acepta `timestamptz`.
+
+    Example:
+        >>> _ts(0)
+        '1970-01-01T00:00:00+00:00'
+        >>> _ts(1_700_000_000)
+        '2023-11-14T22:13:20+00:00'
+    """
     import datetime
     return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).isoformat()
 
 
 # ============================================================ login de 1 usuario (HTTP)
 def _valid_credentials(user: str, password: str) -> bool:
+    """Compara usuario y contraseña con `NAETH_AUTH_USER` y `NAETH_AUTH_PASSWORD`, en tiempo constante.
+
+    Notes:
+        Sin credenciales configuradas devuelve `False` siempre: un despliegue sin las dos
+        variables no permite entrar a nadie, en vez de aceptar cualquier cosa. `compare_digest`
+        es para que el tiempo de respuesta no diga cuántos caracteres acertaste.
+    """
     if not AUTH_USER or not AUTH_PASSWORD:
         return False
     return (secrets.compare_digest(user, AUTH_USER)
@@ -212,6 +324,7 @@ def _valid_credentials(user: str, password: str) -> bool:
 
 
 def _login_html(rid: str, error: str = "") -> str:
+    """El formulario de login, autocontenido (CSS inline), con el `rid` como campo oculto y el error si lo hay."""
     err = f'<p class="err">{html.escape(error)}</p>' if error else ""
     return f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Naeth · acceso</title>
@@ -233,6 +346,7 @@ cursor:pointer}}.err{{color:#e0664b;font-size:13px;margin:10px 0 0}}</style></he
 
 
 async def login_get(request: Request) -> Response:
+    """Primer paso del login: pinta el formulario para el `rid` de la query, o 400 si no viene."""
     rid = request.query_params.get("rid", "")
     if not rid:
         return HTMLResponse("<p>Falta rid</p>", status_code=400)
@@ -240,6 +354,38 @@ async def login_get(request: Request) -> Response:
 
 
 async def login_post(request: Request) -> Response:
+    """Segundo paso del login de un usuario: valida el formulario y emite el authorization code.
+
+    Busca el pending que `authorize()` dejó con el `rid` del formulario, comprueba las
+    credenciales, guarda un `AuthorizationCode` de cinco minutos en `oauth_code`, borra el
+    pending y redirige al `redirect_uri` del cliente.
+
+    Args:
+        request: la petición del formulario, con `rid`, `user` y `password` en el cuerpo.
+
+    Returns:
+        303 al `redirect_uri` con `code` y `state` si todo va bien; 400 si el `rid` no existe;
+        401 con el formulario y un error si las credenciales fallan.
+
+    Notes:
+        EL PENDING SE COMPRUEBA ANTES QUE LA CONTRASEÑA, y el orden importa: sin un `rid` vivo
+        la petición muere en el 400 sin llegar a comparar credenciales, así que probar
+        contraseñas exige haber pasado antes por `/authorize`. Las credenciales se comparan
+        con `compare_digest` (ver `_valid_credentials`).
+
+        El pending se borra al consumirse: reenviar el mismo formulario devuelve 400, y un
+        `code` solo puede nacer de un `rid` una vez. El 303 y no 302 es para que el navegador
+        haga GET al `redirect_uri` tras el POST: razón técnica, no decisión registrada.
+
+        ⚠ ESTE CAMINO NO CORRE EN PRODUCCIÓN desde el cutover a CENIT del 17/07/2026. Ver la
+        cabecera del módulo. La ruta `/login` sigue montada en `mcp_server.py` con cualquier
+        proveedor, pero con `oidc` nadie crea pendings, así que responde 400 siempre.
+
+        ⚠ EL MENSAJE DEL 400 DICE "O EXPIRADA", Y NINGÚN PENDING EXPIRA: `oauth_pending` no
+        tiene `expires_at` y solo se borra aquí. Un `rid` abandonado vive para siempre. No es
+        un agujero con el proveedor apagado; es una promesa del mensaje que el código no cumple.
+        Si se reactiva este proveedor, añadir la caducidad o cambiar el mensaje.
+    """
     form = await request.form()
     rid = str(form.get("rid", ""))
     user = str(form.get("user", ""))

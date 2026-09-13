@@ -28,7 +28,10 @@ Orden de un docstring completo:
 
 1. **Resumen en una línea**: qué hace y qué devuelve. Verbo en presente, sin "esta función".
 2. **Un párrafo de contexto** si el resumen no basta: el mecanismo en dos o tres frases.
-3. **`Args:`** solo los parámetros que la firma no explica. Los tipos van en la firma, no aquí.
+3. **`Args:`** solo cuando algún parámetro no se explica por la firma, **y entonces con todos los
+   parámetros**, aunque los evidentes lleven media línea. La sección es todo o nada: ruff `D417`
+   avisa de cualquier parámetro que falte en una `Args:` que exista (medido el 13/09/2026 al
+   documentar `oauth.py`). Los tipos van en la firma, no aquí.
 4. **`Returns:`** qué devuelve y qué devuelve cuando no hay nada. **`Raises:`** solo lo que el que
    llama tiene que manejar.
 5. **`Example:`** obligatorio en utilidades puras (sin base de datos, red ni reloj), con `>>>` y
@@ -164,7 +167,11 @@ def memory_search(query: str, k: int = 10, path_prefix: str | None = None,
     `digest_source`.
 
     Args:
+        query: texto de la consulta; se embebe y se pasa tal cual a la rama léxica.
         k: tope de resultados. Las dos ramas internas siguen recogiendo 50 cada una.
+        path_prefix: acota por prefijo de `path`, dentro de cada rama.
+        tags: la nota tiene que llevar todos.
+        memory_type: uno de los cuatro del vocabulario.
         since: fecha ISO; solo memorias creadas después.
 
     Returns:
@@ -201,10 +208,15 @@ def search(query: str, *, k: int = 10, q_embedding: list[float] | None = None,
     Reciprocal Rank Fusion con la misma constante 60 en las dos.
 
     Args:
+        query: texto para la rama léxica (`plainto_tsquery`, configuración `simple`).
+        k: filas devueltas tras fundir. No cambia el 50 de cada rama.
         q_embedding: vector de la consulta, del mismo modelo y dimensión que la columna. `None`
             desactiva la rama semántica: es lo que pasa antes de tener modelo y cuando
             `_embed_query` falla.
-        k: filas devueltas tras fundir. No cambia el 50 de cada rama.
+        path_prefix: prefijo de `path`, con los comodines de LIKE escapados.
+        tags: la nota tiene que llevar todos (`@>`), no alguno.
+        memory_type: igualdad exacta.
+        since: `created_at` posterior a esta fecha ISO.
 
     Returns:
         Filas de `memory_current` con una columna `score` añadida, de mayor a menor.
@@ -269,8 +281,8 @@ export const normalizeNotificationEmails = (valor) => {
 
 | Qué | Cómo | Estado |
 |---|---|---|
-| Que exista docstring en módulo, clase y función pública | ruff `D100` a `D103` en `py-lint.ps1` | Medido el 10/09: 44 avisos en `naeth/app` sin tests. **No activado**: se activa en la fase 2 de la biblioteca |
-| Que `Args:` cubra todos los parámetros | ruff `D417` con `convention = "google"` | Igual |
-| Que exista JSDoc en funciones exportadas | `eslint-plugin-jsdoc`, regla `require-jsdoc` | No configurado en Yogin ni en el visor |
-| Que el `Example:` corra | `pytest --doctest-modules` sobre las utilidades | No cableado en la suite de Naeth ⚠ pendiente de fase 2 |
+| Que exista docstring en módulo, clase y función pública | ruff `D100` a `D103` en `py-lint.ps1` (Naeth y CENIT, cada repo con su copia) | **En aviso desde el 13/09/2026**: el hook mete el recuento y las líneas en el contexto sin bloquear. Pasa a bloqueo cuando los dos árboles estén a cero. `naeth/app` llegó a cero el 13/09; `cenit_core` tiene 54 |
+| Que `Args:` cubra todos los parámetros | ruff `D417` con `convention = "google"` | En aviso, en el mismo hook. Es la regla que hace que `Args:` sea todo o nada |
+| Que exista JSDoc en funciones exportadas | `eslint-plugin-jsdoc`, regla `require-jsdoc` | En `warn` en Yogin-API (55 avisos) y Yogin-Website (255) desde el 13/09/2026, con el fixer apagado. No en el visor de Naeth todavía |
+| Que el `Example:` corra | `pytest --doctest-modules app` en el servicio `test` del compose | **Cableado el 13/09/2026**: cuatro doctests en la suite (76 en total). ⚠ Con `app/tests` y `app` como dos argumentos pytest no recogía ninguno; va `app` solo |
 | Que `Notes:` cuente el porqué | Nadie: es revisión | El hook de `Stop` del plan pide la revisión al cerrar un turno con código |

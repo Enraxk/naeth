@@ -478,3 +478,35 @@ Yogin (dos configs, dos `package.json` y dos `pnpm-lock.yaml`).
 
 **Siguiente**: sub-fase 2, documentar `naeth/app` empezando por `oauth.py`, desde una sesión que no
 dependa de Naeth a mitad, porque cada guardado recarga el 8801.
+
+---
+
+## Verificado en la sub-fase 2 (domingo 13/09/2026, 19:09 a 19:30)
+
+`naeth/app` documentado al dedillo según la guía. Los 44 símbolos que faltaban más las
+cabeceras y las privadas que llevan el porqué (`_build_auth`, `_embed_query`, `_authorship`,
+`_issue`, `_revoke_pair`, `_ts`, `_valid_credentials`, `_login_html`).
+
+| Qué | Resultado |
+|---|---|
+| ruff `D100-D103` y `D417` sobre `naeth/app` sin tests | **0** (los 39 que quedan son funciones `test_`, excluidas por diseño). `F821`, `F811`, `E9`: limpio |
+| Suite acumulada en el compose | **76 passed en 4,76 s**: los 72 de antes y cuatro doctests nuevos (`content_hash`, `_like_escape`, `_digest`, `_ts`) |
+| Ficheros | `oauth.py` (11 métodos y funciones, más cabecera con el estado real del módulo), `mcp_server.py` (27 tools y rutas, más `_build_auth`, `_embed_query`, `_authorship` y la cabecera, que citaba `naeth-local.enraxk.dev`, muerto desde el cutover), `core.py` (5, con el comentario de `pool` pasado a `Notes:`), `worker.py` (`main`) |
+| El 8801 durante la edición | El hook contó en vivo de 11 a 0 en `oauth.py` y de 27 a 0 en `mcp_server.py`. Tras la última recarga el viewer se quedó en "Waiting for connections to close" (la sesión MCP de Claude Code mantiene la conexión abierta): `unhealthy`, 8801 sin responder. `docker restart naeth-viewer-1` y 200 a los 3 segundos. Es el fallo que el `status` documenta, y el motivo de hacer esta sub-fase desde una sesión que no dependa de Naeth |
+
+**Dos cosas que salieron al documentar, y son la prueba de que documentar es revisar:**
+
+1. **`Args:` es todo o nada.** Con la sección presente, `D417` exige todos los parámetros. La guía
+   decía "solo lo que la firma no explica" y dos de sus ejemplos canónicos lo violaban. Corregidos
+   la guía (§2.3 y los ejemplos 5.3 y 5.4) y el `CLAUDE.md` global.
+2. **El comando del compose no recogía ningún doctest.** Con `pytest app/tests --doctest-modules
+   app`, pytest recogía 72; con `--doctest-modules app` solo, 76. La sub-fase 1 dio el comando por
+   bueno porque 72 era lo esperado sin doctests: un verde que no probaba nada. Corregido en
+   `docker-compose.yml` con el aviso al lado.
+
+**Pendiente de esta sub-fase, y no es mío**: la lectura de cada módulo entero por Eneko, que es
+la prueba que no automatiza nadie; y el despliegue en `finally`, que es un despliegue de código sin
+esquema. En el PC ya corre lo nuevo (bind mount con `--reload`).
+
+**Siguiente**: sub-fase 3, `cenit_core` (54 avisos: `handoff.py` 15, `manifest.py` 7,
+`pocketid.py` 6), y después el linter a estricto en los dos árboles.

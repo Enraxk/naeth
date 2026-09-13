@@ -1,6 +1,6 @@
 """Servidor MCP de Naeth (Paso 7 §4/§5). Fachada Streamable HTTP sobre el mismo `core`
-ADD-only del Paso 6 — no duplica logica. Lo consumen Claude Code (localhost, Fase 2) y
-claude.ai (tunel + OAuth, Fase 4).
+ADD-only del Paso 6: no duplica lógica. Lo consumen Claude Code (loopback, 8801) y
+claude.ai (túnel y OAuth, memory.enraxk.dev).
 
 Esta es la app PRINCIPAL del proceso: el endpoint MCP va en /mcp y, cuando OAuth esta
 activo, las rutas OAuth (/.well-known/oauth-authorization-server, /authorize, /token,
@@ -8,15 +8,22 @@ activo, las rutas OAuth (/.well-known/oauth-authorization-server, /authorize, /t
 donde claude.ai las busca. El visor + CRUD se sirven como custom_route del propio servidor
 (mismo proceso, Paso 7 §6).
 
-Herramientas v1 (Paso 7 §4): memory.add/search/get/supersede/tombstone,
-relation.add/list, system.status.
+Herramientas: memory_add/search/get/supersede/tombstone, relation_add/list/tombstone,
+memory_stats y system_status. Cada una lleva dos textos a propósito: la `description` del
+decorador, que es lo que lee el agente, y el docstring, que es para quien la mantiene.
 
-OAuth (Fase 3): conmutable por env var.
-  OAUTH_ENABLED=1            -> InMemoryOAuthProvider con DCR (validacion del flujo, Fase 3a)
-  OAUTH_BASE_URL=<url>       -> issuer/base publica (local: http://127.0.0.1:8800;
-                               Fase 4: https://naeth-local.enraxk.dev)
+OAuth: conmutable por env var, y `_build_auth` elige el proveedor.
+  OAUTH_ENABLED=0            -> sin auth: el proceso del 8801 (loopback, Claude Code)
+  OAUTH_PROVIDER=oidc        -> OIDCProxy contra Pocket-ID: PRODUCCIÓN desde el cutover a CENIT
+                               del 17/07/2026, en https://memory.enraxk.dev
+  OAUTH_PROVIDER=memory      -> InMemoryOAuthProvider con DCR (validación del flujo, fase 3a)
+  cualquier otro valor       -> NaethOAuthProvider (app.oauth), el rollback de la fase 3b
+  OAUTH_BASE_URL=<url>       -> issuer/base pública
 FastMCP aporta nativamente discovery (RFC 8414/9728), PKCE S256 y el 401 con
 `WWW-Authenticate: Bearer resource_metadata=...` que claude.ai exige.
+
+⚠ `naeth-local.enraxk.dev`, que esta cabecera citaba hasta el 13/09/2026, está MUERTO desde el
+cutover. Si aparece en algún sitio, ese sitio está desactualizado.
 """
 from __future__ import annotations
 
@@ -81,6 +88,24 @@ def _retry_discovery(build, *, attempts=None, delay=None, delay_max=None, sleep=
 
 
 def _build_auth():
+    """Construye el proveedor de auth de `/mcp` según `OAUTH_ENABLED` y `OAUTH_PROVIDER`, o `None`.
+
+    Returns:
+        `None` sin OAuth (el proceso del 8801, loopback); `OIDCProxy` con `oidc`, que es
+        producción; `InMemoryOAuthProvider` con `memory` (fase 3a, solo validación); y
+        `NaethOAuthProvider` con cualquier otro valor (fase 3b, el rollback).
+
+    Notes:
+        CORRE AL IMPORTAR EL MÓDULO (`mcp = FastMCP(..., auth=_build_auth())`), y eso es lo que
+        convirtió un IdP lento en el incidente del 30/07/2026: el proceso moría al importar, y como
+        la sonda de salud de la que depende `core owner recover` en CENIT es este mismo proceso,
+        el sistema no podía recuperar el mando. De ahí `_retry_discovery` y sus tres variables.
+
+        `oidc` es el único camino vivo desde el cutover del 17/07/2026: Naeth deja de ser su
+        propio AS, delega el login en Pocket-ID y emite sus propios JWT; claude.ai hace DCR contra
+        el proxy, que lo traduce al cliente estático de Pocket-ID. `forward_resource=False` porque
+        Pocket-ID no soporta RFC 8707, y el consent lo hace Pocket-ID.
+    """
     if not OAUTH_ENABLED:
         return None
     if OAUTH_PROVIDER == "oidc":
@@ -115,6 +140,14 @@ mcp: FastMCP = FastMCP(name="naeth", auth=_build_auth())
 
 
 def _embed_query(q: str) -> list[float] | None:
+    """Embebe la consulta con el modelo del nodo, o `None` si el modelo no está disponible.
+
+    Notes:
+        ⚠ EL FALLO ES SILENCIOSO A PROPÓSITO: cualquier excepción devuelve `None` y `core.search`
+        sigue solo con la rama léxica, para que una búsqueda nunca falle por el modelo. El precio
+        es que `memory_search` no le dice al agente si buscó en híbrido o degradado; `/api/search`
+        sí devuelve `mode`. Anotado el 10/09/2026 en el discovery de CodeDoc Archive.
+    """
     try:
         from app.embeddings import embed_query
         return embed_query(q)
@@ -180,6 +213,7 @@ def _surface_from_request() -> str | None:
 
 
 def _access_token():
+    """El AccessToken de la petición MCP en curso, o `None` en loopback o si el SDK no lo expone."""
     try:
         # El SDK devuelve el AccessToken sin la validacion de tipo de FastMCP (que lo
         # rechaza al usar un AS propio / OIDCProxy).
@@ -191,6 +225,22 @@ def _access_token():
 
 def _authorship(agent_model: str | None = None,
                 agent_vendor: str | None = None) -> dict[str, Any]:
+    """Compone el `author` de una escritura MCP: producto, superficie, zona, actor, vendor y modelo.
+
+    Args:
+        agent_model: el modelo que el agente declara (`claude-opus-5`); nadie lo transmite por él.
+        agent_vendor: opcional; si falta y el modelo empieza por `claude`, se asume `anthropic`.
+
+    Returns:
+        El dict que `memory.author` guarda, con `model_source` `declared` o `undeclared` y el
+        `clientInfo` crudo en `client_raw` para poder reclasificar sin perder nada.
+
+    Notes:
+        Cada eje tiene una procedencia distinta y por eso van separados (Paso 10): `product`
+        sale del `clientInfo` del handshake (lo pone la app, es verificable), `surface` del `?s=`
+        del conector (lo fija la config), `zone` de si hay token OAuth (público) o no (loopback),
+        y `vendor` y `model` los declara el agente, que es la única fuente que existe para ellos.
+    """
     name, version = _client_info()
     product = _product_from_client_name(name)
     surface = _surface_from_request()
@@ -258,6 +308,24 @@ async def memory_add(content: str, title: str | None = None,
                path: str | None = None, agent_model: str | None = None,
                agent_vendor: str | None = None,
                digest: str | None = None) -> dict[str, Any]:
+    """Alta de memoria por MCP: compone la autoría, aplica los dos enforce y delega en `core.add`.
+
+    La `description` del decorador es el contrato con el agente; esto es para quien la mantiene.
+
+    Returns:
+        `id`, `created`, `title`, `memory_type`, `author` y `digest` de la fila.
+
+    Raises:
+        ValueError: instructivo, si falta `agent_model` o `digest` con los enforce en `strict`.
+
+    Notes:
+        ⚠ SI `created` ES `False`, LA FILA YA EXISTÍA Y EL DIGEST ENVIADO NO SE GUARDA: la
+        idempotencia de `core.add` es por `content_hash` de título y contenido, y el digest no
+        entra en el hash. Para ponérselo a una fila que ya existe, `memory_supersede`.
+
+        El orden de los enforce es modelo y luego digest, los dos antes de tocar la base: una
+        llamada rechazada no deja nada escrito.
+    """
     author = _authorship(agent_model, agent_vendor)
     _enforce_model(author)
     _enforce_digest(digest)
@@ -334,6 +402,41 @@ def _hit(h: dict[str, Any]) -> dict[str, Any]:
 def memory_search(query: str, k: int = 10, path_prefix: str | None = None,
                   tags: list[str] | None = None, memory_type: str | None = None,
                   since: str | None = None) -> list[dict[str, Any]]:
+    """La tool de entrada: `core.search` con la consulta embebida, y cada hit recortado a su digest.
+
+    La `description` del decorador es lo que lee el agente y se mantiene ahí; esto es para quien
+    mantiene la tool. Embebe la consulta con `_embed_query`, pasa los cuatro filtros a
+    `core.search`, y reduce cada fila con `_hit`, que quita `content` y deja `digest` más
+    `digest_source`.
+
+    Args:
+        query: texto de la consulta; se embebe y se pasa tal cual a la rama léxica.
+        k: tope de resultados. Las dos ramas internas siguen recogiendo 50 cada una.
+        path_prefix: acota por prefijo de `path`, dentro de cada rama.
+        tags: la nota tiene que llevar todos.
+        memory_type: uno de los cuatro del vocabulario.
+        since: fecha ISO; solo memorias creadas después.
+
+    Returns:
+        Lista de hits sin `content`, ordenados por score RRF.
+
+    Notes:
+        POR QUÉ DEVUELVE EL DIGEST Y NO EL TEXTO (fase 4, 28/08/2026): con `k=10` y una media
+        de 2.686 caracteres por nota, la respuesta pesaba unos 27.000 caracteres; con título y
+        digest, unos 3.800. Un 86% menos de contexto en la llamada más frecuente.
+
+        Los filtros van a `core.search` y no se aplican aquí porque filtrar sobre el resultado
+        dejaría las 50 plazas de cada rama ocupadas por lo de siempre. Ver `core.search`.
+
+        ⚠ SI EL MODELO NO ESTÁ DISPONIBLE, LA BÚSQUEDA CAE A LÉXICA EN SILENCIO: `_embed_query`
+        devuelve `None` ante cualquier excepción. La ruta `/api/search` del visor sí reporta
+        `mode`; esta tool no, así que el agente no distingue una búsqueda híbrida de una
+        degradada. Si un día importa, el sitio es el dict de `_hit`.
+
+        ⚠ LA RAMA LÉXICA NO TOKENIZA COMO UNO ESPERA: `tsvector` con configuración `simple`,
+        sin stemmer ni stopwords, y un identificador con punto es un solo token. Buscar
+        `execute` no encuentra `c.execute(sql)`. Medido el 10/09/2026.
+    """
     hits = core.search(query, k=k, q_embedding=_embed_query(query),
                        path_prefix=path_prefix, tags=tags,
                        memory_type=memory_type, since=since)
@@ -344,6 +447,20 @@ def memory_search(query: str, k: int = 10, path_prefix: str | None = None,
           description="Open / read the full detail of a single Naeth memory by id, "
                       "including its version chain (supersession / history).")
 def memory_get(memory_id: str) -> dict[str, Any]:
+    """El terreno: la nota entera por id, con `is_current` y su cadena de supersesión.
+
+    Returns:
+        `content` completo, tipo, tags, path, autoría y la lista de pares `child`/`parent` de
+        `supersession` en los que participa; o `{"error": "no encontrado"}` si el id no existe.
+
+    Notes:
+        Devuelve versiones no vigentes si se piden por id: `is_current` dice cuál es el caso, y
+        la cadena permite llegar a la vigente. Es el único camino al histórico, porque
+        `memory_search` busca solo sobre `memory_current`.
+
+        ⚠ LO QUE NO DEVUELVE: `digest` ni `metadata`, aunque existan en la fila. Anotado el
+        10/09/2026 en el discovery de CodeDoc Archive; entra en su fase 2.
+    """
     r = core.get(memory_id)
     if not r:
         return {"error": "no encontrado", "id": memory_id}
@@ -371,6 +488,20 @@ async def memory_supersede(parent_id: str, content: str, title: str | None = Non
                      agent_model: str | None = None,
                      agent_vendor: str | None = None,
                      digest: str | None = None) -> dict[str, Any]:
+    """Versión nueva de una memoria por MCP: mismos enforce que `memory_add`, y delega en `core.supersede`.
+
+    Returns:
+        `id` de la versión nueva, `supersedes` con el id del padre, `title` y `digest`.
+
+    Raises:
+        ValueError: instructivo, si falta `agent_model` o `digest` con los enforce en `strict`.
+
+    Notes:
+        ⚠ NADA SE HEREDA DEL PADRE: ni título, ni tipo, ni tags, ni path, ni digest. Lo que no
+        viaje en la llamada queda en su valor por defecto (`memory_type` vuelve a `observation`).
+        Es deliberado en `core.supersede`, y para el digest tiene razón propia: uno heredado
+        describiría el texto anterior. Quien edite tiene que reenviar todos los campos.
+    """
     author = _authorship(agent_model, agent_vendor)
     _enforce_model(author)
     _enforce_digest(digest)
@@ -386,6 +517,7 @@ async def memory_supersede(parent_id: str, content: str, title: str | None = Non
           description="Delete / retire / forget a Naeth memory logically (append-only): "
                       "it stops being current but stays in history. No physical deletion.")
 async def memory_tombstone(memory_id: str) -> dict[str, Any]:
+    """Retira una memoria: INSERT en `tombstone`, la fila se queda. Firma con la autoría de la llamada."""
     return core.tombstone(memory_id, source_client=_source_client(_authorship()))
 
 
@@ -394,6 +526,13 @@ async def memory_tombstone(memory_id: str) -> dict[str, Any]:
                       "edge (predicate: links_to, depends_on, derived_from, "
                       "supersedes...). For cross-cutting links the path tree can't express.")
 async def relation_add(source_id: str, target_id: str, predicate: str) -> dict[str, Any]:
+    """Crea una arista explícita entre dos memorias, con el predicado tal cual llega.
+
+    Notes:
+        ⚠ EL PREDICADO ES TEXTO LIBRE: ni aquí ni en la base hay CHECK. La convención dice cuatro
+        (`links_to`, `depends_on`, `derived_from`, `supersedes`) y el corpus tiene cinco en uso:
+        `tested_by` entró por esta puerta. Medido el 10/09/2026.
+    """
     return core.relation_add(source_id, target_id, predicate,
                              source_client=_source_client(_authorship()))
 
@@ -403,6 +542,7 @@ async def relation_add(source_id: str, target_id: str, predicate: str) -> dict[s
                       "(incoming and outgoing). Follows the supersession chain, so edges "
                       "survive when an endpoint is superseded.")
 def relation_list(memory_id: str) -> list[dict[str, Any]]:
+    """Relaciones vigentes de una memoria en las dos direcciones, resueltas por `core.relation_list` a lo largo de su cadena."""
     return core.relation_list(memory_id)
 
 
@@ -411,6 +551,7 @@ def relation_list(memory_id: str) -> list[dict[str, Any]]:
                       "memories (append-only: it stops appearing but stays in history). "
                       "Pass the relation id returned by relation_list.")
 async def relation_tombstone(relation_id: str) -> dict[str, Any]:
+    """Retira una arista: el mismo `core.tombstone` que las memorias, con `target_kind='relation'`."""
     return core.tombstone(relation_id, target_kind="relation",
                           source_client=_source_client(_authorship()))
 
@@ -425,6 +566,13 @@ async def relation_tombstone(relation_id: str) -> dict[str, Any]:
                       "look like a typo of an existing subtopic. Returns COUNTS plus a capped "
                       "sample, never the full rows: use memory_search with filters for detail.")
 def memory_stats(mode: str = "counts", limit: int = 15) -> dict[str, Any]:
+    """Inventario del corpus: valida `mode` y delega en `core.stats`, que devuelve recuentos y no filas.
+
+    Args:
+        mode: `counts` (cómo está repartido) o `hygiene` (qué está mal); otro valor devuelve un
+            dict de error en vez de levantar, para que el agente lea el motivo.
+        limit: tope de cada muestra o agrupado.
+    """
     if mode not in ("counts", "hygiene"):
         return {"error": "mode debe ser 'counts' o 'hygiene'", "recibido": mode}
     return core.stats(mode=mode, limit=limit)
@@ -435,6 +583,7 @@ def memory_stats(mode: str = "counts", limit: int = 15) -> dict[str, Any]:
                       "embedding queue, active model and dimension. Check that Naeth is "
                       "alive and healthy.")
 def system_status() -> dict[str, Any]:
+    """Salud del nodo (`core.status`: conteos, cola de embeddings, modelo) más el desglose de autoría."""
     return {**core.status(), "authors": core.authors()}
 
 
@@ -442,11 +591,19 @@ def system_status() -> dict[str, Any]:
 # Mismo proceso (Paso 7 §6). El visor es local; estas rutas no exigen OAuth (solo /mcp).
 @mcp.custom_route("/", methods=["GET"])
 async def index(request: Request) -> Response:
+    """Sirve el `index.html` del visor que apunte `VIEWER_DIR`: el v2 de Vite o, sin la variable, el v1."""
     return FileResponse(str(VIEWER_DIR / "index.html"))
 
 
 @mcp.custom_route("/healthz", methods=["GET"])
 async def healthz(request: Request) -> Response:
+    """Sonda de vida del proceso: 200 con el modelo y el estado de OAuth, sin tocar la base.
+
+    Notes:
+        Dice que el proceso responde, no que la base o el modelo funcionen: para eso está
+        `system_status`. Es lo que un healthcheck externo consulta para decidir si el proceso
+        vive, y por eso un fallo al importar el módulo (ver `_build_auth`) lo deja sin respuesta.
+    """
     return JSONResponse({"ok": True, "model": os.environ.get("EMBED_MODEL"),
                          "mcp": "/mcp",
                          "oauth": "enabled" if OAUTH_ENABLED else "disabled",
@@ -458,33 +615,45 @@ async def healthz(request: Request) -> Response:
 # provider redirige aqui. Inofensivo si OAuth esta off (nadie llega).
 @mcp.custom_route("/login", methods=["GET"])
 async def login_get_route(request: Request) -> Response:
+    """Formulario de login del proveedor propio (`app.oauth`). Montado siempre; con `oidc` nadie llega."""
     from app.oauth import login_get
     return await login_get(request)
 
 
 @mcp.custom_route("/login", methods=["POST"])
 async def login_post_route(request: Request) -> Response:
+    """Envío del login del proveedor propio (`app.oauth`). Con `oidc` responde 400 siempre: no hay pendings."""
     from app.oauth import login_post
     return await login_post(request)
 
 
 @mcp.custom_route("/api/status", methods=["GET"])
 async def api_status(request: Request) -> Response:
+    """`core.status` para el visor: conteos, cola de embeddings y modelo activo."""
     return JSONResponse(_json(core.status()))
 
 
 @mcp.custom_route("/api/tree", methods=["GET"])
 async def api_tree(request: Request) -> Response:
+    """Las memorias vigentes como filas de árbol (`core.tree`): id, título, tipo, path, tags y fecha, sin contenido."""
     return JSONResponse(_json(core.tree()))
 
 
 @mcp.custom_route("/api/authors", methods=["GET"])
 async def api_authors(request: Request) -> Response:
+    """Desglose de autoría de lo vigente (`core.authors`), para el visor y para `system_status`."""
     return JSONResponse(_json(core.authors()))
 
 
 @mcp.custom_route("/api/memory", methods=["POST"])
 async def api_add(request: Request) -> Response:
+    """Alta desde el visor: 400 sin `content`; firma como humano (`_HUMAN_AUTHOR`) y no aplica ningún enforce.
+
+    Notes:
+        Escribir desde el visor firma como humano aunque escriba un agente, porque el visor no
+        tiene forma de saber quién teclea. Y el digest es opcional por aquí: una nota que entre
+        sin él sale en `memory_search` con un `excerpt`, ver `_resumen`.
+    """
     b = await request.json()
     if not b.get("content"):
         return JSONResponse({"error": "content requerido"}, status_code=400)
@@ -497,12 +666,20 @@ async def api_add(request: Request) -> Response:
 
 @mcp.custom_route("/api/memory/{memory_id}", methods=["GET"])
 async def api_get(request: Request) -> Response:
+    """La fila entera de `core.get` para el visor, con `metadata` y `digest` incluidos, y su cadena."""
     res = core.get(request.path_params["memory_id"])
     return JSONResponse(_json(res or {"error": "no encontrado"}))
 
 
 @mcp.custom_route("/api/memory/{memory_id}/supersede", methods=["POST"])
 async def api_supersede(request: Request) -> Response:
+    """Versión nueva desde el editor del visor, firmada como humano.
+
+    Notes:
+        EL EDITOR MANDA TODOS LOS CAMPOS, también los que no tocó: `core.supersede` no hereda
+        nada del padre, así que si un campo no viajara aquí, editar el texto borraría el tipo,
+        los tags, el path, la `metadata` o el digest. El digest se manda siempre por eso mismo.
+    """
     # El editor manda TODOS los campos; los no editados se conservan tal cual.
     # (core.supersede NO hereda del padre: sin esto, editar borraria tipo/tags/path.)
     b = await request.json()
@@ -525,12 +702,23 @@ async def api_supersede(request: Request) -> Response:
 
 @mcp.custom_route("/api/memory/{memory_id}", methods=["DELETE"])
 async def api_delete(request: Request) -> Response:
+    """Retirada desde el visor: `core.tombstone`, la fila se queda."""
     return JSONResponse(_json(core.tombstone(request.path_params["memory_id"],
                                              source_client="web")))
 
 
 @mcp.custom_route("/api/search", methods=["GET"])
 async def api_search(request: Request) -> Response:
+    """Búsqueda para el visor: `q`, `k` y `semantic=false` para forzar léxica; devuelve las filas enteras.
+
+    Notes:
+        Al contrario que `memory_search`, aquí sí viaja `mode` (`hybrid` o `lexical`), y los hits
+        son las filas completas de `core.search`, con `content`: el visor las consume tal cual.
+
+        ⚠ LO QUE NO PASA: ninguno de los cuatro filtros de `core.search` (`path_prefix`, `tags`,
+        `memory_type`, `since`). El visor no puede acotar una búsqueda. Anotado el 10/09/2026;
+        entra en la fase 2 de CodeDoc Archive.
+    """
     q = request.query_params.get("q", "")
     k = int(request.query_params.get("k", "10"))
     semantic = request.query_params.get("semantic", "true").lower() != "false"
@@ -542,6 +730,7 @@ async def api_search(request: Request) -> Response:
 # --- Relaciones del grafo (compartido por editor [[ ]] + Fase 0 DnD/menu) ---
 @mcp.custom_route("/api/relation", methods=["POST"])
 async def api_relation_add(request: Request) -> Response:
+    """Arista desde el visor (editor de wikilinks y arrastrar en el grafo): 400 sin los dos extremos; predicado `links_to` por defecto."""
     b = await request.json()
     if not b.get("source_id") or not b.get("target_id"):
         return JSONResponse({"error": "source_id y target_id requeridos"}, status_code=400)
@@ -552,6 +741,7 @@ async def api_relation_add(request: Request) -> Response:
 
 @mcp.custom_route("/api/memory/{memory_id}/relations", methods=["GET"])
 async def api_relations(request: Request) -> Response:
+    """Relaciones vigentes de una memoria para la ficha del visor, resueltas por `core.relation_list`."""
     return JSONResponse(_json(core.relation_list(request.path_params["memory_id"])))
 
 
@@ -560,6 +750,22 @@ async def api_relations(request: Request) -> Response:
 # /api/graph seria pagarlo entero incluso con la capa semantica apagada. Ver core.graph_knn.
 @mcp.custom_route("/api/graph", methods=["GET"])
 async def api_graph(request: Request) -> Response:
+    """El grafo para el visor: un conteo de nodos, las aristas resueltas y los wikilinks en bruto.
+
+    Returns:
+        `nodes` (cuántas vigentes hay, no cuáles), `edges` de `core.graph_edges` y `links` de
+        `core.graph_links`.
+
+    Notes:
+        `nodes` ES UN CONTEO Y NO LA LISTA: el visor ya tiene el árbol entero cargado y
+        autorrefrescado, y repetir aquí las filas duplicaría unos 150 kB y crearía dos fuentes
+        de verdad para el título de un nodo. El número sirve para que la vista detecte que su
+        árbol está desfasado y lo recargue. Consecuencia para CodeDoc Archive: los bloques de
+        código entran al grafo por el árbol, no por aquí.
+
+        El kNN semántico va en `/api/graph/knn` y no aquí porque el global tarda 2,7 segundos
+        medidos (`core.graph_knn`), y se pagaría entero aunque la capa esté apagada.
+    """
     # `nodes` es un CONTEO y no la lista: el visor ya tiene el arbol completo cargado y
     # autorrefrescado, asi que repetir aqui las 520 filas duplicaria unos 150 kB y crearia dos
     # fuentes de verdad para el titulo de un nodo. El numero sirve para que la vista detecte que
@@ -573,6 +779,12 @@ async def api_graph(request: Request) -> Response:
 
 @mcp.custom_route("/api/graph/knn", methods=["GET"])
 async def api_graph_knn(request: Request) -> Response:
+    """Los `k` vecinos semánticos de una memoria (`core.graph_knn`), con `k` entre 1 y 20; 400 sin `id`.
+
+    Notes:
+        El tope de 20 no es paranoia: sin él, un `k=500` convierte una consulta de 16 ms en
+        segundos, y la vista solo ofrece de 0 a 8 porque por encima el vecindario no se lee.
+    """
     mid = request.query_params.get("id", "")
     if not mid:
         return JSONResponse({"error": "id requerido"}, status_code=400)
@@ -584,6 +796,7 @@ async def api_graph_knn(request: Request) -> Response:
 
 @mcp.custom_route("/api/relation/{relation_id}", methods=["DELETE"])
 async def api_relation_del(request: Request) -> Response:
+    """Retirada de una arista desde el visor: `core.tombstone` con `target_kind='relation'`."""
     return JSONResponse(_json(core.tombstone(request.path_params["relation_id"],
                                              target_kind="relation", source_client="web")))
 

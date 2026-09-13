@@ -143,6 +143,20 @@ def process_once() -> int:
 
 
 def main():
+    """Bucle del worker: warmup del modelo y luego `process_once` sin parar, con dos ritmos.
+
+    Notes:
+        Cada segundo cuando el nodo lidera y la cola está vacía; cada minuto cuando el nodo es
+        MIRROR (`process_once` devuelve -1), para no despertar a una base read-only en la que no
+        hay nada que hacer. El aviso de mirror se imprime solo al cambiar de estado: un mensaje
+        por segundo no es información, es ruido que tapa lo demás.
+
+        Una excepción dentro de `process_once` se imprime y el bucle sigue: un lote que revienta
+        no mata el worker. El job que falló sube `attempts` al reclamarse de nuevo, y al llegar
+        a `MAX_ATTEMPTS` lo retira `reap_dead_jobs`. El warmup sí puede matar el proceso, y debe:
+        sin modelo no hay nada que drenar, y `EMBED_DIM` distinto del real es un error de
+        configuración que conviene ver al arrancar.
+    """
     print(f"[worker] warmup del modelo {EMBED_MODEL} ...", flush=True)
     dim = warmup()
     print(f"[worker] modelo listo (dim={dim}). Drenando cola job(embed).", flush=True)
