@@ -510,3 +510,33 @@ esquema. En el PC ya corre lo nuevo (bind mount con `--reload`).
 
 **Siguiente**: sub-fase 3, `cenit_core` (54 avisos: `handoff.py` 15, `manifest.py` 7,
 `pocketid.py` 6), y después el linter a estricto en los dos árboles.
+
+### Sub-fase 2b · Naeth en inglés: la pasada de identificadores (decidida el 13/09, para el 14/09)
+
+Leyendo `oauth.py` y `mcp_server.py`, Eneko preguntó por qué había variables en castellano, y no
+había regla: lo público estaba en inglés y lo interno y el visor entero en castellano. Decidió
+**identificadores en inglés, prosa en castellano** (guía §3) y, para Naeth, **una pasada entera
+del repo, visor incluido**, en vez de renombrar al tocar. CENIT recibe la misma pasada dentro de
+la sub-fase 3.
+
+**Qué se hace**: renombrar en `naeth/app` los locales y privados en castellano (`espera`, `techo`,
+`intento`, `texto`, `origen`, `corte`, `_resumen`, `fila`, `cadena`, `hoja`, `frag`, `resto`,
+`vecinos`, `era_mirror`, `muertos` y los que salgan de un barrido con `grep`), y en `naeth/web`
+los ficheros, componentes, variables y rutas (`pintor`, `sim`, `mapa`, `Lienzo`, `Ajustes`,
+`Memoria`, `Grafo`, `Estado`, `Inicio`, `Nueva`, `prefs-grafo`, `pathpick`, `wikipick`, y lo que
+salga). **No se toca lo público**: nombres de tools, rutas `/api`, columnas SQL, claves JSON,
+variables de entorno, ni los textos que ve el usuario en el visor (esos son prosa).
+**Entra / no entra**: entra renombrar; no entra cambiar comportamiento ni reescribir docstrings
+que ya cumplen la guía, salvo la referencia al nombre renombrado.
+**Entregable**: cero identificadores en castellano en `naeth/app` y `naeth/web/src` según un
+barrido con lista de palabras; los docstrings y comentarios siguen en castellano.
+**Cómo se comprueba**: la suite del compose (76) y la del front (`npm test && npm run check &&
+npm run build`) en verde después de cada fichero, no al final; el visor abierto en el navegador
+con las seis vistas y el grafo; y `git diff --stat` sin ningún fichero de la superficie pública.
+**Qué se rompe si falla**: en el backend, un rename a medias es exactamente un `F821`, y el hook
+lo bloquea; en el front, `check` lo coge en TypeScript pero no en las rutas por hash (`#/grafo`)
+ni en las claves de `localStorage` (`naeth-draft-nueva`, `prefs`): esas dos son las que hay que
+mirar a mano, porque renombrarlas pierde los borradores y las preferencias guardadas del usuario,
+y ahí conviene decidir si el nombre interno cambia y la clave se queda.
+**Toca producción**: `naeth/app` (despliegue de código, con el 8801 recargando) y el visor
+(`npm run build`). Un solo despliegue al terminar, con etiqueta.

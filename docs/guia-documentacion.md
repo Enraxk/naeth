@@ -64,10 +64,12 @@ entre llaves en JavaScript (`{string[]}`) y no van en TypeScript.
   (`espera`, `cadena`, `hoja`, `era_mirror`), y el visor entero (`pintor.ts`, `Lienzo.svelte`,
   las vistas `Ajustes` y `Memoria`). Dos razones: el símbolo es por lo que se busca en CodeDoc
   Archive, y `chain` no encuentra `cadena`; y en cualquier equipo de backend los nombres van en
-  inglés y la prosa en el idioma del equipo. **Lo viejo se renombra al tocarlo**, no en una
-  pasada: los locales de `core.py` y `mcp_server.py` son baratos y los cubre la suite. ⚠ El
-  visor es otra escala, porque sus nombres son ficheros, vistas y rutas que se ven: cuándo y cómo
-  se renombra se decide aparte, no cae bajo "al tocarlo".
+  inglés y la prosa en el idioma del equipo. **En Naeth y en CENIT se hace una pasada entera**
+  (decidido el 13/09/2026 por la noche: Naeth el 14/09, repo completo incluido el visor; CENIT
+  cuando toque documentarlo en la sub-fase 3 de CodeDoc Archive). En los demás repos, lo viejo
+  se renombra al tocarlo. ⚠ La pasada del visor es otra escala que la del backend: sus nombres
+  son ficheros, componentes y rutas, y la red que la sostiene es la suite del front más `check`
+  y `build`, no la de Python.
 - **Castellano con tildes**, salvo en repos que ya están en inglés (GridWatch). Los docstrings viejos
   de `naeth/app` sin tildes se corrigen cuando se toque esa función, no en una pasada aparte.
 - Mayúsculas para la palabra que carga la frase, no para gritar. La conclusión primero ("NO ES
