@@ -434,3 +434,47 @@ con la medición de un modelo local sobre la 3070 delante.
 - Que `jsdoc -X` dé para `.mjs` lo que griffe da para Python. Sub-fase 9.
 - Que el payload de `Stop` traiga `stop_hook_active`. Sub-fase 0 del plan del cuaderno, pendiente.
 - La ruta con la que el contenedor de la API ve los repos para la pasada. Sub-fase 5.
+
+---
+
+## Verificado en la sub-fase 0 (viernes 11/09/2026, 11:22 a 11:30)
+
+Las cinco pruebas, sin tocar producción. Comandos desde `F:\src\Naeth` salvo que se diga otra cosa;
+los ficheros intermedios quedaron en el scratchpad de la sesión y no se conservan.
+
+| # | Prueba | Resultado | Consecuencia para el plan |
+|---|---|---|---|
+| 0.1 | griffe sobre `cenit_core` | **Vale.** `uvx --from griffe griffe dump cenit_core -s src` desde `CENIT/core/reconciler`: 562 KB, 16 módulos, 103 funciones, 35 clases (las 9 `dataclass` de `handoff`, `inventory`, `ownership`, `recovery`, `status` y `watchdog` salen con su decorador), 40 métodos, y `git_info` con el commit `1563f65` y el remoto. 23 clases sin docstring | El extractor de la sub-fase 5 es el mismo para los dos árboles Python. Las dataclasses entran como `class` con sus métodos |
+| 0.2 | Render de mkdocstrings sobre los cuatro docstrings canónicos de la guía | **`Notes:` es una sección de primera clase.** El parser Google de griffe (`griffe.Docstring(..., parser="google").parse()`) reconoce en los cuatro `text`, `parameters`, `returns` y una `admonition` de tipo `notes`. mkdocs con `mkdocstrings-python` (`docstring_style: google`) los pinta como tablas de Parameters y Returns y después `<details class="notes" open><summary>Notes</summary>` con la narrativa entera; las mayúsculas y el `⚠` se conservan tal cual | La vista CDA de la sub-fase 7 puede imitar exactamente eso: contrato en tabla, narrativa en un bloque desplegable abierto. Aviso del parser: pide tipo o anotación por parámetro; en el código real las anotaciones están en la firma y no avisa |
+| 0.3 | ruff `D1xx` y `D417` con `convention = "google"` sobre `cenit_core` | **54 avisos**: 23 `D101` (clase pública sin docstring), 20 `D102` (método), 11 `D103` (función), **0 `D417`**. Por fichero: `handoff.py` 15, `manifest.py` 7, `pocketid.py` 6, `ownership.py` 5, `cloudflare.py` 5, `config.py` 4, `watchdog.py` 3, `status.py` 3, `recovery.py` 2, y uno en `sync.py`, `inventory.py`, `identity_sync.py` y `cli.py` | Con los 44 de `naeth/app`, son 98 símbolos a documentar entre las sub-fases 2 y 3. Cero `D417`: los `Args:` que existen ya están completos, así que la regla se puede exigir desde el primer día sin ruido |
+| 0.4 | `--doctest-modules` sobre `naeth/app` en el compose de test | **Arranca sin romper la suite.** `docker compose --profile test run --rm test sh -c "... pytest app/tests --doctest-modules app -q"`: los seis módulos se importan en la colección (incluido `mcp_server.py`, que construye `FastMCP` al importarse, y `oauth.py`), **72 passed en 3,97 s**, cero doctests porque todavía no hay ninguno. `db` bajado después con `rm -sf db`; `api`, `viewer` y `worker` siguieron `healthy` | La sub-fase 1 puede añadir `--doctest-modules app` al comando del servicio `test` tal cual, sin fichero de tests aparte |
+| 0.5 | Coste de embeber 131 bloques en el nodo vivo | **901 ms por bloque.** `docker exec -i naeth-worker-1 python` con `app.embeddings`: warmup 3,2 s (modelo ya en caché), 131 textos sintéticos de 962 caracteres de media en **118 s**, un lote de 32 en 27,6 s. Es CPU: el contenedor no ve la GPU | Embeber en la pasada (§0.1) sigue valiendo: dos minutos para `naeth/app` y `cenit_core`, y solo se embebe lo que cambia de hash. Para Yogin y GridWatch, con cientos de bloques, la pasada tarda del orden de un cuarto de hora: se lanza como comando largo, no dentro de una petición HTTP, y el resumen por consola va por lotes de 32. El default de `is_current` (§1, abierto) no depende de este dato |
+
+Lo que sigue pendiente de otras sub-fases y no era de esta: el volcado de stdin de `Stop` para
+`stop_hook_active` (sub-fase 8), y si `jsdoc -X` da para `.mjs` lo que griffe da para Python
+(sub-fase 9).
+
+**Siguiente**: sub-fase 1, el linter en modo aviso y el compose de test con `--doctest-modules`.
+
+---
+
+## Verificado en la sub-fase 1 (domingo 13/09/2026, 13:42 a 14:05)
+
+Lo mecanizable, en modo aviso, en los tres repos. Sin tocar producción: ningún fichero de
+`naeth/app` ni de `cenit_core` se editó; los hooks se probaron con fixtures por stdin.
+
+| Qué | Dónde | Resultado |
+|---|---|---|
+| Hook `py-lint.ps1` de Naeth con la parte `D` en aviso | `F:\src\Naeth\.claude\hooks\py-lint.ps1` | El bloqueo por `F821`, `F811` y `E9` no cambia. Tras pasarlo, corre `D100-D103` y `D417` con `convention = "google"`, excluye `tests\`, y si hay avisos devuelve JSON `additionalContext` con el recuento, las primeras 12 líneas y el puntero a la guía; `exit 0`. Probado: `oauth.py` da 11 avisos listados sin bloquear; un fichero con `F821` bajo una ruta `\naeth\app\` bloquea con `exit 2`; `tests/test_core.py` calla |
+| Hook `py-lint.ps1` de CENIT | `F:\src\CENIT\.claude\hooks\py-lint.ps1`, registrado en `.claude/settings.json` como `PostToolUse` sobre `Edit\|Write` | Copia con filtro `\cenit_core\`. Probado: `handoff.py` da 15 avisos listados; un test y un fichero fuera de `cenit_core` callan. ⚠ La primera versión salió con las regex rotas (`'^.*\cenit_core\'`) porque el heredoc de la herramienta Bash come un nivel de barras y PowerShell tragó la regex inválida en silencio; se corrigió con el editor y se anotó en la memoria nativa |
+| `--doctest-modules app` en el servicio `test` | `naeth/docker-compose.yml:229-232` | Suite acumulada con el comando nuevo: **72 passed en 3,74 s**, cero doctests todavía; `db` bajado con `rm -sf db`, pila `healthy` |
+| `eslint-plugin-jsdoc` con `require-jsdoc` en `warn` | `Yogin-API/eslint.config.js` y `Yogin-Website/eslint.config.js`; el plugin `^64.3.10` como devDependency en los dos `package.json` | Solo símbolos exportados (`publicOnly`), y **`enableFixer: false`** porque el Website corre `eslint --fix` en lint-staged y el fixer de la regla insertaría bloques `/** */` vacíos en cada commit. Yogin-API: 59 ficheros, **0 errores, 55 avisos** (`billing.service.mjs` 25, `email-utils.mjs` 5). Yogin-Website: 360 ficheros, **255 avisos**; los 2 errores que reporta ya existían sin estos cambios (comprobado con `git stash`): `no-useless-assignment` en `use-accessible-tabs.js:20` y `react-hooks/set-state-in-effect` en `teacher-page-screen.jsx:20` |
+
+Cuenta total de lo que las sub-fases 2, 3 y 9 tienen que llevar a cero: 44 en `naeth/app`, 54 en
+`cenit_core`, 55 en Yogin-API, 255 en Yogin-Website.
+
+**Sin commitear**, en tres repos: Naeth (hook, compose y este plan), CENIT (hook y `settings.json`),
+Yogin (dos configs, dos `package.json` y dos `pnpm-lock.yaml`).
+
+**Siguiente**: sub-fase 2, documentar `naeth/app` empezando por `oauth.py`, desde una sesión que no
+dependa de Naeth a mitad, porque cada guardado recarga el 8801.

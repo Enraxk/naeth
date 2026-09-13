@@ -226,7 +226,10 @@ services:
       context: .
       dockerfile: app/Dockerfile
     profiles: ["test"]
-    command: sh -c "pip install -q -r app/requirements-dev.txt && python -m pytest app/tests -v"
+    # --doctest-modules app: los Example: de la guia de documentacion (docs/guia-documentacion.md)
+    # corren como tests, para que un ejemplo no se quede viejo sin que nadie lo diga. Verificado el
+    # 11/09/2026 que importar los seis modulos en la coleccion no rompe nada (72 passed, 3,97 s).
+    command: sh -c "pip install -q -r app/requirements-dev.txt && python -m pytest app/tests --doctest-modules app -v"
     working_dir: /srv
     environment:
       TEST_DB_HOST: db
