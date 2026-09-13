@@ -56,6 +56,18 @@ entre llaves en JavaScript (`{string[]}`) y no van en TypeScript.
 
 ## 3. Voz
 
+- **Identificadores en inglés, prosa en castellano** (decidido el 13/09/2026, leyendo `oauth.py`
+  y `mcp_server.py`). Identificadores son variables, funciones, clases, parámetros, columnas,
+  claves JSON, nombres de fichero y rutas; prosa son docstrings, comentarios, mensajes al usuario
+  y líneas de log. Hasta ese día no había regla y el código la decidió solo: la superficie pública
+  ya estaba en inglés (`memory_search`, `content_hash`, `digest_source`) y lo interno en castellano
+  (`espera`, `cadena`, `hoja`, `era_mirror`), y el visor entero (`pintor.ts`, `Lienzo.svelte`,
+  las vistas `Ajustes` y `Memoria`). Dos razones: el símbolo es por lo que se busca en CodeDoc
+  Archive, y `chain` no encuentra `cadena`; y en cualquier equipo de backend los nombres van en
+  inglés y la prosa en el idioma del equipo. **Lo viejo se renombra al tocarlo**, no en una
+  pasada: los locales de `core.py` y `mcp_server.py` son baratos y los cubre la suite. ⚠ El
+  visor es otra escala, porque sus nombres son ficheros, vistas y rutas que se ven: cuándo y cómo
+  se renombra se decide aparte, no cae bajo "al tocarlo".
 - **Castellano con tildes**, salvo en repos que ya están en inglés (GridWatch). Los docstrings viejos
   de `naeth/app` sin tildes se corrigen cuando se toque esa función, no en una pasada aparte.
 - Mayúsculas para la palabra que carga la frase, no para gritar. La conclusión primero ("NO ES
