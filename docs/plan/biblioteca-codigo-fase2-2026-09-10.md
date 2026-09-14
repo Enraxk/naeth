@@ -587,9 +587,26 @@ y ahí conviene decidir si el nombre interno cambia y la clave se queda.
 **Toca producción**: `naeth/app` (despliegue de código, con el 8801 recargando) y el visor
 (`npm run build`). Un solo despliegue al terminar, con etiqueta.
 
-(El 14/09 no se hizo: se dedicó el día a la discovery de vídeos, por decisión de Eneko a las 13:02,
-porque su resultado podía cambiar el esquema de la sub-fase 4, y lo cambió. La 2b sigue siendo la
-siguiente.)
+(El 14/09 por la mañana no se hizo: se dedicó el día a la discovery de vídeos, por decisión de
+Eneko a las 13:02, porque su resultado podía cambiar el esquema de la sub-fase 4, y lo cambió.)
+
+**Verificado, la mitad del backend (lunes 14/09/2026, 19:53 a 20:25).** Barrido con `ast` de los
+271 identificadores definidos en `naeth/app`: 19 en castellano en los módulos (`_filtros`, `frag`,
+`_GRAFO_SQL`, `filas`, `rotos`, `tiene_levenshtein`, `erratas`, `cadenas` y el CTE `hoja` en
+`core.py`; `espera`, `techo`, `intento`, `_resumen`, `corte`, `esp`, `texto`, `origen` en
+`mcp_server.py`; `hay`, `muertos`, `era_mirror` en `worker.py`), más dos alias internos de SQL
+(`destinos`, CTE `largo`) y 19 locales, helpers y parámetros en los tests. Todos renombrados; el
+barrido final no deja ninguno. **No se tocó** ninguna clave JSON en castellano (`filas`, `resto`,
+`vigentes`, `retiradas`, `distintos`, `versiones`, `distancia`, `pendientes_embed`,
+`rutas_sospechosas`, `ruta`, `parecido_a`, `faltan`, `hechos`, `de`): son contrato con el visor y
+las tools, y la guía §3 lo deja escrito. Decisión de Eneko a las 20:10: **los nombres de los tests
+se quedan en castellano** (son la frase del caso), sus locales van al inglés. Suite en verde tres
+veces (76) y el 8801 recargado sirviendo grafo y búsqueda; el visor se colgó una vez con el atasco
+conocido y se reinició. Los dos `F401` de `test_worker.py` ya estaban en HEAD y no entran. Trampa
+del método: renombrar por regex con límite de palabra entra en los docstrings y en las cadenas de
+prueba (`"otro-cliente"`, "las 905 filas"); hubo que devolver 28 fragmentos de prosa al castellano
+a mano. En el visor, mañana, conviene renombrar símbolo a símbolo con el editor y no por regex.
+**Queda**: `naeth/web/src`, con el navegador abierto, y el despliegue único con etiqueta.
 
 ### Sub-fase 6b · Vídeos desde CDA (decidida el 14/09, para después de la 6)
 

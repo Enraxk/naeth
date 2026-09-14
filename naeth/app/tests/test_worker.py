@@ -1,7 +1,7 @@
 """Tests del worker de embeddings.
 
 El foco está en lo que falló de verdad: los jobs que se quedan colgados. El caso feliz (hay un
-job pendiente, se procesa) nunca ha dado problemas; el que costó 18 días descubrir es el otro.
+job pendiente, se procesa) nunca ha dado problemas; el que costó 18 días descubrir es el other.
 
 No hace falta el modelo: se prueba la RECLAMACIÓN de jobs, no el cálculo del vector.
 """
@@ -19,7 +19,7 @@ from app.worker import (
 )
 
 
-def _mem_con_job(estado: str, *, edad_min: int = 0, attempts: int = 0) -> str:
+def _mem_with_job(status: str, *, min_age: int = 0, attempts: int = 0) -> str:
     """Crea una memoria y le fuerza un job en el estado dado. Devuelve el id del job."""
     # `core.add` devuelve {"memory": {...}, "created": bool}, no la fila suelta.
     m = core.add("contenido de prueba", title="prueba", memory_type="observation")["memory"]
@@ -29,7 +29,7 @@ def _mem_con_job(estado: str, *, edad_min: int = 0, attempts: int = 0) -> str:
             """UPDATE job SET status=%s, attempts=%s,
                       started_at = now() - make_interval(mins => %s)
                WHERE memory_id=%s RETURNING id""",
-            (estado, attempts, edad_min, m["id"]),
+            (status, attempts, min_age, m["id"]),
         ).fetchone()
     return row["id"]
 
@@ -37,14 +37,14 @@ def _mem_con_job(estado: str, *, edad_min: int = 0, attempts: int = 0) -> str:
 # ── Lo que ya funcionaba ─────────────────────────────────────────────────────────────────
 
 def test_un_job_pendiente_se_reclama():
-    _mem_con_job("pending")
+    _mem_with_job("pending")
     with core.conn() as c:
         assert len(claim_batch(c, 10)) == 1
 
 
 def test_un_job_recien_cogido_NO_se_roba():
     """El lease no debe pisarle el trabajo a un worker que está procesando ahora mismo."""
-    _mem_con_job("processing", edad_min=1)
+    _mem_with_job("processing", min_age=1)
     with core.conn() as c:
         assert claim_batch(c, 10) == []
 
@@ -57,15 +57,15 @@ def test_un_job_huerfano_se_vuelve_a_reclamar():
     El worker moría a mitad (reinicio del PC, de Docker, un apagón), el job se quedaba en
     'processing' PARA SIEMPRE y su memoria nunca recibía embedding: presente, legible, buscable
     por texto y AUSENTE de la búsqueda semántica. Sin un solo error en los logs."""
-    _mem_con_job("processing", edad_min=LEASE_MINUTES + 1)
+    _mem_with_job("processing", min_age=LEASE_MINUTES + 1)
     with core.conn() as c:
-        reclamados = claim_batch(c, 10)
-    assert len(reclamados) == 1, "el job huerfano deberia volver a la cola"
+        claimed = claim_batch(c, 10)
+    assert len(claimed) == 1, "el job huerfano deberia volver a la cola"
 
 
 def test_el_intento_se_cuenta_al_reclamar():
     """`attempts` tiene que subir, o el tope de reintentos no serviría de nada."""
-    job_id = _mem_con_job("processing", edad_min=LEASE_MINUTES + 1, attempts=2)
+    job_id = _mem_with_job("processing", min_age=LEASE_MINUTES + 1, attempts=2)
     with core.conn() as c:
         claim_batch(c, 10)
         n = c.execute("SELECT attempts FROM job WHERE id=%s", (job_id,)).fetchone()["attempts"]
@@ -75,7 +75,7 @@ def test_el_intento_se_cuenta_al_reclamar():
 def test_un_job_que_agoto_los_intentos_no_se_reclama_mas():
     """Un job que falla SIEMPRE (texto que revienta al modelo, memoria corrupta) no puede
     volver cada 15 min eternamente: sería un bucle infinito silencioso."""
-    _mem_con_job("processing", edad_min=LEASE_MINUTES + 1, attempts=MAX_ATTEMPTS)
+    _mem_with_job("processing", min_age=LEASE_MINUTES + 1, attempts=MAX_ATTEMPTS)
     with core.conn() as c:
         assert claim_batch(c, 10) == []
 
@@ -83,7 +83,7 @@ def test_un_job_que_agoto_los_intentos_no_se_reclama_mas():
 def test_los_agotados_se_marcan_error_y_dejan_de_estar_en_limbo():
     """Marcarlos 'error' los hace CONTABLES: `system_status` los ve, así que un problema
     recurrente sale a la luz en vez de quedarse escondido en 'processing'."""
-    job_id = _mem_con_job("processing", edad_min=LEASE_MINUTES + 1, attempts=MAX_ATTEMPTS)
+    job_id = _mem_with_job("processing", min_age=LEASE_MINUTES + 1, attempts=MAX_ATTEMPTS)
     with core.conn() as c:
         assert reap_dead_jobs(c) == 1
         row = c.execute("SELECT status, error FROM job WHERE id=%s", (job_id,)).fetchone()
@@ -92,21 +92,21 @@ def test_los_agotados_se_marcan_error_y_dejan_de_estar_en_limbo():
 
 
 def test_reap_no_toca_los_que_aun_tienen_intentos():
-    _mem_con_job("processing", edad_min=LEASE_MINUTES + 1, attempts=1)
+    _mem_with_job("processing", min_age=LEASE_MINUTES + 1, attempts=1)
     with core.conn() as c:
         assert reap_dead_jobs(c) == 0
 
 
 def test_reap_no_toca_un_job_vivo():
     """Un job recién cogido con muchos intentos previos sigue siendo un job EN CURSO."""
-    _mem_con_job("processing", edad_min=0, attempts=MAX_ATTEMPTS)
+    _mem_with_job("processing", min_age=0, attempts=MAX_ATTEMPTS)
     with core.conn() as c:
         assert reap_dead_jobs(c) == 0
 
 
 def test_el_lease_no_afecta_a_los_done():
     """Un job terminado hace meses no debe resucitar por ser viejo."""
-    _mem_con_job("done", edad_min=60 * 24 * 30)
+    _mem_with_job("done", min_age=60 * 24 * 30)
     with core.conn() as c:
         assert claim_batch(c, 10) == []
         assert reap_dead_jobs(c) == 0
@@ -131,7 +131,7 @@ def test_en_un_nodo_mirror_el_worker_se_declara_en_espera():
 def test_reap_no_escribe_si_no_hay_nada_que_segar():
     """El SELECT previo evita el UPDATE incondicional: en el caso normal (sin huerfanos) no se
     escribe nada, que es lo que hace al worker compatible con un nodo mirror."""
-    _mem_con_job("done")
+    _mem_with_job("done")
     with core.conn() as c:
         c.execute("SET transaction_read_only = on")
         assert reap_dead_jobs(c) == 0         # no lanza: no llego a intentar el UPDATE

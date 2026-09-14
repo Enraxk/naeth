@@ -22,47 +22,47 @@ class _Sentinela:
 
 
 def test_devuelve_a_la_primera_sin_esperar():
-    llamadas, esperas = [], []
+    calls, waits = [], []
 
     def build():
-        llamadas.append(1)
+        calls.append(1)
         return _Sentinela
 
-    out = ms._retry_discovery(build, attempts=5, delay=1, sleep=esperas.append)
+    out = ms._retry_discovery(build, attempts=5, delay=1, sleep=waits.append)
 
     assert out is _Sentinela
-    assert len(llamadas) == 1
-    assert esperas == []          # si contesta a la primera no se duerme nada
+    assert len(calls) == 1
+    assert waits == []          # si contesta a la primera no se duerme nada
 
 
 def test_sobrevive_a_un_idp_que_tarda_en_levantar():
     """El caso real: el IdP local aun arrancando cuando la API ya esta importando."""
-    llamadas, esperas = [], []
+    calls, waits = [], []
 
     def build():
-        llamadas.append(1)
-        if len(llamadas) < 3:
+        calls.append(1)
+        if len(calls) < 3:
             raise ConnectionError("IdP aun no escucha")
         return _Sentinela
 
-    out = ms._retry_discovery(build, attempts=10, delay=1, delay_max=4, sleep=esperas.append)
+    out = ms._retry_discovery(build, attempts=10, delay=1, delay_max=4, sleep=waits.append)
 
     assert out is _Sentinela
-    assert len(llamadas) == 3
-    assert esperas == [1, 2]      # exponencial
+    assert len(calls) == 3
+    assert waits == [1, 2]      # exponencial
 
 
 def test_la_espera_tiene_techo():
-    esperas = []
+    waits = []
 
     def build():
-        if len(esperas) < 6:
+        if len(waits) < 6:
             raise ConnectionError("sigue sin contestar")
         return _Sentinela
 
-    ms._retry_discovery(build, attempts=20, delay=1, delay_max=4, sleep=esperas.append)
+    ms._retry_discovery(build, attempts=20, delay=1, delay_max=4, sleep=waits.append)
 
-    assert esperas == [1, 2, 4, 4, 4, 4]   # dobla hasta el techo y ahi se queda
+    assert waits == [1, 2, 4, 4, 4, 4]   # dobla hasta el techo y ahi se queda
 
 
 def test_al_agotar_intentos_PROPAGA_y_no_arranca_sin_auth():
@@ -72,27 +72,27 @@ def test_al_agotar_intentos_PROPAGA_y_no_arranca_sin_auth():
     ROMPER el arranque, no devolver None. Si alguien "arregla" esto devolviendo None, el
     servidor arrancaria con `auth=None` y publicaria las 9 tools sin login.
     """
-    llamadas = []
+    calls = []
 
     def build():
-        llamadas.append(1)
+        calls.append(1)
         raise ConnectionError("el IdP no esta")
 
     with pytest.raises(ConnectionError):
         ms._retry_discovery(build, attempts=3, delay=0, sleep=lambda _s: None)
 
-    assert len(llamadas) == 3     # agota los intentos, no se rinde antes
+    assert len(calls) == 3     # agota los intentos, no se rinde antes
 
 
 def test_no_reintenta_si_solo_hay_un_intento():
-    llamadas, esperas = [], []
+    calls, waits = [], []
 
     def build():
-        llamadas.append(1)
+        calls.append(1)
         raise TimeoutError("nope")
 
     with pytest.raises(TimeoutError):
-        ms._retry_discovery(build, attempts=1, delay=1, sleep=esperas.append)
+        ms._retry_discovery(build, attempts=1, delay=1, sleep=waits.append)
 
-    assert len(llamadas) == 1
-    assert esperas == []          # no duerme despues del ultimo intento
+    assert len(calls) == 1
+    assert waits == []          # no duerme despues del ultimo intento

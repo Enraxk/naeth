@@ -38,13 +38,13 @@ def reap_dead_jobs(c) -> int:
     "cannot execute UPDATE in a read-only transaction" POR SEGUNDO. El SELECT previo es
     barato y hace que el caso normal -- no hay nada que segar -- no escriba nada.
     """
-    hay = c.execute(
+    found = c.execute(
         """SELECT 1 FROM job
            WHERE kind='embed' AND status='processing' AND attempts >= %s
              AND started_at < now() - make_interval(mins => %s) LIMIT 1""",
         (MAX_ATTEMPTS, LEASE_MINUTES),
     ).fetchone()
-    if not hay:
+    if not found:
         return 0
     r = c.execute(
         """UPDATE job SET status='error', finished_at=now(),
@@ -106,9 +106,9 @@ def process_once() -> int:
     with core.conn() as c:
         if is_mirror(c):
             return -1
-        muertos = reap_dead_jobs(c)
-        if muertos:
-            print(f"[worker] {muertos} job(s) abandonados tras {MAX_ATTEMPTS} intentos", flush=True)
+        dead = reap_dead_jobs(c)
+        if dead:
+            print(f"[worker] {dead} job(s) abandonados tras {MAX_ATTEMPTS} intentos", flush=True)
         jobs = claim_batch(c, BATCH)
         if not jobs:
             return 0
@@ -160,7 +160,7 @@ def main():
     print(f"[worker] warmup del modelo {EMBED_MODEL} ...", flush=True)
     dim = warmup()
     print(f"[worker] modelo listo (dim={dim}). Drenando cola job(embed).", flush=True)
-    era_mirror = None
+    was_mirror = None
     while True:
         try:
             n = process_once()
@@ -171,15 +171,15 @@ def main():
         if n == -1:
             # Nodo MIRROR: el lider es quien escribe. Se avisa SOLO al cambiar de estado, no en
             # cada vuelta -- un mensaje por segundo no es informacion, es ruido que tapa lo demas.
-            if era_mirror is not True:
+            if was_mirror is not True:
                 print("[worker] este nodo es MIRROR (BD read-only): en espera", flush=True)
-                era_mirror = True
+                was_mirror = True
             time.sleep(MIRROR_POLL_INTERVAL_S)
             continue
 
-        if era_mirror:
+        if was_mirror:
             print("[worker] este nodo YA LIDERA: vuelvo a drenar la cola", flush=True)
-        era_mirror = False
+        was_mirror = False
         if n == 0:
             time.sleep(POLL_INTERVAL_S)
 

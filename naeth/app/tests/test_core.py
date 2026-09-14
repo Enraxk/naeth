@@ -116,8 +116,8 @@ def test_add_sin_author_default_vacio():
 
 def test_supersede_conserva_author_de_la_version_nueva():
     a = core.add("v1 autor", title="a10c")["memory"]
-    otro = {**_AUTHOR, "surface": "vscode", "model": "claude-sonnet-5"}
-    b = core.supersede(str(a["id"]), "v2 autor", title="a10c", author=otro)["memory"]
+    other = {**_AUTHOR, "surface": "vscode", "model": "claude-sonnet-5"}
+    b = core.supersede(str(a["id"]), "v2 autor", title="a10c", author=other)["memory"]
     assert b["author_surface"] == "vscode"
     assert b["author_model"] == "claude-sonnet-5"
 
@@ -153,7 +153,7 @@ def test_authors_desglosa_por_autor():
 # probar una rama prueba el fragmento; lo que no cubren es el reparto de las 50 plazas del
 # hibrido, que solo se ve con embeddings de verdad.
 # ============================================================
-def _sembrar_para_filtros():
+def _seed_for_filters():
     """Cuatro notas que se distinguen por metadatos, no por texto: todas casan con 'zumbido'."""
     a = core.add("zumbido alfa", title="fa", path="naeth/core",
                  memory_type="fact", tags=["naeth", "uno"])["memory"]
@@ -165,58 +165,58 @@ def _sembrar_para_filtros():
 
 
 def test_sin_filtros_devuelve_todo_lo_que_casa():
-    a, b, c = _sembrar_para_filtros()
+    a, b, c = _seed_for_filters()
     out = _ids(core.search("zumbido"))
     assert {str(a["id"]), str(b["id"]), str(c["id"])} <= set(out)
 
 
 def test_filtro_path_prefix_acota_al_proyecto():
-    a, b, c = _sembrar_para_filtros()
+    a, b, c = _seed_for_filters()
     out = _ids(core.search("zumbido", path_prefix="naeth/"))
     assert set(out) == {str(a["id"]), str(b["id"])}
 
 
 def test_filtro_path_prefix_llega_al_subtema():
-    a, _, _ = _sembrar_para_filtros()
+    a, _, _ = _seed_for_filters()
     assert _ids(core.search("zumbido", path_prefix="naeth/core")) == [str(a["id"])]
 
 
 def test_filtro_path_prefix_escapa_el_guion_bajo():
     """En LIKE el `_` es un comodin de un caracter. Sin escapar, `naeth_` casaria con `naeth/`."""
-    a, b, c = _sembrar_para_filtros()
+    a, b, c = _seed_for_filters()
     assert core.search("zumbido", path_prefix="naeth_") == []
 
 
 def test_filtro_memory_type():
-    a, b, c = _sembrar_para_filtros()
+    a, b, c = _seed_for_filters()
     out = set(_ids(core.search("zumbido", memory_type="fact")))
     assert out == {str(a["id"]), str(c["id"])}
 
 
 def test_filtro_tags_exige_todos_no_alguno():
-    a, b, c = _sembrar_para_filtros()
+    a, b, c = _seed_for_filters()
     # "naeth" lo llevan dos; "naeth"+"uno" solo una.
     assert len(core.search("zumbido", tags=["naeth"])) == 2
     assert _ids(core.search("zumbido", tags=["naeth", "uno"])) == [str(a["id"])]
 
 
 def test_filtros_combinados_se_suman():
-    a, b, c = _sembrar_para_filtros()
+    a, b, c = _seed_for_filters()
     out = _ids(core.search("zumbido", path_prefix="naeth/", memory_type="fact"))
     assert out == [str(a["id"])]
 
 
 def test_filtro_since_excluye_lo_anterior():
     from datetime import datetime, timedelta, timezone
-    a, b, c = _sembrar_para_filtros()
-    manana = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
-    ayer = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-    assert core.search("zumbido", since=manana) == []
-    assert len(core.search("zumbido", since=ayer)) == 3
+    a, b, c = _seed_for_filters()
+    tomorrow = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    assert core.search("zumbido", since=tomorrow) == []
+    assert len(core.search("zumbido", since=yesterday)) == 3
 
 
 def test_un_filtro_que_no_casa_devuelve_vacio_sin_romper():
-    _sembrar_para_filtros()
+    _seed_for_filters()
     assert core.search("zumbido", path_prefix="no-existe/") == []
     assert core.search("zumbido", memory_type="preference") == []
     assert core.search("zumbido", tags=["inexistente"]) == []
@@ -306,8 +306,8 @@ def test_hygiene_encuentra_lo_que_falta():
 
 
 def test_hygiene_detecta_los_wikilinks_que_no_resuelven():
-    viva = core.add("soy el destino", title="w1")["memory"]
-    core.add(f"apunta a la viva [[{viva['id']}]]", title="w2")
+    alive = core.add("soy el destino", title="w1")["memory"]
+    core.add(f"apunta a la viva [[{alive['id']}]]", title="w2")
     core.add("apunta a nada [[deadbeef-0000-0000-0000-000000000000]]", title="w3")
     h = core.stats("hygiene")
     assert h["wikilinks_rotos"]["n"] == 1
@@ -321,8 +321,8 @@ def test_hygiene_marca_una_errata_de_ruta_pero_no_un_subtema_nuevo():
     core.add("b", title="r2", path="naeth/status")   # `status` queda establecido (n>=2)
     core.add("c", title="r3", path="naeth/stets")    # errata, distancia 2
     core.add("d", title="r4", path="naeth/ecosystem")  # subtema nuevo, no se parece a nada
-    rutas = [r["ruta"] for r in core.stats("hygiene")["rutas_sospechosas"]]
-    assert rutas == ["naeth/stets"]
+    paths = [r["ruta"] for r in core.stats("hygiene")["rutas_sospechosas"]]
+    assert paths == ["naeth/stets"]
 
 
 def test_hygiene_no_marca_las_huerfanas_que_si_tienen_relacion():
@@ -379,12 +379,12 @@ def test_el_digest_que_pasa_del_tope_se_rechaza_en_vez_de_recortarse():
     """RECHAZAR y no recortar: un resumen cortado a mitad de frase sigue firmando como resumen
     entero y nadie se entera. El error le dice a quien escribe que lo reescriba, que es lo que hay
     que hacer de verdad."""
-    largo = "x" * (core.DIGEST_MAX + 1)
+    long_text = "x" * (core.DIGEST_MAX + 1)
     try:
-        core.add("contenido", title="t", digest=largo)
+        core.add("contenido", title="t", digest=long_text)
     except ValueError as e:
         assert str(core.DIGEST_MAX) in str(e)          # el mensaje dice cual es el tope
-        assert str(len(largo)) in str(e)               # y cuanto ocupaba lo que se mando
+        assert str(len(long_text)) in str(e)               # y cuanto ocupaba lo que se mando
     else:
         raise AssertionError("un digest por encima del tope tenia que fallar")
     # y el de justo el tope si entra: el limite es inclusivo
@@ -444,32 +444,32 @@ def test_sin_digest_cae_a_un_recorte_MARCADO_como_recorte():
     """`digest_source` esta calcado de `model_source` del Paso 10 y por lo mismo: un valor escrito a
     mano y uno derivado por la maquina no son la misma cosa, y quien lee tiene que distinguirlos sin
     adivinar. Un recorte se corta a mitad de idea pero sigue pareciendo un resumen."""
-    from app.mcp_server import _resumen
-    largo = "palabra " * 200                                  # 1.600 caracteres
-    texto, origen = _resumen({"digest": None, "content": largo})
-    assert origen == "excerpt"
-    assert len(texto) <= core.DIGEST_MAX + 3                  # el tope, mas los puntos suspensivos
-    assert texto.endswith("...")
-    assert not texto[:-3].endswith("palabr")                  # no parte una palabra por la mitad
+    from app.mcp_server import _summarize
+    long_text = "palabra " * 200                                  # 1.600 caracteres
+    text, source = _summarize({"digest": None, "content": long_text})
+    assert source == "excerpt"
+    assert len(text) <= core.DIGEST_MAX + 3                  # el tope, mas los puntos suspensivos
+    assert text.endswith("...")
+    assert not text[:-3].endswith("palabr")                  # no parte una palabra por la mitad
 
 
 def test_un_digest_de_solo_espacios_no_cuenta_como_escrito():
-    from app.mcp_server import _resumen
-    assert _resumen({"digest": "   ", "content": "el contenido"}) == ("el contenido", "excerpt")
+    from app.mcp_server import _summarize
+    assert _summarize({"digest": "   ", "content": "el contenido"}) == ("el contenido", "excerpt")
 
 
 def test_un_contenido_mas_corto_que_el_tope_viaja_entero_y_sin_puntos():
-    from app.mcp_server import _resumen
-    texto, origen = _resumen({"digest": None, "content": "una nota muy breve"})
-    assert (texto, origen) == ("una nota muy breve", "excerpt")
+    from app.mcp_server import _summarize
+    text, source = _summarize({"digest": None, "content": "una nota muy breve"})
+    assert (text, source) == ("una nota muy breve", "excerpt")
 
 
 def test_una_palabra_larguisima_sin_espacios_se_corta_igual():
     """El corte busca el ultimo espacio, y si no hay ninguno util corta en seco. Sin este caso, un
     volcado sin espacios (un base64, un hash largo) devolveria la nota entera."""
-    from app.mcp_server import _resumen
-    texto, _ = _resumen({"digest": None, "content": "z" * 1000})
-    assert len(texto) == core.DIGEST_MAX + 3
+    from app.mcp_server import _summarize
+    text, _ = _summarize({"digest": None, "content": "z" * 1000})
+    assert len(text) == core.DIGEST_MAX + 3
 
 
 def test_hygiene_mide_el_avance_del_backfill_del_digest():
@@ -497,7 +497,7 @@ def test_hygiene_mide_el_avance_del_backfill_del_digest():
 # la ficha de la memoria no avisa de nada, simplemente enseña otra cosa.
 
 
-def _aristas(edges, a, b):
+def _edges(edges, a, b):
     """Aristas entre dos ids, en cualquier direccion."""
     return [e for e in edges
             if (e["source_id"], e["target_id"]) in ((a, b), (b, a))]
@@ -509,9 +509,9 @@ def test_grafo_una_relacion_sobre_v1_sale_sobre_v2():
     core.relation_add(str(a["id"]), str(b["id"]), "links_to")
     b2 = core.supersede(str(b["id"]), "grafo destino v2", title="g2")["memory"]
     edges = core.graph_edges()
-    assert _aristas(edges, str(a["id"]), str(b2["id"]))
+    assert _edges(edges, str(a["id"]), str(b2["id"]))
     # y NO sobre la version vieja, que es justo lo que un JOIN ingenuo dejaria colgando
-    assert not _aristas(edges, str(a["id"]), str(b["id"]))
+    assert not _edges(edges, str(a["id"]), str(b["id"]))
 
 
 def test_grafo_cadena_larga_en_los_dos_extremos_da_UNA_arista():
@@ -522,7 +522,7 @@ def test_grafo_cadena_larga_en_los_dos_extremos_da_UNA_arista():
     a3 = core.supersede(str(a2["id"]), "cadena a v3", title="ca")["memory"]
     b2 = core.supersede(str(b1["id"]), "cadena b v2", title="cb")["memory"]
     b3 = core.supersede(str(b2["id"]), "cadena b v3", title="cb")["memory"]
-    assert len(_aristas(core.graph_edges(), str(a3["id"]), str(b3["id"]))) == 1
+    assert len(_edges(core.graph_edges(), str(a3["id"]), str(b3["id"]))) == 1
 
 
 def test_grafo_dos_relaciones_que_colapsan_dan_n_2():
@@ -534,7 +534,7 @@ def test_grafo_dos_relaciones_que_colapsan_dan_n_2():
     core.relation_add(str(a1["id"]), str(b["id"]), "links_to")
     a2 = core.supersede(str(a1["id"]), "colapso a v2", title="cla")["memory"]
     core.relation_add(str(a2["id"]), str(b["id"]), "links_to")
-    ar = _aristas(core.graph_edges(), str(a2["id"]), str(b["id"]))
+    ar = _edges(core.graph_edges(), str(a2["id"]), str(b["id"]))
     assert len(ar) == 1
     assert ar[0]["n"] == 2
 
@@ -547,16 +547,16 @@ def test_grafo_relacion_entre_dos_versiones_de_la_misma_nota_NO_sale():
     core.relation_add(str(a1["id"]), str(a2["id"]), "links_to")
     for e in core.graph_edges():
         assert e["source_id"] != e["target_id"]
-    assert not _aristas(core.graph_edges(), str(a2["id"]), str(a2["id"]))
+    assert not _edges(core.graph_edges(), str(a2["id"]), str(a2["id"]))
 
 
 def test_grafo_relacion_tombstoneada_no_sale():
     a = core.add("tomb rel a", title="tra")["memory"]
     b = core.add("tomb rel b", title="trb")["memory"]
     rel = core.relation_add(str(a["id"]), str(b["id"]), "links_to")
-    assert _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+    assert _edges(core.graph_edges(), str(a["id"]), str(b["id"]))
     core.tombstone(rel["id"], target_kind="relation")
-    assert not _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+    assert not _edges(core.graph_edges(), str(a["id"]), str(b["id"]))
 
 
 def test_grafo_relacion_a_una_memoria_RETIRADA_no_sale():
@@ -566,18 +566,18 @@ def test_grafo_relacion_a_una_memoria_RETIRADA_no_sale():
     el grafo pinta un nodo que ya no existe. Medido contra produccion el 04/09/2026: la version
     con coalesce daba 489 aristas y la correcta 479, o sea diez nodos fantasma.
     """
-    a = core.add("viva que apunta a una muerta", title="vqm")["memory"]
+    a = core.add("alive que apunta a una muerta", title="vqm")["memory"]
     b = core.add("memoria que sera retirada", title="mqr")["memory"]
     core.relation_add(str(a["id"]), str(b["id"]), "links_to")
-    assert _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+    assert _edges(core.graph_edges(), str(a["id"]), str(b["id"]))
     core.tombstone(str(b["id"]))
-    assert not _aristas(core.graph_edges(), str(a["id"]), str(b["id"]))
+    assert not _edges(core.graph_edges(), str(a["id"]), str(b["id"]))
 
 
 def test_grafo_una_nota_sin_relaciones_no_aparece():
     a = core.add("sola en el mundo", title="sol")["memory"]
-    tocados = {e["source_id"] for e in core.graph_edges()} | {e["target_id"] for e in core.graph_edges()}
-    assert str(a["id"]) not in tocados
+    touched = {e["source_id"] for e in core.graph_edges()} | {e["target_id"] for e in core.graph_edges()}
+    assert str(a["id"]) not in touched
 
 
 def test_grafo_coherencia_con_relation_list():
@@ -594,13 +594,13 @@ def test_grafo_coherencia_con_relation_list():
     b2 = core.supersede(str(b["id"]), "coherencia vecino uno v2", title="c1")["memory"]
 
     aid = str(a["id"])
-    por_ficha = {r["target_id"] if r["direction"] == "out" else r["source_id"]
+    by_card = {r["target_id"] if r["direction"] == "out" else r["source_id"]
                  for r in core.relation_list(aid)}
-    por_grafo = {e["target_id"] if e["source_id"] == aid else e["source_id"]
+    by_graph = {e["target_id"] if e["source_id"] == aid else e["source_id"]
                  for e in core.graph_edges()
                  if aid in (e["source_id"], e["target_id"])}
-    assert por_ficha == por_grafo
-    assert str(b2["id"]) in por_grafo
+    assert by_card == by_graph
+    assert str(b2["id"]) in by_graph
 
 
 def test_grafo_links_extrae_desaliasa_y_deduplica():

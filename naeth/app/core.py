@@ -344,31 +344,31 @@ def _like_escape(s: str) -> str:
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _filtros(path_prefix: str | None, tags: list[str] | None,
+def _filters(path_prefix: str | None, tags: list[str] | None,
              memory_type: str | None, since: str | None) -> tuple[str, dict]:
     """Fragmento de WHERE comun a las TRES consultas de `search`, con sus parametros.
 
     Se devuelve para pegarlo con AND detras de un WHERE que ya existe, o vacio si no hay filtros,
     de modo que una llamada sin filtros produce exactamente el SQL de antes.
     """
-    frag: list[str] = []
+    parts: list[str] = []
     params: dict = {}
     if path_prefix:
         # El patron se construye aqui y viaja como PARAMETRO, asi que el SQL no lleva ningun `%`
         # literal que psycopg pudiera confundir con un placeholder.
-        frag.append(r"path LIKE %(f_path)s ESCAPE '\'")
+        parts.append(r"path LIKE %(f_path)s ESCAPE '\'")
         params["f_path"] = _like_escape(path_prefix) + "%"
     if tags:
         # `@>` es "los tiene TODOS", no "alguno": filtrar por dos tags acota, no amplia.
-        frag.append("tags @> %(f_tags)s")
+        parts.append("tags @> %(f_tags)s")
         params["f_tags"] = list(tags)
     if memory_type:
-        frag.append("memory_type = %(f_type)s")
+        parts.append("memory_type = %(f_type)s")
         params["f_type"] = memory_type
     if since:
-        frag.append("created_at >= %(f_since)s")
+        parts.append("created_at >= %(f_since)s")
         params["f_since"] = since
-    return (" AND " + " AND ".join(frag)) if frag else "", params
+    return (" AND " + " AND ".join(parts)) if parts else "", params
 
 
 def search(query: str, *, k: int = 10, q_embedding: list[float] | None = None,
@@ -388,7 +388,7 @@ def search(query: str, *, k: int = 10, q_embedding: list[float] | None = None,
     sin su correccion al lado. El historico se alcanza por `get`, que marca `is_current` y trae la
     cadena.
     """
-    where, fp = _filtros(path_prefix, tags, memory_type, since)
+    where, fp = _filters(path_prefix, tags, memory_type, since)
     with conn() as c:
         if q_embedding is None:
             return c.execute(
@@ -451,13 +451,13 @@ def tree() -> list[dict]:
 # resuelve cada extremo con `_current_of`, que es un CTE recursivo, asi que para las ~480 aristas
 # del corpus serian ~960 consultas recursivas. Aqui la resolucion se hace UNA vez para todos.
 
-_GRAFO_SQL = """
+_GRAPH_SQL = """
 WITH RECURSIVE fwd(root, node) AS (
         SELECT m.id, m.id FROM memory m
         UNION
         SELECT f.root, s.child_id FROM fwd f JOIN supersession s ON s.parent_id = f.node
     ),
-    hoja AS (
+    leaf AS (
         SELECT DISTINCT ON (f.root) f.root, f.node AS cur
         FROM fwd f JOIN memory_current mc ON mc.id = f.node
         ORDER BY f.root, mc.created_at DESC, mc.id
@@ -469,8 +469,8 @@ WITH RECURSIVE fwd(root, node) AS (
     )
 SELECT s.cur AS source_id, t.cur AS target_id, v.predicate, count(*) AS n
 FROM viva v
-JOIN hoja s ON s.root = v.source_id
-JOIN hoja t ON t.root = v.target_id
+JOIN leaf s ON s.root = v.source_id
+JOIN leaf t ON t.root = v.target_id
 WHERE s.cur <> t.cur
 GROUP BY 1, 2, 3
 """
@@ -485,8 +485,8 @@ def graph_edges() -> list[dict]:
     `memory_current`: el punto es alcanzar la vigente desde la version vieja que tiene la
     relacion colgada. Medido con EXPLAIN ANALYZE el 04/09/2026: 5,1 ms.
 
-    ⚠ EL JOIN CONTRA `hoja` ES UN JOIN Y NO UN LEFT JOIN, y esa letra cambia el resultado. Con
-    LEFT JOIN mas `coalesce(hoja.cur, m.id)`, una relacion cuyo extremo esta TOMBSTONEADO (o
+    ⚠ EL JOIN CONTRA `leaf` ES UN JOIN Y NO UN LEFT JOIN, y esa letra cambia el resultado. Con
+    LEFT JOIN mas `coalesce(leaf.cur, m.id)`, una relacion cuyo extremo esta TOMBSTONEADO (o
     cuya cadena no llega a ninguna vigente) resuelve a si misma y el grafo acaba pintando nodos
     que ya no existen. Medido el 04/09/2026 sobre las 22 memorias retiradas: la version con
     coalesce daba 489 aristas y la correcta 479, o sea DIEZ nodos fantasma.
@@ -503,7 +503,7 @@ def graph_edges() -> list[dict]:
     nada avisaria.
     """
     with conn() as c:
-        rows = c.execute(_GRAFO_SQL).fetchall()
+        rows = c.execute(_GRAPH_SQL).fetchall()
         return [{"source_id": str(r["source_id"]), "target_id": str(r["target_id"]),
                  "predicate": r["predicate"], "n": r["n"]} for r in rows]
 
@@ -526,12 +526,12 @@ def graph_links() -> dict[str, list[str]]:
     """
     with conn() as c:
         rows = c.execute(
-            r"""SELECT m.id, array_agg(DISTINCT split_part(d[1], '|', 1)) AS destinos
+            r"""SELECT m.id, array_agg(DISTINCT split_part(d[1], '|', 1)) AS targets
                FROM memory_current m,
                     LATERAL regexp_matches(m.content, '\[\[([^\]]+)\]\]', 'g') d
                GROUP BY m.id""",
         ).fetchall()
-        return {str(r["id"]): r["destinos"] for r in rows}
+        return {str(r["id"]): r["targets"] for r in rows}
 
 
 def graph_knn(memory_id: str, k: int = 8) -> list[dict]:
@@ -568,10 +568,10 @@ def _top(c, sql: str, limit: int, params: dict | None = None) -> dict:
     entera, y entonces el inventario miente por omision justo en la cola, que es donde viven las
     rarezas que uno busca.
     """
-    filas = c.execute(sql, params or {}).fetchall()
-    top = [{"k": r["k"], "n": r["n"]} for r in filas[:limit]]
-    return {"top": top, "distintos": len(filas),
-            "resto": sum(r["n"] for r in filas[limit:]) if len(filas) > limit else 0}
+    rows = c.execute(sql, params or {}).fetchall()
+    top = [{"k": r["k"], "n": r["n"]} for r in rows[:limit]]
+    return {"top": top, "distintos": len(rows),
+            "resto": sum(r["n"] for r in rows[limit:]) if len(rows) > limit else 0}
 
 
 def stats(mode: str = "counts", limit: int = 15) -> dict:
@@ -617,16 +617,16 @@ def stats(mode: str = "counts", limit: int = 15) -> dict:
 def _stats_hygiene(c, limit: int) -> dict:
     """Lo que esta mal Y es indiscutible que esta mal. Cada lista va con muestra acotada."""
     def ids(sql: str, params: dict | None = None) -> dict:
-        filas = c.execute(sql, params or {}).fetchall()
-        return {"n": len(filas),
+        rows = c.execute(sql, params or {}).fetchall()
+        return {"n": len(rows),
                 "muestra": [{"id": str(r["id"]), "title": r.get("title"),
-                             "path": r.get("path")} for r in filas[:limit]]}
+                             "path": r.get("path")} for r in rows[:limit]]}
 
     # Wikilinks que NO resuelven. Se miran las dos formas que apuntan por id (uuid entero y
     # prefijo de 8); la de titulo y la de slug se quedan fuera A PROPOSITO: parte de los slugs
     # apuntan a la memoria NATIVA de Claude Code, que no vive aqui, y marcarlos como rotos seria
     # inventarse un problema. Es el mismo criterio que ya aplica `wikilinks.ts` en el visor.
-    rotos = c.execute(
+    broken = c.execute(
         r"""WITH l AS (
                 SELECT m.id, m.title, m.path,
                        split_part((regexp_matches(m.content,'\[\[([^\]]+)\]\]','g'))[1],'|',1) AS dest
@@ -651,11 +651,11 @@ def _stats_hygiene(c, limit: int) -> dict:
     # `memory_stats hygiene` funcionaria aqui y devolveria un error alli. Se comprueba ANTES de
     # lanzar la consulta, y no con un try: una consulta que falla aborta la transaccion y se lleva
     # por delante todo lo que venga detras.
-    tiene_levenshtein = c.execute(
+    has_levenshtein = c.execute(
         "SELECT count(*) > 0 AS ok FROM pg_proc WHERE proname = 'levenshtein'"
     ).fetchone()["ok"]
 
-    erratas = [] if not tiene_levenshtein else c.execute(
+    typos = [] if not has_levenshtein else c.execute(
         """WITH sub AS (
                SELECT split_part(path,'/',1) AS proj, split_part(path,'/',2) AS sub, count(*) AS n
                FROM memory_current WHERE path IS NOT NULL GROUP BY 1,2
@@ -667,14 +667,14 @@ def _stats_hygiene(c, limit: int) -> dict:
            ORDER BY 3, 1"""
     ).fetchall()
 
-    cadenas = c.execute(
+    chains = c.execute(
         """WITH RECURSIVE h AS (
                SELECT id AS head, id AS node, 1 AS n FROM memory_current
                UNION ALL
                SELECT h.head, s.parent_id, h.n + 1 FROM h JOIN supersession s ON s.child_id = h.node
-           ), largo AS (SELECT head, max(n) AS versiones FROM h GROUP BY 1)
+           ), longest AS (SELECT head, max(n) AS versiones FROM h GROUP BY 1)
            SELECT l.head AS id, m.title, m.path, l.versiones
-           FROM largo l JOIN memory_current m ON m.id = l.head
+           FROM longest l JOIN memory_current m ON m.id = l.head
            WHERE l.versiones >= 5 ORDER BY l.versiones DESC LIMIT %(lim)s""",
         {"lim": limit},
     ).fetchall()
@@ -705,17 +705,17 @@ def _stats_hygiene(c, limit: int) -> dict:
                             WHERE NOT EXISTS (SELECT 1 FROM relation r
                                               WHERE r.source_id = m.id OR r.target_id = m.id)"""),
         "wikilinks_rotos": {
-            "n": len(rotos),
+            "n": len(broken),
             "muestra": [{"id": str(r["id"]), "title": r["title"], "destino": r["dest"]}
-                        for r in rotos[:limit]],
+                        for r in broken[:limit]],
         },
         "rutas_sospechosas": [{"ruta": r["ruta"], "parecido_a": r["parecido_a"],
-                               "distancia": r["distancia"]} for r in erratas]
-        if tiene_levenshtein else
+                               "distancia": r["distancia"]} for r in typos]
+        if has_levenshtein else
         {"no_disponible": "falta la extension fuzzystrmatch en este nodo; el resto de la "
                           "higiene no depende de ella"},
         "cadenas_largas": [{"id": str(r["id"]), "title": r["title"], "path": r["path"],
-                            "versiones": r["versiones"]} for r in cadenas],
+                            "versiones": r["versiones"]} for r in chains],
         "sin_digest": {
             "faltan": dg["faltan"], "hechos": dg["hechos"], "de": dg["total"],
             "pct_hecho": round(100.0 * dg["hechos"] / dg["total"]) if dg["total"] else 0,

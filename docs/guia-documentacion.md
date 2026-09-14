@@ -64,7 +64,13 @@ entre llaves en JavaScript (`{string[]}`) y no van en TypeScript.
   (`espera`, `cadena`, `hoja`, `era_mirror`), y el visor entero (`pintor.ts`, `Lienzo.svelte`,
   las vistas `Ajustes` y `Memoria`). Dos razones: el símbolo es por lo que se busca en CodeDoc
   Archive, y `chain` no encuentra `cadena`; y en cualquier equipo de backend los nombres van en
-  inglés y la prosa en el idioma del equipo. **En Naeth y en CENIT se hace una pasada entera**
+  inglés y la prosa en el idioma del equipo. Una excepción, decidida el 14/09 en la pasada de
+  Naeth: **el nombre de un test es prosa** (`test_grafo_dos_relaciones_que_colapsan_dan_n_2` es la
+  frase que describe el caso y así se lee en el informe de pytest), y se queda en castellano; sus
+  locales, helpers y parámetros son código y van en inglés. Las claves JSON que ya salen por la
+  API o las tools (`filas`, `resto`, `vigentes`, `retiradas`, `pendientes_embed`, `rutas_sospechosas`)
+  son superficie pública y no se renombran en una pasada: cambiarlas es un cambio de contrato con el
+  visor y con los agentes, y se hace aparte y a propósito. **En Naeth y en CENIT se hace una pasada entera**
   (decidido el 13/09/2026 por la noche: Naeth el 14/09, repo completo incluido el visor; CENIT
   cuando toque documentarlo en la sub-fase 3 de CodeDoc Archive). En los demás repos, lo viejo
   se renombra al tocarlo. ⚠ La pasada del visor es otra escala que la del backend: sus nombres

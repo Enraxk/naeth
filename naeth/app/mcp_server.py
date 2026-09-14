@@ -72,18 +72,18 @@ def _retry_discovery(build, *, attempts=None, delay=None, delay_max=None, sleep=
     levantar, no permiso para servir sin el.
     """
     attempts = OIDC_DISCOVERY_ATTEMPTS if attempts is None else attempts
-    espera = OIDC_DISCOVERY_DELAY if delay is None else delay
-    techo = OIDC_DISCOVERY_DELAY_MAX if delay_max is None else delay_max
-    for intento in range(1, attempts + 1):
+    wait = OIDC_DISCOVERY_DELAY if delay is None else delay
+    cap = OIDC_DISCOVERY_DELAY_MAX if delay_max is None else delay_max
+    for attempt in range(1, attempts + 1):
         try:
             return build()
         except Exception as e:      # cualquier fallo de red o HTTP del IdP
-            if intento >= attempts:
+            if attempt >= attempts:
                 raise
-            print(f"[naeth] discovery del IdP fallido ({intento}/{attempts}): "
-                  f"{type(e).__name__}: {e}. Reintento en {espera:.1f}s", flush=True)
-            sleep(espera)
-            espera = min(espera * 2, techo)
+            print(f"[naeth] discovery del IdP fallido ({attempt}/{attempts}): "
+                  f"{type(e).__name__}: {e}. Reintento en {wait:.1f}s", flush=True)
+            sleep(wait)
+            wait = min(wait * 2, cap)
     raise AssertionError("inalcanzable: el ultimo intento devuelve o propaga")
 
 
@@ -338,7 +338,7 @@ async def memory_add(content: str, title: str | None = None,
             "digest": m.get("digest")}
 
 
-def _resumen(h: dict[str, Any]) -> tuple[str | None, str]:
+def _summarize(h: dict[str, Any]) -> tuple[str | None, str]:
     """(texto, procedencia) del resumen de un resultado. `written` o `excerpt`.
 
     El par campo + procedencia esta calcado de `model`/`model_source` del Paso 10, y por lo mismo:
@@ -361,9 +361,9 @@ def _resumen(h: dict[str, Any]) -> tuple[str | None, str]:
     if len(txt) <= core.DIGEST_MAX:
         return (txt or None), "excerpt"
     # Se corta en el ultimo espacio para no partir una palabra por la mitad.
-    corte = txt[:core.DIGEST_MAX]
-    esp = corte.rfind(" ")
-    return (corte[:esp] if esp > core.DIGEST_MAX // 2 else corte).rstrip() + "...", "excerpt"
+    cut = txt[:core.DIGEST_MAX]
+    space = cut.rfind(" ")
+    return (cut[:space] if space > core.DIGEST_MAX // 2 else cut).rstrip() + "...", "excerpt"
 
 
 def _hit(h: dict[str, Any]) -> dict[str, Any]:
@@ -373,9 +373,9 @@ def _hit(h: dict[str, Any]) -> dict[str, Any]:
     /api/search del visor la consume tal cual y se romperia. El coste de contexto que la fase viene
     a bajar esta aqui, en lo que cruza al agente, no en lo que la base devuelve.
     """
-    texto, origen = _resumen(h)
+    text, source = _summarize(h)
     return {"id": str(h["id"]), "title": h["title"],
-            "digest": texto, "digest_source": origen,
+            "digest": text, "digest_source": source,
             "path": h.get("path"), "memory_type": h["memory_type"], "tags": h["tags"],
             "created_at": str(h["created_at"]) if h.get("created_at") else None,
             "score": float(h["score"]) if h.get("score") else None}
@@ -652,7 +652,7 @@ async def api_add(request: Request) -> Response:
     Notes:
         Escribir desde el visor firma como humano aunque escriba un agente, porque el visor no
         tiene forma de saber quién teclea. Y el digest es opcional por aquí: una nota que entre
-        sin él sale en `memory_search` con un `excerpt`, ver `_resumen`.
+        sin él sale en `memory_search` con un `excerpt`, ver `_summarize`.
     """
     b = await request.json()
     if not b.get("content"):
