@@ -323,6 +323,11 @@ ampliado falla, el grafo del visor se queda sin aristas prosa-código, no sin gr
 
 ### Sub-fase 7 · El visor: la biblioteca y los bloques en el grafo
 
+(Desde el 14/09 a las 20:29 esta sub-fase tiene diseño propio antes del código: Eneko quiere las
+vistas de CDA diseñadas en Pencil con animaciones propias. Va precedida de una discovery cuyo brief
+está en [`cda-vista-diseno-brief-2026-09-14.md`](cda-vista-diseno-brief-2026-09-14.md); se hace
+después del visor de la 2b y no depende de las sub-fases 4 a 6.)
+
 **El nombre, decidido el 10/09 a las 23:05**: **CodeDoc Archive**, sigla **CDA**. En el menú del
 visor va `CDA`, al lado de Memoria y Grafo; el título de la vista lleva el nombre completo; la ruta
 es `#/cda`. Las tools siguen en inglés con prefijo `code_` (`code_search`, `code_get`, `code_list`,
