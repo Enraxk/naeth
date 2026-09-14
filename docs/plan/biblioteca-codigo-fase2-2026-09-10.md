@@ -87,14 +87,33 @@ versión la da `(repo, symbol, extracted_at)`.
 | `id` uuid | PK |
 | `block_id` uuid | FK a `code_block(id)`; la anotación sigue al bloque de esa versión |
 | `memory_id` uuid, nullable | FK a `memory(id)`: la nota de prosa que explica o cita el bloque |
-| `kind` text | `important` (la marca), `summary` (el resumen a mano para los bloques que no caben en el embedding), `note` (idea L, "leí esto y no me cuadra"), `link` (solo une con `memory_id`) |
+| `kind` text | `important` (la marca), `summary` (el resumen a mano para los bloques que no caben en el embedding), `note` (idea L, "leí esto y no me cuadra"), `link` (solo une con `memory_id`), y desde el 14/09 `script` (el guion de vídeo del bloque en JSON, firmado por el agente; ver la sub-fase 6b) |
 | `text` text, nullable | El contenido de `summary` y `note` |
 | `author` jsonb | Como `memory.author` (`schema.sql:47`) |
 | `created_at` | |
 
-Las aristas prosa-código del grafo son las filas con `memory_id`. Las de código-código (imports,
-llamadas) no entran en esta fase: griffe da los imports por módulo y es trabajo de una fase
-posterior.
+Las aristas prosa-código del grafo son las filas con `memory_id`. Las de código-código entraban en
+"una fase posterior" hasta el 14/09; ese día se decidió que entran aquí, como tercera tabla, porque
+"cómo encajan X, Y y Z" (vídeos, y el grafo sin vídeos) las necesita y extraerlas es barato: `ast` de
+la stdlib resuelve 106 aristas de llamada sobre las 99 funciones de `naeth/app` en 0,032 s
+([discovery de vídeos](../discovery/cda-videos-2026-09-14.md), §0 y §2).
+
+### `code_edge` · las llamadas entre bloques, extraídas, ADD-only (decidida el 14/09)
+
+| Columna | Qué |
+|---|---|
+| `id` uuid | PK |
+| `src_block` uuid | FK a `code_block(id)`, el que llama o importa |
+| `dst_block` uuid | FK a `code_block(id)`, el llamado o importado |
+| `kind` text | `calls`, `imports` |
+| `extracted_at` timestamptz | La pasada que la vio |
+
+Una fila por versión de origen: cuando `src_block` cambia de versión, la pasada escribe sus aristas
+de nuevo contra los `dst_block` vigentes. Sin `is_current` propio: una arista está viva si sus dos
+extremos lo están. Las llamadas a nombres que no son bloque (stdlib, terceros, funciones sin Doc)
+no se guardan: el grafo solo une lo que existe en la biblioteca. Los `imports` los da griffe por
+módulo; las `calls` las da `ast` por función, resolviendo `nombre` al mismo módulo y `modulo.nombre`
+al otro, que es lo que se midió el 14/09.
 
 ### El sync
 
@@ -204,23 +223,27 @@ el despliegue sí es un despliegue del reconciler y sigue su procedimiento (los 
 `ownership` sin cambiar).
 **Toca producción**: sí, el reconciler de CENIT. No el mismo día que la fase 1 del roadmap.
 
-### Sub-fase 4 · Las dos tablas, clasificadas antes de existir
+### Sub-fase 4 · Las tres tablas, clasificadas antes de existir
+
+(Eran dos hasta el 14/09; `code_edge` entra aquí por la decisión de ese día, y el `kind = script`
+de `code_annotation` también, porque las dos cosas se deciden antes de que el esquema exista.)
 
 **Qué se hace**, en este orden y no en otro:
-1. `code_block` y `code_annotation` en `MERGE_TABLES` de `sync.py:82-88`, con un test en
+1. `code_block`, `code_annotation` y `code_edge` en `MERGE_TABLES` de `sync.py:82-88`, con un test en
    `test_handoff.py` que las incluya en `TABLAS` (`:21`). Desplegar el reconciler en los dos nodos.
    **Antes** de crear nada: `preflight` aborta el handoff ante una tabla sin clasificar
    (`sync.py:332-345`), y el orden inverso repite `_emdash_backup` del 30/07 (`sync.py:106-110`).
-2. `schema.sql` con las dos tablas y sus índices (HNSW parcial sobre `is_current`, GIN sobre `tsv`,
-   btree sobre `(repo, symbol)` y `(repo, file)`), y la migración `007-code.sql` con
+2. `schema.sql` con las tres tablas y sus índices (HNSW parcial sobre `is_current`, GIN sobre `tsv`,
+   btree sobre `(repo, symbol)` y `(repo, file)`, y en `code_edge` btree sobre `src_block` y sobre
+   `dst_block`), y la migración `007-code.sql` con
    `CREATE TABLE IF NOT EXISTS`. No toca `memory_current` ni columnas existentes, así que no aplica
    la trampa de la vista (`006-digest.sql:40-47`) ni la de la staging con `LIKE` (`:18-24`). Sí hay
    que levantar el read-only en el nodo que no manda para la sentencia, como en la 006 (`:25-27`).
-3. `_DOMAIN_TABLES` de `conftest.py:26` con las dos tablas, y los tests de `core` para las
+3. `_DOMAIN_TABLES` de `conftest.py:26` con las tres tablas, y los tests de `core` para las
    funciones de la sub-fase 6 se escriben aquí contra el esquema nuevo.
 4. La decisión de `is_current` del §1 (default `true` y la pasada baja las viejas, o recalculada al
    arrancar), tomada con lo que diga la sub-fase 0.5 sobre el coste.
-**Entregable**: las dos tablas en los dos nodos, vacías; `memory_stats` y el handoff siguen
+**Entregable**: las tres tablas en los dos nodos, vacías; `memory_stats` y el handoff siguen
 funcionando; la suite con el esquema nuevo en verde.
 **Cómo se comprueba**: `SELECT table_name FROM information_schema.tables WHERE table_schema='memory'`
 en los dos nodos las lista; un `handoff --dry-run` no aborta en el preflight; la suite en verde.
@@ -236,8 +259,11 @@ arriba.
 griffe sobre el paquete; aplica el filtro (docstring y más de cinco líneas: `endlineno - lineno >=
 5`); recorta `source` del fichero; calcula `file_sha256`, `commit` y `content_hash`; embebe
 `doc + source` con `embed_passages`; inserta lo que no exista por `content_hash` y baja `is_current`
-de la versión anterior de `(repo, symbol)`; y escribe un resumen por consola con lo insertado, lo
-igual y lo retirado. Idempotente: la segunda pasada sobre el mismo commit inserta cero.
+de la versión anterior de `(repo, symbol)`; **extrae las aristas** (`calls` con `ast` sobre cada
+función, `imports` con griffe por módulo) y escribe en `code_edge` las que unen dos bloques de la
+biblioteca, contra los `dst_block` vigentes (decidido el 14/09); y escribe un resumen por consola
+con lo insertado, lo igual, lo retirado y las aristas. Idempotente: la segunda pasada sobre el
+mismo commit inserta cero, aristas incluidas.
 **Traducción**: `doc_translated` se genera en la pasada para las filas nuevas. Quién traduce es la
 decisión abierta de esta sub-fase, y tiene una restricción que no estaba escrita: **GridWatch es
 código de cliente** y no sale de la máquina, por la misma regla que el audio de un cliente
@@ -252,8 +278,10 @@ calidad que pide una traducción técnica castellano-inglés, y cuánto tarda po
 investigación propia de media tarde, dentro de esta sub-fase. **Decidido el 10/09: se decide en la
 sub-fase 5, con esa medición delante.** El campo y la marca de derivado no cambian con la opción.
 **Entregable**: la pasada sobre `naeth/app` y `cenit_core` deja al menos 131 bloques en la tabla,
-con embedding y hash; la segunda pasada inserta cero; un cambio de una línea en `core.search`
-seguido de otra pasada crea una versión nueva y baja la vieja.
+con embedding y hash, y sus aristas (para `memory_search` tienen que salir `core.search`,
+`_embed_query` y `_hit`, que es lo que dio `ast` el 14/09); la segunda pasada inserta cero; un
+cambio de una línea en `core.search` seguido de otra pasada crea una versión nueva, baja la vieja y
+reescribe las aristas que salen de ella.
 **Cómo se comprueba**: los tres escenarios de arriba, con recuentos por SQL; y tests de `core` para
 el filtro, el hash y el paso a versión nueva, sobre un paquete de fixture de tres funciones.
 **Qué se rompe si falla**: una pasada no idempotente duplica bloques en cada ejecución; un filtro
@@ -267,6 +295,11 @@ mal puesto mete los 99 triviales. Los dos se ven en el recuento del primer escen
   vigente, calcada de `search` (`core.py:305-358`) con filtros dentro de cada rama; `code_get(id)`
   y `code_get_by(repo, symbol)`; `code_list(repo, file)`; `code_annotate(block_id, kind, text,
   memory_id)`.
+- `code_get` devuelve, además de doc, fuente y anotaciones: `lineno` y `endlineno` (el guion dice
+  "línea 425" y el render resalta la 425), `content_hash` (ata un vídeo a una versión), las aristas
+  de `code_edge` en las dos direcciones con símbolo y líneas del otro extremo, y `doc_sections`, el
+  docstring parseado por griffe con `parser="google"` (resumen, `Args`, `Returns`, `Notes`) calculado
+  al vuelo, sin columna. Decidido el 14/09 para los vídeos (sub-fase 6b); sirve igual al agente.
 - Tools MCP `code_search`, `code_get`, `code_list`, `code_annotate`, con `description` para el
   agente escrita como las de `memory_*` (`mcp_server.py:316-335` es el modelo), y docstring para el
   mantenedor según la guía. `code_search` devuelve símbolo, fichero, líneas, la primera frase de
@@ -274,7 +307,8 @@ mal puesto mete los 99 triviales. Los dos se ven en el recuento del primer escen
   contenedor ve el repo; si no, `commit`).
 - Rutas `/api/code/tree` (los bloques como filas de árbol, con el `path` de presentación
   `<repo>/code` del §0.2), `/api/code/{id}`, `/api/code/search`, y `/api/graph` ampliado con las
-  aristas de `code_annotation` que tengan `memory_id`.
+  aristas de `code_annotation` que tengan `memory_id` y con las de `code_edge` entre bloques
+  vigentes.
 - `memory_search` no cambia. La descripción de `memory_search` menciona que el código tiene su
   tool.
 **Entregable**: desde Claude Code, `code_search("reclamar jobs huérfanos lease")` devuelve
@@ -395,6 +429,7 @@ del 15/08.
 | 4 tablas | 3 (por el orden del `classify`) | sí, esquema | conjunto con 5 y 6 |
 | 5 extractor y traducción | 4, y la decisión de quién traduce | sí | conjunto |
 | 6 tools y rutas | 4, 5 | sí | conjunto |
+| 6b vídeos desde CDA (14/09) | 6 (`code_get` con aristas y `doc_sections`) | no: comando local, MP4 fuera del repo | |
 | 7 visor | 6 | sí, visor | `npm run build` |
 | 8 hooks | 6 (para `SessionStart`), 0 del cuaderno (volcado de `Stop`) | no | |
 | 9 Yogin | 6, y el extractor de JS | Yogin por su cauce | |
@@ -419,7 +454,18 @@ seis correctas, sin nada que dibujar): el nombre es **CodeDoc Archive, CDA**, co
 menú, el nombre completo en el título y ruta `#/cda`; y la traducción se decide en la sub-fase 5
 con la medición de un modelo local sobre la 3070 delante.
 
+**Decidido el 14/09 de 14:22 a 14:30, tras la [discovery de vídeos](../discovery/cda-videos-2026-09-14.md)**
+(dos rondas de AskUser): `code_edge` entra en la sub-fase 4 como tercera tabla; `script` entra en el
+vocabulario de `kind`; `code_get` devuelve líneas, hash, aristas y secciones del docstring; y los
+vídeos son la sub-fase 6b, con Remotion y Code Hike, sin voz por defecto (la de Eneko, opcional,
+encima), ritmo por tiempo de lectura, música de biblioteca libre pista a pista, y los MP4 fuera del
+repo. Todas las voces sintéticas probadas ese día (Piper, Kokoro, Qwen3-TTS, Chatterbox) quedan
+fuera.
+
 **Abierto, con dueño y momento**:
+- La ruta de la carpeta de vídeos fuera del repo: Eneko, antes de la sub-fase 6b.
+- Qué significa "que el vídeo se sienta bien" en pantalla (tema, tipografía, transiciones, música):
+  diseño del prototipo de la 6b, con Pencil si hace falta.
 - Quién traduce, y qué pasa con GridWatch: sub-fase 5, con la medición del modelo local (opción b).
 - El default de `is_current` en el nodo que recibe por sync: sub-fase 4, con el dato de la 0.5.
 - La cifra objetivo del simulacro repetido: Eneko, antes de la sub-fase 11.
@@ -540,3 +586,53 @@ mirar a mano, porque renombrarlas pierde los borradores y las preferencias guard
 y ahí conviene decidir si el nombre interno cambia y la clave se queda.
 **Toca producción**: `naeth/app` (despliegue de código, con el 8801 recargando) y el visor
 (`npm run build`). Un solo despliegue al terminar, con etiqueta.
+
+(El 14/09 no se hizo: se dedicó el día a la discovery de vídeos, por decisión de Eneko a las 13:02,
+porque su resultado podía cambiar el esquema de la sub-fase 4, y lo cambió. La 2b sigue siendo la
+siguiente.)
+
+### Sub-fase 6b · Vídeos desde CDA (decidida el 14/09, para después de la 6)
+
+Sale de la [discovery del 14/09](../discovery/cda-videos-2026-09-14.md), que midió en esta máquina
+las cuatro familias de pipeline y cinco voces, y montó un vídeo entero de `memory_search` (guion de
+`claude -p` con esquema JSON, 16 frases con rango de líneas; Remotion a 1080p30, un minuto de CPU
+por minuto de vídeo). Las decisiones de Eneko están en su §7. Criterio textual: "que el vídeo se
+sienta bien y coste 0 a poder ser".
+
+**Qué se hace**: un comando local (`python -m app.code video <repo> <symbol> [<symbol>...]`, o
+Node si Remotion lo pide) que: lee los bloques por `code_get` (fuente con líneas, `doc_sections`,
+anotaciones, aristas); pide el guion a `claude -p --output-format json --json-schema` bajo el plan
+Max (coste 0; sin `--bare`, que exige API key), con el contrato medido el 14/09: `title` y
+`sentences[{text, block, lines, show: code | title | transition}]`, con la regla de no pronunciar
+identificadores con puntos; guarda el guion como `code_annotation.kind = script` (JSON en `text`,
+`author` agente) atado al `content_hash`; calcula la línea de tiempo por **tiempo de lectura** (unos
+2 s más 0,35 s por palabra, ajustable) o, si Eneko graba su narración, por alineación forzada local
+de su audio contra el guion (`faster-whisper --palabras` en `F:\src\Whisper`, o MMS_FA, que solo
+vale para uso propio por su licencia CC-BY-NC); renderiza con **Remotion y el template oficial
+Code Hike** (transiciones de código por frame, resaltado de líneas, texto de la frase en pantalla,
+plano de título), con música de **biblioteca libre** (Pixabay Music, YouTube Audio Library, Free
+Music Archive) elegida pista a pista y con su licencia anotada; y deja el MP4 **fuera del repo**, en
+`<carpeta>/<repo>/<symbol>/<content_hash>.mp4`, con una anotación `link` con la ruta.
+**Sin voz por defecto.** Ninguna sintética: Piper, Kokoro, Qwen3-TTS y Chatterbox no pasaron el
+oído de Eneko el 14/09. La suya, opcional, encima.
+**Entra / no entra**: entra el comando, la plantilla de Remotion, el guardado del guion y la
+alineación de una narración propia; no entra ningún TTS, ni generar música, ni publicar los vídeos,
+ni el vídeo de código JavaScript (espera al extractor de la sub-fase 9).
+**Entregable**: el prototipo de la discovery, §5: un vídeo de "cómo encajan" `memory_search`,
+`core.search` y `_embed_query`, con transiciones entre los tres, texto en pantalla y música; y las
+medidas de esa sección (sirve más que leer: 2 de 3 preguntas de entrevista con el vídeo sin abrir
+el código; sincronía por debajo de 200 ms; menos de 15 min de pared por vídeo sin contar el render;
+cero frases que afirmen lo que el código no dice sobre bloques con `Notes:`).
+**Cómo se comprueba**: las medidas de arriba, hechas por Eneko; el guion en `code_annotation` con
+`kind = script` y el `content_hash` correcto; un segundo render del mismo guion sin volver a llamar
+a Claude; y que el mismo comando sobre un bloque sin `Notes:` deje escrito cuántas frases se
+inventan el porqué.
+**Qué se rompe si falla**: nada de producción: el comando es local y los MP4 están fuera del repo.
+Si el guion falla, la anotación `script` no se escribe. Si Remotion falla en Windows por los props
+inline (trampa documentada), van por fichero.
+**Toca producción**: no. Solo la anotación `script` y la `link`, que son filas normales de
+`code_annotation`.
+**Licencia**: Remotion es gratis para un autónomo; si el pipeline lo ejecutara una empresa de 4 o
+más personas, esa empresa necesita licencia, y la alternativa sin umbral es Hyperframes (Apache-2.0),
+probada el 14/09. Para código de cliente, todo local salvo el guion, que pasa por Claude Code como
+todo lo demás.
