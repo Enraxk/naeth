@@ -76,3 +76,34 @@ Sobre `docs/design/exports/P2-V2e-v2.png`, `P2-V2e-dudas.png` y `P2-V2e-v3.png`:
 Queda por dibujar de la pieza 2: la columna de código con todo junto (v4) y el margen abierto
 desde «3 usos» (V2b con V2c desplegable). Después, la pieza 3 (anotaciones y nota de prosa) y la
 biblioteca.
+
+## Anexo C · Decisiones de la pieza 3, anotaciones y nota de prosa (15/09/2026, 21:35)
+
+Sobre `docs/design/exports/P3-V1-cuaderno.png`, `P3-V2-en-linea.png`, `P3-V3-hilo.png` y sus
+`*-pulido.png`. Lo que dijo Eneko: V1 "limpio y fácil de entender, puede ser una opción base"; V2
+"puede ser muy interesante y útil, así se sabe perfectamente dónde está y por qué"; V3 "solo me
+parece útil si acabo teniendo un modelo en local que me responda". Y "les falta una pulidita a las
+tres", que es la segunda ronda.
+
+1. **V1 es la base.** Las anotaciones van al pie del bloque, como cuaderno de lectura: sin cajas,
+   icono, cabecera de una línea y texto con filete de cita; acciones (editar, enlazar, retirar)
+   solo al pasar el ratón; la marca «importante» es una entrada más y la estrella de la cabecera;
+   la nota de Naeth enlazada enseña título y digest con «abrir en Naeth»; anotar es un campo al
+   final con `☆ importante`, `⌘K enlazar nota` y `⌘↵ guardar`.
+2. **V2 entra como precisión opcional de la misma anotación, no como otro sistema.** Una anotación
+   puede llevar línea o no. Si la lleva, sale anclada en el código (filete en acento, ancla en el
+   gutter, `+` gris al pasar el ratón por una línea) y además en el cuaderno del pie con «en la
+   línea 440» como enlace. **Pide `line integer null` en `code_annotation`**, que el plan de la
+   sub-fase 4 no tiene: decisión pendiente antes de crear el esquema (sección 8).
+3. **V3, el hilo lateral, se aparca** hasta que haya un modelo que responda (local o en servidor
+   propio). Sin agente, V1 hace lo mismo con menos. Queda dibujado por si llega.
+4. **Vocabulario.** «Notas» son las `Notes:` del docstring (las cuenta el contador de la tira,
+   «4 · ⚠2»); «anotaciones» son la capa de Naeth (`code_annotation`); «nota de Naeth» o «nota
+   enlazada» es la memoria con `memory_id`. El chip de la cabecera pasa a decir «2 anotaciones ·
+   1 nota enlazada».
+
+Especulación de Eneko al hilo de V3, apuntada sin más: alquilar un servidor "que no se caiga nunca"
+para `naeth.dev`. A 15/09 `finally` ya es VPS y tiene los endpoints públicos; la pregunta sería
+quién manda y quién replica, que es lo que CENIT resuelve con el failover.
+
+Queda: la biblioteca (entrada a CDA, libro = repo).
