@@ -70,7 +70,14 @@ entre llaves en JavaScript (`{string[]}`) y no van en TypeScript.
   locales, helpers y parámetros son código y van en inglés. Las claves JSON que ya salen por la
   API o las tools (`filas`, `resto`, `vigentes`, `retiradas`, `pendientes_embed`, `rutas_sospechosas`)
   son superficie pública y no se renombran en una pasada: cambiarlas es un cambio de contrato con el
-  visor y con los agentes, y se hace aparte y a propósito. **En Naeth y en CENIT se hace una pasada entera**
+  visor y con los agentes, y se hace aparte y a propósito. Cuando se decide hacerlo, se hace **con
+  compatibilidad hacia atrás y no a pelo**: el 15/09/2026 las rutas del visor pasaron a inglés
+  (`#/home`, `#/graph`, `#/new`, `#/status`, `#/settings`) con las viejas redirigidas por
+  `legacyHash` en `router.svelte.ts`, y las claves de `localStorage` (`naeth-graph`,
+  `naeth-graph-panel`, `naeth-draft-new`, y los veinte mandos del catálogo) con migración al leer
+  que traduce lo guardado y no borra lo viejo (`migrateKeys` en `prefs-graph.svelte.ts`). Lo que
+  está en marcadores, en enlaces dentro de las notas o guardado en el navegador del usuario no se
+  rompe por un rename. **En Naeth y en CENIT se hace una pasada entera**
   (decidido el 13/09/2026 por la noche: Naeth el 14/09, repo completo incluido el visor; CENIT
   cuando toque documentarlo en la sub-fase 3 de CodeDoc Archive). En los demás repos, lo viejo
   se renombra al tocarlo. ⚠ La pasada del visor es otra escala que la del backend: sus nombres

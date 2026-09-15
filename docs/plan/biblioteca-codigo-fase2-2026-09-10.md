@@ -613,6 +613,45 @@ prueba (`"otro-cliente"`, "las 905 filas"); hubo que devolver 28 fragmentos de p
 a mano. En el visor, mañana, conviene renombrar símbolo a símbolo con el editor y no por regex.
 **Queda**: `naeth/web/src`, con el navegador abierto, y el despliegue único con etiqueta.
 
+**Verificado, el visor (martes 15/09/2026, 12:35 a 13:25).** Decisiones de Eneko al empezar:
+todo a cero aunque llevara dos días, y **las rutas por hash pasan a inglés con redirección y las
+claves de `localStorage` se migran al leer** (no se quedan en castellano como se había propuesto).
+Hecho en dos commits: `83f66b8` (rutas `#/home`, `#/graph`, `#/new`, `#/status`, `#/settings` con
+`legacyHash` y 6 tests; claves `naeth-graph`, `naeth-graph-panel`, `naeth-draft-new` con
+`migrateKeys` y 3 tests; 14 ficheros con `git mv`; unos 150 exportados con sus métodos y campos) y
+`bfda910` (unos 300 locales; los html del bench recuperan su prosa; verificación en el navegador
+contra el 8800: seis vistas, seis redirecciones, migración de ajustes y borrador, mini grafo, grafo
+en oscuro con los mismos 496 nodos y 685 vínculos). Check limpio, 272 tests. Los nombres de los
+tests siguen en castellano por la decisión del 14/09.
+
+**Lo estimado frente a lo real**, que era lo que se quería medir (plan del día en
+`~/.claude/plans/`, estimación escrita a las 12:25 con base de 0,8 min por identificador):
+
+| Paso | Estimado | Real | Factor |
+|---|---|---|---|
+| 1. Rutas con redirección y test | 1 h | 5 min | 12x menos |
+| 2. Prefs con migración y tests | 1 h | 12 min (más 20 min esperando un permiso) | 5x menos |
+| 3. Ficheros e imports | 30 min | 3 min | 10x menos |
+| 4. Exportados (150) | 2 h | 8 min | 15x menos |
+| 5. Locales (300) | 4 h | 6 min de rename, 20 min de arreglar prosa | 9x menos |
+| 6. Navegador | 1 h | 7 min | 8x menos |
+| Días 1 y 2, sin despliegue | 9 h 45 min | **50 min** | **12x menos** |
+
+La base de 0,8 min por identificador era falsa por un orden de magnitud: valía para renombrar
+uno a uno con el editor, y lo que se hizo fue un script por lotes con revisión del diff. Lo que
+sí costó tiempo fue lo no estimado: **la prosa**. Tres veces el rename entró en comentarios de
+bloque sin asterisco, texto de plantilla, cadenas y nombres de tests, y hubo que deshacerlo; una
+vez a mano (28 fragmentos el 14/09), una con un script sobre el diff, y una volviendo al commit y
+rehaciendo con un script que salta comentarios de bloque, plantillas y cadenas (`ren2.py`, en el
+scratchpad de la sesión, no en el repo). Para la sub-fase 3 (CENIT): usar ese script desde el
+principio, y contar la revisión de prosa como la mitad del tiempo, no como un resto.
+
+En dinero, a 50 EUR/h: lo estimado eran 563 EUR; lo real, 42 EUR por horas. A precio fijo sobre
+la estimación se habría cobrado 563 por 50 minutos, o sea 675 EUR/h. Esta vez la sobreestimación
+era del lado del fijo; el 14/09, con "un día" para el visor, no había estimación medida en ningún
+lado. La regla que queda: **toda estimación lleva su base y su rango, y al cerrar se apunta lo real
+al lado**, como aquí.
+
 ### Sub-fase 6b · Vídeos desde CDA (decidida el 14/09, para después de la 6)
 
 Sale de la [discovery del 14/09](../discovery/cda-videos-2026-09-14.md), que midió en esta máquina
