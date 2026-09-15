@@ -17,13 +17,13 @@
 
 import type { GraphEdge, GraphModel } from './graph'
 
-export interface Punto {
+export interface Point {
   x: number
   y: number
 }
 
-export interface Colocacion {
-  pos: Map<string, Punto>
+export interface Placement {
+  pos: Map<string, Point>
   /** Tamaño total del lienzo que hace falta para dibujarlo entero. */
   ancho: number
   alto: number
@@ -32,7 +32,7 @@ export interface Colocacion {
 }
 
 /** PRNG de 32 bits sembrado. Lo unico que se le pide es ser estable entre recargas. */
-export function sembrado(semilla: number): () => number {
+export function seededRandom(semilla: number): () => number {
   let a = semilla >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0
@@ -43,7 +43,7 @@ export function sembrado(semilla: number): () => number {
 }
 
 /** Semilla estable a partir del id: mismo nodo, misma posicion de partida, siempre. */
-export function semillaDe(id: string): number {
+export function seedOf(id: string): number {
   let h = 2166136261
   for (let i = 0; i < id.length; i++) {
     h ^= id.charCodeAt(i)
@@ -60,9 +60,9 @@ export function semillaDe(id: string): number {
  * seria complejidad sin problema que resolver. Si algun dia la componente mayor pasa de unos
  * 1.500 nodos, esta es la linea que hay que cambiar.
  */
-function forceLocal(ids: string[], aristas: GraphEdge[], iteraciones: number): Map<string, Punto> {
+function forceLocal(ids: string[], edges: GraphEdge[], iteraciones: number): Map<string, Point> {
   const n = ids.length
-  const pos = new Map<string, Punto>()
+  const pos = new Map<string, Point>()
   if (n === 0) return pos
 
   // Un nodo suelto no necesita simulacion, y dos tampoco: se colocan y ya.
@@ -74,7 +74,7 @@ function forceLocal(ids: string[], aristas: GraphEdge[], iteraciones: number): M
   const radio = Math.sqrt(area) / 2
 
   for (const id of ids) {
-    const r = sembrado(semillaDe(id))
+    const r = seededRandom(seedOf(id))
     const ang = r() * Math.PI * 2
     const d = Math.sqrt(r()) * radio
     pos.set(id, { x: Math.cos(ang) * d, y: Math.sin(ang) * d })
@@ -85,11 +85,11 @@ function forceLocal(ids: string[], aristas: GraphEdge[], iteraciones: number): M
   }
 
   const dentro = new Set(ids)
-  const eds = aristas.filter((e) => dentro.has(e.source) && dentro.has(e.target))
+  const eds = edges.filter((e) => dentro.has(e.source) && dentro.has(e.target))
   let t = radio / 4
 
   for (let it = 0; it < iteraciones; it++) {
-    const dsp = new Map<string, Punto>(ids.map((id) => [id, { x: 0, y: 0 }]))
+    const dsp = new Map<string, Point>(ids.map((id) => [id, { x: 0, y: 0 }]))
 
     for (let i = 0; i < n; i++) {
       const a = pos.get(ids[i])!
@@ -149,7 +149,7 @@ function forceLocal(ids: string[], aristas: GraphEdge[], iteraciones: number): M
 }
 
 /** Caja que ocupa un conjunto de puntos, con margen. */
-function caja(puntos: Punto[], margen: number) {
+function bounds(puntos: Point[], margen: number) {
   const xs = puntos.map((p) => p.x)
   const ys = puntos.map((p) => p.y)
   const x0 = Math.min(...xs) - margen
@@ -166,10 +166,10 @@ function caja(puntos: Punto[], margen: number) {
  * y esta bien que los deje: un hueco entre dos islas se lee como separacion, que es justo lo que
  * son.
  */
-export function colocar(
+export function place(
   model: GraphModel,
   opts: { ancho?: number; iteraciones?: number } = {},
-): Colocacion {
+): Placement {
   const anchoMax = opts.ancho ?? 1600
   const iteraciones = opts.iteraciones ?? 160
 
@@ -180,8 +180,8 @@ export function colocar(
   }
 
   const grupos = [...porComp.entries()].sort((a, b) => b[1].length - a[1].length)
-  const pos = new Map<string, Punto>()
-  const cajas: Colocacion['cajas'] = []
+  const pos = new Map<string, Point>()
+  const cajas: Placement['cajas'] = []
 
   let filaX = 0
   let filaY = 0
@@ -189,7 +189,7 @@ export function colocar(
 
   for (const [comp, ids] of grupos) {
     const local = forceLocal(ids, model.edges, iteraciones)
-    const c = caja([...local.values()], 40)
+    const c = bounds([...local.values()], 40)
 
     // Salto de estanteria: si no cabe a lo ancho, se baja. La primera de cada fila entra siempre,
     // aunque sea mas ancha que el lienzo, porque el lienzo crece con ella.

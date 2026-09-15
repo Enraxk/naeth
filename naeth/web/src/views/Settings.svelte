@@ -5,7 +5,7 @@
   import { getAuthors, getHealth } from '../lib/api'
   import { fmtLag } from '../lib/format'
   import { prefs } from '../lib/prefs.svelte'
-  import { cambiados, CLAVES } from '../lib/prefs-grafo.svelte'
+  import { changed, KEYS, PANEL_LS } from '../lib/prefs-graph.svelte'
   import { navigate } from '../lib/router.svelte'
   import { theme } from '../lib/theme.svelte'
   import type { AuthorCount, Health } from '../lib/types'
@@ -22,7 +22,7 @@
 
   // `data` no tiene ni flag de carga ni de error (solo `null` y `online`), asi que los dos
   // endpoints que estrena esta vista se gestionan en local, con el mismo patron que Memoria.
-  const tocados = $derived(cambiados())
+  const tocados = $derived(changed())
 
   /**
    * Lleva al grafo con el panel ya abierto.
@@ -33,11 +33,11 @@
    */
   function abrirPanelDelGrafo() {
     try {
-      localStorage.setItem('naeth-grafo-panel', '1')
+      localStorage.setItem(PANEL_LS, '1')
     } catch {
       // Sin sitio o sin permiso: se llega al grafo igual y el panel se abre a mano.
     }
-    navigate('grafo')
+    navigate('graph')
   }
 
   let authors = $state<AuthorCount[] | null>(null)
@@ -171,7 +171,7 @@
           </div>
         {/each}
       </div>
-      <p class="nota">
+      <p class="note">
         Las filas sin modelo son anteriores al backfill de autoria y su <code>model_source</code>
         es <code>unknown_legacy</code>: ahi no consta con que se escribieron, no es que se
         escribieran sin modelo.
@@ -204,7 +204,7 @@
           {#if tocados.length === 0}
             todo de fábrica
           {:else}
-            {tocados.length} de {CLAVES.length} cambiados
+            {tocados.length} de {KEYS.length} changed
           {/if}
           <span class="dd-sub">
             <!-- Enlace y no una copia de los mandos: un deslizador cuyo efecto no se ve mientras se
@@ -215,10 +215,10 @@
         </dd>
       </div>
     </dl>
-    <p class="nota">
+    <p class="note">
       Viven en el <code>localStorage</code> de este navegador con el prefijo <code>naeth-</code>, no
       en el servidor: otro dispositivo tiene las suyas. Si algún ajuste del grafo lo deja ilegible,
-      <code>#/grafo?reset</code> los borra todos antes de dibujar nada.
+      <code>#/graph?reset</code> los borra todos antes de draw nada.
     </p>
   </section>
 </div>
@@ -259,11 +259,11 @@
   .bar-fill { display: block; height: 100%; border-radius: 99px; min-width: 3px; background: var(--accent); }
   .bar-val { font: 11px var(--font-mono); color: var(--dim); text-align: right; }
 
-  .nota { margin: 10px 2px 0; font: 11px/1.6 var(--font-sans); color: var(--dim); }
-  .nota code, .aviso code { font: 11px var(--font-mono); }
+  .note { margin: 10px 2px 0; font: 11px/1.6 var(--font-sans); color: var(--dim); }
+  .note code, .aviso code { font: 11px var(--font-mono); }
   .empty { color: var(--dim); font: 13px var(--font-sans); }
 
-  /* Un boton que se lee como enlace: navega dentro de la aplicacion, asi que un `<a href="#/grafo">`
+  /* Un boton que se lee como enlace: navega dentro de la aplicacion, asi que un `<a href="#/graph">`
      duplicaria la ruta en dos sitios, pero visualmente tiene que invitar a pulsarlo igual. */
   .enlace {
     background: none;

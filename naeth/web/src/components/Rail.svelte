@@ -1,19 +1,19 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
-  import { route, navigate } from '../lib/router.svelte'
+  import { route, navigate, type View } from '../lib/router.svelte'
   import { closeDrawer } from '../lib/ui.svelte'
   import { theme, toggleTheme } from '../lib/theme.svelte'
 
-  function go(view: 'inicio' | 'grafo' | 'nueva' | 'estado' | 'ajustes') {
+  function go(view: Exclude<View, 'memory'>) {
     navigate(view)
     closeDrawer()
   }
 
   const top = [
-    { view: 'inicio', icon: 'house', label: 'Inicio' },
-    { view: 'grafo', icon: 'share-2', label: 'Grafo del conocimiento' },
-    { view: 'nueva', icon: 'square-pen', label: 'Nueva memoria' },
-    { view: 'estado', icon: 'activity', label: 'Estado del nodo' },
+    { view: 'home', icon: 'house', label: 'Inicio' },
+    { view: 'graph', icon: 'share-2', label: 'Grafo del conocimiento' },
+    { view: 'new', icon: 'square-pen', label: 'Nueva memoria' },
+    { view: 'status', icon: 'activity', label: 'Estado del nodo' },
   ] as const
 </script>
 
@@ -27,7 +27,7 @@
   <button class="rail-item" title={theme.value === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} aria-label="Cambiar tema" onclick={toggleTheme}>
     <Icon name={theme.value === 'dark' ? 'sun' : 'moon'} size={20} />
   </button>
-  <button class="rail-item" class:on={route.view === 'ajustes'} title="Ajustes" aria-label="Ajustes" onclick={() => go('ajustes')}>
+  <button class="rail-item" class:on={route.view === 'settings'} title="Ajustes" aria-label="Ajustes" onclick={() => go('settings')}>
     <Icon name="settings" size={20} />
   </button>
 </nav>

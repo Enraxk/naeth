@@ -8,13 +8,13 @@
   type Crumb = { label: string; icon?: string; go?: () => void }
 
   const crumbs = $derived.by<Crumb[]>(() => {
-    const home: Crumb = { label: 'Inicio', icon: 'house', go: () => navigate('inicio') }
+    const home: Crumb = { label: 'Inicio', icon: 'house', go: () => navigate('home') }
     switch (route.view) {
-      case 'inicio': return [{ label: 'Inicio', icon: 'house' }]
-      case 'estado': return [home, { label: 'Estado del nodo', icon: 'activity' }]
-      case 'grafo': return [home, { label: 'Grafo del conocimiento', icon: 'share-2' }]
-      case 'nueva': return [home, { label: 'Nueva memoria', icon: 'square-pen' }]
-      case 'ajustes': return [home, { label: 'Ajustes', icon: 'settings' }]
+      case 'home': return [{ label: 'Inicio', icon: 'house' }]
+      case 'status': return [home, { label: 'Estado del nodo', icon: 'activity' }]
+      case 'graph': return [home, { label: 'Grafo del conocimiento', icon: 'share-2' }]
+      case 'new': return [home, { label: 'Nueva memoria', icon: 'square-pen' }]
+      case 'settings': return [home, { label: 'Ajustes', icon: 'settings' }]
     }
     const row = (data.tree || []).find((r) => r.id === route.id)
     const parts = (row?.path || '').split('/').filter(Boolean)

@@ -71,14 +71,14 @@ export function buildTree(rows: TreeRow[], sort: SortMode): Project[] {
  * `o:<proyecto>/<subtema>`. El fallback `(sin path)` y el `·` replican lo que hace `buildTree` con
  * las notas sin path, para que la clave calculada aqui coincida con la que pinta el arbol.
  */
-export function carpetaQueEsconde(
+export function hidingFolder(
   path: string | null | undefined,
-  colapsadas: ReadonlySet<string>,
+  collapsed: ReadonlySet<string>,
 ): string | null {
   const parts = (path || '(sin path)').split('/')
   const proj = parts[0] || '(sin path)'
   const pKey = 'p:' + proj
-  if (colapsadas.has(pKey)) return pKey
+  if (collapsed.has(pKey)) return pKey
   const sKey = 'o:' + proj + '/' + (parts[1] || '·')
-  return colapsadas.has(sKey) ? sKey : null
+  return collapsed.has(sKey) ? sKey : null
 }

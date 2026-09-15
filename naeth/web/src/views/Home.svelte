@@ -36,7 +36,7 @@
     <div class="recent-list">
       {#if recent.length}
         {#each recent as m (m.id)}
-          <button class="recent-item" onclick={() => navigate('memoria', m.id)}>
+          <button class="recent-item" onclick={() => navigate('memory', m.id)}>
             <span class="ico"><Icon name={typeMeta(m.memory_type).icon} size={15} color={typeColor(m.memory_type)} /></span>
             <span class="ri-main">
               <span class="ri-title">{m.title || '(sin título)'}</span>

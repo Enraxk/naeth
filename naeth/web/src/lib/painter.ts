@@ -9,11 +9,11 @@
 //
 // El pintor es TONTO a proposito: recibe el estado ya calculado y dibuja. No decide que esta
 // enfocado, no anima nada y no toca la simulacion. Lo unico que sabe hacer es convertir mundo en
-// pixeles, y eso lo hace con `aPantalla`, que es de aqui para que la vista y el pintor no puedan
+// pixeles, y eso lo hace con `toScreen`, que es de aqui para que la vista y el pintor no puedan
 // discrepar sobre donde cae un nodo (que es como se pierde un clic).
 
 import type { MemType } from './types'
-import type { Simulador } from './sim'
+import type { Simulator } from './sim'
 
 /**
  * La camara: que trozo del mundo se mira y con cuanto aumento.
@@ -21,7 +21,7 @@ import type { Simulador } from './sim'
  * `cx`/`cy` son el punto del MUNDO que queda en el centro del lienzo, no una esquina. Con la
  * esquina, cambiar el tamaño de la ventana desplaza lo que estabas mirando; con el centro, no.
  */
-export interface Vista {
+export interface Viewport {
   cx: number
   cy: number
   k: number
@@ -30,7 +30,7 @@ export interface Vista {
   h: number
 }
 
-export interface EstadoPintado {
+export interface PaintState {
   /** El nodo que lleva el anillo: el del raton, el seleccionado o el senalado en el arbol. */
   foco: string | null
   /**
@@ -56,34 +56,34 @@ export interface EstadoPintado {
    *
    * Existe por el mini grafo de la ficha: en 276 px de ancho el encuadre da un aumento pequeño, y
    * con el mismo radio que el grafo grande los nodos salen en el suelo de 1,6 px, o sea polvo. No
-   * se toca `radioNodo` porque ese radio tambien es el de colision, y agrandarlo separaria los
+   * se toca `nodeRadius` porque ese radio tambien es el de colision, y agrandarlo separaria los
    * nodos en vez de dibujarlos mas gordos.
    */
-  escalaNodo?: number
+  nodeScale?: number
   /**
-   * Cuantos nombres como mucho, cuando hay algo senalado. Por defecto `TOPE_ETIQUETAS_FOCO`.
+   * Cuantos nombres como mucho, cuando hay algo senalado. Por defecto `LABEL_CAP_FOCUS`.
    *
    * El mini grafo de la ficha lo baja a uno. Alli el centro enciende a TODOS sus vecinos, asi que
    * con el tope normal salian los dieciseis titulos a la vez en 298 px de ancho: el mismo muro de
    * texto que se quito del grafo grande, solo que en un pañuelo. En el mini el nombre lo lleva
    * solo el nodo que estas apuntando.
    */
-  topeNombres?: number
+  labelCap?: number
 
   // ── Lo que el panel de ajustes gobierna ──────────────────────────────────────────────────
   //
   // TODOS OPCIONALES Y CON EL VALOR DE SIEMPRE POR DEFECTO. Este objeto ya era el canal de opciones
-  // del pintor (`color`, `escalaNodo`, `topeNombres`), asi que los mandos entran por aqui en vez de
+  // del pintor (`color`, `nodeScale`, `labelCap`), asi que los mandos entran por aqui en vez de
   // por una via nueva. Y siendo opcionales, quien no los pase (el mini, los tests) sigue viendo
   // exactamente el grafo de antes.
 
-  /** Umbrales del fundido del texto. Ver `opacidadTexto`. */
-  textoDesde?: number
-  textoPleno?: number
-  /** Reparto del tamaño del nodo entre pantalla y mundo, y sus topes. Ver `radioEnPantalla`. */
+  /** Umbrales del fundido del texto. Ver `textOpacity`. */
+  textFrom?: number
+  textFull?: number
+  /** Reparto del tamaño del nodo entre pantalla y mundo, y sus topes. Ver `screenRadius`. */
   nodoExp?: number
-  nodoMin?: number
-  nodoMax?: number
+  nodeMin?: number
+  nodeMax?: number
   /**
    * Punta de flecha en las aristas de relacion, y de que tamaño.
    *
@@ -91,18 +91,18 @@ export interface EstadoPintado {
    * redundante. El tamaño de 5 px y la posicion a media arista los eligio Eneko mirando el banco:
    * en el extremo la punta compite con el nodo y con lo que se cruce ahi.
    */
-  flechas?: boolean
-  puntaPx?: number
-  puntaMedio?: boolean
+  arrows?: boolean
+  arrowPx?: number
+  arrowMid?: boolean
   /**
    * Color de la arista por tipo de relacion, y cuanto tiñe.
    *
-   * `tinteFuerza` mezcla con el gris de siempre: 1 es el color puro y 0 el gris de hoy. A 0,3 el
+   * `tintStrength` mezcla con el gris de siempre: 1 es el color puro y 0 el gris de hoy. A 0,3 el
    * contraste contra el fondo es 5,5:1, practicamente el 5,2:1 del gris, o sea que informa sin
    * pesar mas. Medido el 06/09 en `bench/canal-vivo.html`.
    */
-  tintado?: boolean
-  tinteFuerza?: number
+  tinted?: boolean
+  tintStrength?: number
 
   // ── Experimental ────────────────────────────────────────────────────────────────────────
   /**
@@ -111,15 +111,15 @@ export interface EstadoPintado {
    * Sirve para distinguir dos vinculos entre el mismo par de memorias, que hoy se pintan
    * exactamente encima uno del otro. El precio es que el grafo deja de leerse como una malla.
    */
-  curvatura?: number
+  curvature?: number
   /** Peso de cada capa, de 0 a 1. Multiplica su opacidad: bajarla la deja de fondo, no la apaga. */
   pesoCapa?: Record<string, number>
 }
 
-export interface Pintor {
-  dibujar(sim: Simulador, vista: Vista, estado: EstadoPintado): void
+export interface Painter {
+  draw(sim: Simulator, vista: Viewport, estado: PaintState): void
   /** Nuevo tamaño en pixeles CSS. */
-  medir(w: number, h: number): void
+  resize(w: number, h: number): void
   /**
    * Releer los colores del tema.
    *
@@ -127,18 +127,18 @@ export interface Pintor {
    * y volver a hacerlo cuando el tema cambia. Es el precio de no pintar en DOM, y es barato
    * siempre que no se pague en cada frame.
    */
-  tema(): void
-  destruir(): void
+  theme(): void
+  destroy(): void
 }
 
-/** Mundo a pantalla. La inversa es `aMundo`. */
-export const aPantalla = (wx: number, wy: number, v: Vista) => ({
+/** Mundo a pantalla. La inversa es `toWorld`. */
+export const toScreen = (wx: number, wy: number, v: Viewport) => ({
   x: (wx - v.cx) * v.k + v.w / 2,
   y: (wy - v.cy) * v.k + v.h / 2,
 })
 
 /** Pantalla a mundo. La necesita el raton: apuntar es preguntar que hay bajo estos pixeles. */
-export const aMundo = (sx: number, sy: number, v: Vista) => ({
+export const toWorld = (sx: number, sy: number, v: Viewport) => ({
   x: (sx - v.w / 2) / v.k + v.cx,
   y: (sy - v.h / 2) / v.k + v.cy,
 })
@@ -155,10 +155,10 @@ export const aMundo = (sx: number, sy: number, v: Vista) => ({
  *
  * ⚠ LOS TRES NUMEROS SON AHORA PARAMETROS CON EL VALOR DE SIEMPRE POR DEFECTO. No es un capricho de
  * firma: es lo que permite que el panel de ajustes los mueva sin que ninguna de las 34 pruebas de
- * `pintor.test.ts` cambie una linea. Que esos tests sigan verdes llamando con dos argumentos ES la
+ * `painter.test.ts` cambie una linea. Que esos tests sigan verdes llamando con dos argumentos ES la
  * prueba de que convertir constantes en mandos no ha movido el grafo de sitio.
  */
-export const radioEnPantalla = (r: number, k: number, exp = 0.6, min = 1.6, max = 40) =>
+export const screenRadius = (r: number, k: number, exp = 0.6, min = 1.6, max = 40) =>
   Math.min(Math.max(r * Math.pow(k, exp), min), max)
 
 /**
@@ -167,11 +167,11 @@ export const radioEnPantalla = (r: number, k: number, exp = 0.6, min = 1.6, max 
  * Son los dos numeros del "text fade threshold" de Obsidian, y los que la fase 3.5 convertira en un
  * deslizador. Los valores salen de los aumentos reales de la aplicacion: con el grafo entero
  * encuadrado el aumento ronda 0,3 o 0,5, asi que ahi no hay texto; acercarse a un nodo lleva a 2,6
- * y la ruta `#/grafo/<id>` a 3, donde ya se lee todo; el mini grafo de una ficha se queda entre 1 y
+ * y la ruta `#/graph/<id>` a 3, donde ya se lee todo; el mini grafo de una ficha se queda entre 1 y
  * 1,5, o sea en pleno fundido, que es donde tiene sentido porque ahi el nombre es el del centro.
  */
-export const ZOOM_TEXTO_DESDE = 0.75
-export const ZOOM_TEXTO_PLENO = 1.65
+export const TEXT_ZOOM_FROM = 0.75
+export const TEXT_ZOOM_FULL = 1.65
 
 /**
  * Cuanto se ve el texto con este aumento.
@@ -179,10 +179,10 @@ export const ZOOM_TEXTO_PLENO = 1.65
  * Va por fundido y no por umbral seco porque un corte al cruzar el umbral hace parpadear medio
  * lienzo con un pellizco de rueda, y el ojo lee ese parpadeo como que han cambiado los datos.
  */
-export const opacidadTexto = (k: number, desde = ZOOM_TEXTO_DESDE, pleno = ZOOM_TEXTO_PLENO) =>
+export const textOpacity = (k: number, from = TEXT_ZOOM_FROM, pleno = TEXT_ZOOM_FULL) =>
   // Con los dos umbrales pegados la division se va a Infinity y el texto parpadea entre 0 y 1. El
   // panel deja moverlos por separado, asi que el suelo tiene que estar aqui y no en el panel.
-  Math.max(0, Math.min(1, (k - desde) / Math.max(pleno - desde, 0.01)))
+  Math.max(0, Math.min(1, (k - from) / Math.max(pleno - from, 0.01)))
 
 /**
  * Cuantos nombres se escriben SIN nada senalado. Hoy: ninguno.
@@ -196,7 +196,7 @@ export const opacidadTexto = (k: number, desde = ZOOM_TEXTO_DESDE, pleno = ZOOM_
  * y en la fase 3.5 pasa a ser un deslizador. Retirarlo ahora seria tirar la pieza para volver a
  * escribirla dentro de dos fases.
  */
-export const TOPE_ETIQUETAS = 0
+export const LABEL_CAP = 0
 
 /**
  * Cuantos nombres se escriben cuando hay algo senalado.
@@ -206,7 +206,7 @@ export const TOPE_ETIQUETAS = 0
  * que se venia a quitar, solo que concentrado. Pasado este tope el lienzo se calla y quien dice
  * que estas mirando es la franja de abajo, que tiene sitio para decirlo bien.
  */
-export const TOPE_ETIQUETAS_FOCO = 26
+export const LABEL_CAP_FOCUS = 26
 
 /**
  * LA GEOMETRIA DE LAS CUATRO FORMAS, ESCRITA UNA SOLA VEZ.
@@ -217,10 +217,10 @@ export const TOPE_ETIQUETAS_FOCO = 26
  * cambiar una forma en un sitio y no en el otro hace que el mismo tipo de memoria se vea distinto
  * en dos vistas de la misma aplicacion, y nada avisa.
  *
- * Los dos medios consumen de aqui: `trazarForma` para el lienzo y `pathForma` para el SVG.
+ * Los dos medios consumen de aqui: `strokeShape` para el lienzo y `shapePath` para el SVG.
  */
-export function verticesForma(tipo: MemType, x: number, y: number, r: number): [number, number][] | null {
-  switch (tipo) {
+export function shapeVertices(kind: MemType, x: number, y: number, r: number): [number, number][] | null {
+  switch (kind) {
     case 'decision':
       return [[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]]
     case 'observation':
@@ -239,14 +239,14 @@ export function verticesForma(tipo: MemType, x: number, y: number, r: number): [
  * No hace `beginPath` ni `fill`: eso es cosa de quien llama, que agrupa por color para no cambiar
  * de `fillStyle` una vez por nodo. Con 4.550 nodos esa diferencia es el pintado entero.
  */
-export function trazarForma(
+export function strokeShape(
   ctx: CanvasRenderingContext2D | Path2D,
-  tipo: MemType,
+  kind: MemType,
   x: number,
   y: number,
   r: number,
 ) {
-  const vs = verticesForma(tipo, x, y, r)
+  const vs = shapeVertices(kind, x, y, r)
   if (!vs) {
     ctx.moveTo(x + r, y)
     ctx.arc(x, y, r, 0, Math.PI * 2)
@@ -264,8 +264,8 @@ export function trazarForma(
  * un solo elemento: asi el mini grafo tiene un `<path>` por nodo y no dos ramas de marcado segun
  * el tipo.
  */
-export function pathForma(tipo: MemType, x: number, y: number, r: number): string {
-  const vs = verticesForma(tipo, x, y, r)
+export function shapePath(kind: MemType, x: number, y: number, r: number): string {
+  const vs = shapeVertices(kind, x, y, r)
   if (!vs) return `M${x - r} ${y}a${r} ${r} 0 1 0 ${r * 2} 0a${r} ${r} 0 1 0 ${-r * 2} 0`
   return `M${vs[0][0]} ${vs[0][1]}` + vs.slice(1).map(([a, b]) => `L${a} ${b}`).join('') + 'Z'
 }
@@ -283,18 +283,18 @@ export function pathForma(tipo: MemType, x: number, y: number, r: number): strin
  * palabra mas ancha que el maximo se deja sola en su linea en vez de partirla por la mitad: cortar
  * una palabra es mas dificil de leer que una linea que sobresalga un poco.
  */
-export function partirEnLineas(
-  texto: string,
+export function wrapLines(
+  text: string,
   anchoMax: number,
-  medir: (s: string) => number,
+  resize: (s: string) => number,
 ): string[] {
-  const palabras = texto.split(/\s+/).filter(Boolean)
+  const palabras = text.split(/\s+/).filter(Boolean)
   if (!palabras.length) return []
   const out: string[] = []
   let linea = palabras[0]
   for (let i = 1; i < palabras.length; i++) {
     const prueba = linea + ' ' + palabras[i]
-    if (medir(prueba) <= anchoMax) linea = prueba
+    if (resize(prueba) <= anchoMax) linea = prueba
     else {
       out.push(linea)
       linea = palabras[i]
@@ -314,19 +314,19 @@ export function partirEnLineas(
  * Se mide por ancho real y no por numero de caracteres, que es lo que habia antes: una eme y una
  * ele no ocupan lo mismo, asi que contar letras recorta de mas en unos titulos y de menos en otros.
  */
-export function recortarALinea(
-  texto: string,
+export function clipToLine(
+  text: string,
   anchoMax: number,
-  medir: (s: string) => number,
+  resize: (s: string) => number,
 ): string {
-  if (medir(texto) <= anchoMax) return texto
-  let corte = texto.length
-  while (corte > 1 && medir(texto.slice(0, corte) + '…') > anchoMax) corte--
-  return texto.slice(0, corte).trimEnd() + '…'
+  if (resize(text) <= anchoMax) return text
+  let corte = text.length
+  while (corte > 1 && resize(text.slice(0, corte) + '…') > anchoMax) corte--
+  return text.slice(0, corte).trimEnd() + '…'
 }
 
 /** El trazo de cada capa, en unidades de pantalla. Solida, punteada, discontinua. */
-export const TRAZO: Record<string, number[]> = {
+export const DASH: Record<string, number[]> = {
   relation: [],
   wikilink: [2, 3],
   semantic: [5, 3],
@@ -343,7 +343,7 @@ export const TRAZO: Record<string, number[]> = {
  * Acepta `#rgb` y `#rrggbb`. Lo que no entienda lo devuelve intacto, porque un color mal escrito
  * tiene que pintar raro y no romper el frame.
  */
-export function mezcla(a: string, b: string, f: number): string {
+export function blend(a: string, b: string, f: number): string {
   const h = (c: string): [number, number, number] | null => {
     const s = c.trim()
     if (s[0] !== '#') return null

@@ -5,22 +5,22 @@
   import Rail from './components/Rail.svelte'
   import Crumbs from './components/Crumbs.svelte'
   import Footer from './components/Footer.svelte'
-  import Inicio from './views/Inicio.svelte'
-  import Estado from './views/Estado.svelte'
-  import Memoria from './views/Memoria.svelte'
-  import Nueva from './views/Nueva.svelte'
-  import Ajustes from './views/Ajustes.svelte'
-  import Grafo from './views/Grafo.svelte'
+  import Home from './views/Home.svelte'
+  import Status from './views/Status.svelte'
+  import Memory from './views/Memory.svelte'
+  import New from './views/New.svelte'
+  import Settings from './views/Settings.svelte'
+  import Graph from './views/Graph.svelte'
   import Stub from './views/Stub.svelte'
   import { route } from './lib/router.svelte'
   import { prefs } from './lib/prefs.svelte'
   import { startPolling } from './lib/data.svelte'
-  import { ui, closeDrawer, resalte } from './lib/ui.svelte'
+  import { ui, closeDrawer, highlight } from './lib/ui.svelte'
 
   // Baja la voz SOLO en el grafo y SOLO mientras el raton esta en el arbol. Fuera del grafo no
   // hay nada que senalar en dos sitios a la vez, asi que apagar la aplicacion no significaria
   // nada; y por zona en vez de por fila, para que no de un parpadeo en cada salto de fila.
-  const bajandoLaVoz = $derived(route.view === 'grafo' && resalte.enArbol)
+  const bajandoLaVoz = $derived(route.view === 'graph' && highlight.inTree)
 
   onMount(() => startPolling())
 </script>
@@ -32,18 +32,18 @@
     <section class="center">
       <Crumbs />
       <main class="detail">
-        {#if route.view === 'memoria' && route.id}
-          <Memoria id={route.id} />
-        {:else if route.view === 'inicio'}
-          <Inicio />
-        {:else if route.view === 'estado'}
-          <Estado />
-        {:else if route.view === 'nueva'}
-          <Nueva />
-        {:else if route.view === 'ajustes'}
-          <Ajustes />
-        {:else if route.view === 'grafo'}
-          <Grafo />
+        {#if route.view === 'memory' && route.id}
+          <Memory id={route.id} />
+        {:else if route.view === 'home'}
+          <Home />
+        {:else if route.view === 'status'}
+          <Status />
+        {:else if route.view === 'new'}
+          <New />
+        {:else if route.view === 'settings'}
+          <Settings />
+        {:else if route.view === 'graph'}
+          <Graph />
         {:else}
           <Stub view={route.view} />
         {/if}

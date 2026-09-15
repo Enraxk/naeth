@@ -24,27 +24,27 @@
 //     de verdad reconoce
 // Y aparte el coste: cuanto tarda cada opcion en dar una ficha lista.
 
-import { buildGraph, filtrosPorDefecto, vecindario, type GraphModel } from '../src/lib/graph'
-import { crearSimulador, type Simulador } from '../src/lib/sim'
+import { buildGraph, defaultFilters, neighborhood, type GraphModel } from '../src/lib/graph'
+import { createSimulator, type Simulator } from '../src/lib/sim'
 import type { GraphResponse, TreeRow } from '../src/lib/types'
 
 const salida = document.getElementById('salida') as HTMLPreElement
 const estado = document.getElementById('estado') as HTMLElement
 const lienzos = document.getElementById('lienzos') as HTMLElement
 
-type Punto = { x: number; y: number }
+type Point = { x: number; y: number }
 
 /** Asienta una simulacion hasta que se calla, con tope por si acaso. */
-function asentar(s: Simulador, tope = 400) {
+function asentar(s: Simulator, tope = 400) {
   let n = 0
-  while (n < tope && s.paso()) n++
+  while (n < tope && s.step()) n++
   return n
 }
 
 /** Posiciones de un conjunto de ids relativas a su centro. */
-function relativas(pos: Map<string, Punto>, ids: string[], centro: string): Map<string, Punto> {
+function relativas(pos: Map<string, Point>, ids: string[], centro: string): Map<string, Point> {
   const c = pos.get(centro) ?? { x: 0, y: 0 }
-  const out = new Map<string, Punto>()
+  const out = new Map<string, Point>()
   for (const id of ids) {
     const p = pos.get(id)
     if (p) out.set(id, { x: p.x - c.x, y: p.y - c.y })
@@ -58,7 +58,7 @@ function relativas(pos: Map<string, Punto>, ids: string[], centro: string): Map<
  * El giro optimo entre dos conjuntos de angulos es la media circular de sus diferencias, asi que
  * se calcula directamente en vez de probar giros.
  */
-function errorAngular(a: Map<string, Punto>, b: Map<string, Punto>, ids: string[]): number {
+function errorAngular(a: Map<string, Point>, b: Map<string, Point>, ids: string[]): number {
   const difs: number[] = []
   for (const id of ids) {
     const pa = a.get(id)
@@ -86,8 +86,8 @@ function errorAngular(a: Map<string, Punto>, b: Map<string, Punto>, ids: string[
  * quien" coincide. Es lo que el ojo reconoce: da igual el giro y da igual la distancia exacta, lo
  * que hace que un vecindario "sea el mismo" es que los vecinos esten en el mismo orden alrededor.
  */
-function ordenCircular(a: Map<string, Punto>, b: Map<string, Punto>, ids: string[]): number {
-  const orden = (m: Map<string, Punto>) =>
+function ordenCircular(a: Map<string, Point>, b: Map<string, Point>, ids: string[]): number {
+  const orden = (m: Map<string, Point>) =>
     ids
       .filter((id) => m.has(id))
       .sort((x, y) => {
@@ -122,16 +122,16 @@ async function arranca() {
     fetch('/api/graph').then((r) => r.json() as Promise<GraphResponse>),
   ])
 
-  const filtros = filtrosPorDefecto()
+  const filtros = defaultFilters()
   const model = buildGraph(tree, graph, new Map(), filtros)
   estado.textContent = `${model.nodes.length} nodos y ${model.edges.length} aristas. Asentando el grafo global...`
 
   // 1) El grafo global, asentado. Es la referencia contra la que se compara todo.
   const t0 = performance.now()
-  const global = crearSimulador(model)
+  const global = createSimulator(model)
   const ticksGlobal = asentar(global)
   const msGlobal = performance.now() - t0
-  const posGlobal = new Map<string, Punto>(global.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+  const posGlobal = new Map<string, Point>(global.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
 
   // 2) Las notas de muestra: las de mas grado, que son donde la forma tiene algo que decir.
   const porGrado = [...model.nodes].sort((a, b) => b.degree - a.degree)
@@ -147,24 +147,24 @@ async function arranca() {
   }
 
   /** El primer vecindario medido se guarda para dibujarlo. */
-  let ejemplo: { centro: string; ids: string[]; disp: Record<string, Map<string, Punto>> } | null = null
+  let ejemplo: { centro: string; ids: string[]; disp: Record<string, Map<string, Point>> } | null = null
 
   for (const nd of muestra) {
-    const vec = vecindario(model, nd.id)
+    const vec = neighborhood(model, nd.id)
     const ids = vec.nodes.map((n) => n.id)
     const ref = relativas(posGlobal, ids, nd.id)
 
     // C · ACTUAL: simulacion propia desde cero, que es lo que hace hoy la ficha.
     const tc = performance.now()
-    const simC = crearSimulador(vec, { distancia: 96, repulsion: -140, ancho: 420 })
+    const simC = createSimulator(vec, { distance: 96, repulsion: -140, ancho: 420 })
     asentar(simC)
     const msC = performance.now() - tc
-    const posC = relativas(new Map(simC.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }])), ids, nd.id)
+    const posC = relativas(new Map(simC.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }])), ids, nd.id)
 
     // B · SEMBRADO: lo mismo, pero arrancando de donde estan en el global.
     const tb = performance.now()
-    const simB = crearSimulador(vec, { distancia: 96, repulsion: -140, ancho: 420 })
-    for (const n of simB.nodos) {
+    const simB = createSimulator(vec, { distance: 96, repulsion: -140, ancho: 420 })
+    for (const n of simB.nodes) {
       const p = posGlobal.get(n.id)
       if (p) {
         n.x = p.x
@@ -175,7 +175,7 @@ async function arranca() {
     }
     asentar(simB)
     const msB = performance.now() - tb
-    const posB = relativas(new Map(simB.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }])), ids, nd.id)
+    const posB = relativas(new Map(simB.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }])), ids, nd.id)
 
     // D · CONGELADO: las posiciones globales tal cual, sin simular nada.
     const td = performance.now()
@@ -195,8 +195,8 @@ async function arranca() {
     if (!ejemplo && ids.length >= 8) {
       ejemplo = { centro: nd.id, ids, disp: { global: ref, 'B · sembrado': posB, 'C · actual': posC } }
     }
-    simB.parar()
-    simC.parar()
+    simB.stop()
+    simC.stop()
   }
 
   const media = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(xs.length, 1)
@@ -267,7 +267,7 @@ async function arranca() {
   // que evolucionar. Se mide si eso es barato y, sobre todo, si evoluciona BIEN, es decir, si lo
   // que no ha cambiado se queda donde estaba y solo se mueve lo que tiene motivo.
   //
-  // Se compara mantener el mapa (`cambiar`, que conserva posiciones) contra rehacerlo desde cero.
+  // Se compara mantener el mapa (`update`, que conserva posiciones) contra rehacerlo desde cero.
   estado.textContent = 'midiendo como envejece el mapa...'
   await new Promise((r) => setTimeout(r, 10))
   await creceElCorpus(tree, graph, model, posGlobal, muestra.map((n) => n.id))
@@ -285,7 +285,7 @@ async function creceElCorpus(
   tree: TreeRow[],
   graph: GraphResponse,
   model: GraphModel,
-  posAntes: Map<string, Punto>,
+  posAntes: Map<string, Point>,
   muestraIds: string[],
 ) {
   const filas: string[][] = []
@@ -296,12 +296,12 @@ async function creceElCorpus(
     return semilla / 4294967296
   }
 
-  for (const [etiqueta, cuantas] of [['un dia', 8], ['un mes', 230], ['tres meses', 690]] as const) {
+  for (const [label, cuantas] of [['un dia', 8], ['un mes', 230], ['tres meses', 690]] as const) {
     // Notas nuevas con su path y una o dos relaciones a notas ya existentes.
     const nuevas: TreeRow[] = []
-    const aristas = [...graph.edges]
+    const edges = [...graph.edges]
     for (let i = 0; i < cuantas; i++) {
-      const id = `nueva-${etiqueta}-${i}`
+      const id = `nueva-${label}-${i}`
       nuevas.push({
         id,
         title: `nota nueva ${i}`,
@@ -312,7 +312,7 @@ async function creceElCorpus(
       })
       const cuantos = rnd() < 0.35 ? 2 : 1
       for (let j = 0; j < cuantos; j++) {
-        aristas.push({
+        edges.push({
           source_id: id,
           target_id: ids[Math.floor(rnd() * ids.length)],
           predicate: 'links_to',
@@ -320,20 +320,20 @@ async function creceElCorpus(
         })
       }
     }
-    const crecido = buildGraph([...tree, ...nuevas], { ...graph, edges: aristas }, new Map(), filtrosPorDefecto())
+    const crecido = buildGraph([...tree, ...nuevas], { ...graph, edges: edges }, new Map(), defaultFilters())
 
     // MANTENIDO: el simulador que ya estaba, al que se le cuenta lo nuevo. Se prueban dos maneras
     // de acomodarlo, porque la diferencia entre ellas es justo lo que decide si la forma de una
     // nota significa algo o es el sorteo de hoy.
     const mant = (alpha: number) => {
-      const s = crearSimulador(model)
+      const s = createSimulator(model)
       asentar(s)
       const t = performance.now()
-      s.cambiar(crecido, alpha)
+      s.update(crecido, alpha)
       const ticks = asentar(s, 400)
       const ms = performance.now() - t
-      const pos = new Map<string, Punto>(s.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }]))
-      s.parar()
+      const pos = new Map<string, Point>(s.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+      s.stop()
       return { ticks, ms, pos }
     }
     const fuerte = mant(0.3)
@@ -348,24 +348,24 @@ async function creceElCorpus(
      * perdieron vecinos quedan libres, que es justo lo que se quiere que se mueva.
      */
     const anclado = (() => {
-      const s = crearSimulador(model)
+      const s = createSimulator(model)
       asentar(s)
       const antes = new Map<string, string>()
-      for (const n of s.nodos) antes.set(n.id, [...s.vecinos(n.id)].sort().join(','))
+      for (const n of s.nodes) antes.set(n.id, [...s.neighbors(n.id)].sort().join(','))
       const t = performance.now()
-      s.cambiar(crecido, 0.3)
+      s.update(crecido, 0.3)
       let clavados = 0
-      for (const n of s.nodos) {
+      for (const n of s.nodes) {
         const a = antes.get(n.id)
-        if (a !== undefined && a === [...s.vecinos(n.id)].sort().join(',')) {
-          s.sujetar(n.id, n.x!, n.y!)
+        if (a !== undefined && a === [...s.neighbors(n.id)].sort().join(',')) {
+          s.pin(n.id, n.x!, n.y!)
           clavados++
         }
       }
       const ticks = asentar(s, 400)
       const ms = performance.now() - t
-      const pos = new Map<string, Punto>(s.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }]))
-      s.parar()
+      const pos = new Map<string, Point>(s.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+      s.stop()
       return { ms, ticks, pos, clavados }
     })()
     const ticksM = fuerte.ticks
@@ -374,20 +374,20 @@ async function creceElCorpus(
 
     // REHECHO: se tira el mapa y se calcula otra vez desde cero.
     const tr = performance.now()
-    const rehecho = crearSimulador(crecido)
+    const rehecho = createSimulator(crecido)
     asentar(rehecho)
     const msR = performance.now() - tr
-    const posR = new Map<string, Punto>(rehecho.nodos.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+    const posR = new Map<string, Point>(rehecho.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
 
     // Cuanto se movio la forma de los vecindarios que NO han cambiado, en cada caso. Lo que no ha
     // cambiado no deberia moverse: si se mueve, cada nota nueva reordena el mapa entero y la forma
     // deja de significar nada.
     const vecinosDe = new Map<string, string[]>()
     for (const id of muestraIds) {
-      const v = vecindario(model, id)
+      const v = neighborhood(model, id)
       vecinosDe.set(id, v.nodes.map((n) => n.id))
     }
-    const err = (pos: Map<string, Punto>) => {
+    const err = (pos: Map<string, Point>) => {
       const es: number[] = []
       for (const [centro, vs] of vecinosDe) {
         const sigueIgual = vs.every((x) => pos.has(x))
@@ -398,7 +398,7 @@ async function creceElCorpus(
     }
 
     filas.push([
-      etiqueta + ' (+' + cuantas + ')',
+      label + ' (+' + cuantas + ')',
       Math.round(msM) + ' ms',
       ticksM + ' ticks',
       err(posM).toFixed(1) + ' grados',
@@ -410,7 +410,7 @@ async function creceElCorpus(
       Math.round(msR) + ' ms',
       err(posR).toFixed(1) + ' grados',
     ])
-    rehecho.parar()
+    rehecho.stop()
     await new Promise((r) => setTimeout(r, 5))
   }
 
@@ -431,10 +431,10 @@ async function creceElCorpus(
 }
 
 /** El mismo vecindario dibujado con cada opcion, para poder mirarlo y no solo leerlo. */
-function dibuja(e: { centro: string; ids: string[]; disp: Record<string, Map<string, Punto>> }) {
+function dibuja(e: { centro: string; ids: string[]; disp: Record<string, Map<string, Point>> }) {
   lienzos.innerHTML = ''
   for (const [nombre, pos] of Object.entries(e.disp)) {
-    const caja = document.createElement('figure')
+    const bounds = document.createElement('figure')
     const cv = document.createElement('canvas')
     cv.width = 260
     cv.height = 260
@@ -462,9 +462,9 @@ function dibuja(e: { centro: string; ids: string[]; disp: Record<string, Map<str
     }
     const cap = document.createElement('figcaption')
     cap.textContent = nombre
-    caja.appendChild(cv)
-    caja.appendChild(cap)
-    lienzos.appendChild(caja)
+    bounds.appendChild(cv)
+    bounds.appendChild(cap)
+    lienzos.appendChild(bounds)
   }
 }
 

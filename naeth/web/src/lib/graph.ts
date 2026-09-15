@@ -23,7 +23,7 @@ export interface GraphNode {
   project: string
   memory_type: MemType
   degree: number
-  /** Indice de su componente conexa, 0 para la mayor. Ver `componentes`. */
+  /** Indice de su componente conexa, 0 para la mayor. Ver `components`. */
   component: number
 }
 
@@ -46,10 +46,10 @@ export interface GraphFilters {
   /** `null` = todos los proyectos. Un conjunto vacio no es lo mismo: es "ninguno". */
   projects: Set<string> | null
   /** Solo las aristas que cruzan de un proyecto a otro. */
-  soloTransversales: boolean
-  ocultarAislados: boolean
+  crossOnly: boolean
+  hideIsolated: boolean
   /** Una memoria que se ve pase lo que pase, aunque los filtros la escondan. */
-  exento?: string | null
+  exempt?: string | null
   /**
    * Memorias que el arbol esconde porque su carpeta esta colapsada.
    *
@@ -58,26 +58,26 @@ export interface GraphFilters {
    * pasa nada por defecto (el arbol nace abierto). El coste hay que saberlo: al ocultar una
    * carpeta desaparecen tambien las aristas que salian de ella hacia otros proyectos, que son el
    * 24% del corpus y lo unico que el grafo cuenta y el arbol no. Por eso el modelo devuelve
-   * `ocultas` y la franja lo dice: esconder tiene que verse.
+   * `hiddenEdges` y la franja lo dice: esconder tiene que verse.
    */
-  ocultos?: ReadonlySet<string> | null
+  hidden?: ReadonlySet<string> | null
 }
 
 export interface GraphModel {
   nodes: GraphNode[]
   edges: GraphEdge[]
-  /** Cuantos nodos ha escondido `ocultarAislados`. Se enseña, porque cambia al encender capas. */
-  aislados: number
+  /** Cuantos nodos ha escondido `hideIsolated`. Se enseña, porque cambia al encender capas. */
+  isolated: number
   /** Cuantos ha escondido el arbol al colapsar carpetas. Se enseña por el mismo motivo. */
-  ocultas: number
+  hiddenEdges: number
   /** Cuantas componentes conexas hay entre lo que queda visible. */
-  componentes: number
+  components: number
 }
 
-export const SIN_PROYECTO = '(sin path)'
+export const NO_PROJECT = '(sin path)'
 
-export const proyectoDe = (path: string | null | undefined): string =>
-  (path || SIN_PROYECTO).split('/')[0]
+export const projectOf = (path: string | null | undefined): string =>
+  (path || NO_PROJECT).split('/')[0]
 
 /**
  * Prioridad al deduplicar: una relacion es una afirmacion deliberada, un wikilink es una mencion
@@ -138,12 +138,12 @@ function componentesDe(ids: string[], adj: Map<string, Set<string>>): Map<string
   const grupos: string[][] = []
   for (const id of ids) {
     if (comp.has(id)) continue
-    const grupo: string[] = []
+    const group: string[] = []
     const cola = [id]
     comp.set(id, -1)
     while (cola.length) {
       const x = cola.pop()!
-      grupo.push(x)
+      group.push(x)
       for (const v of adj.get(x) ?? []) {
         if (!comp.has(v)) {
           comp.set(v, -1)
@@ -151,7 +151,7 @@ function componentesDe(ids: string[], adj: Map<string, Set<string>>): Map<string
         }
       }
     }
-    grupos.push(grupo)
+    grupos.push(group)
   }
   // La componente 0 es SIEMPRE la mayor: el dibujo la coloca en el centro, y que su indice
   // dependiera del orden de llegada de los nodos haria saltar el grafo entero al recargar.
@@ -190,8 +190,8 @@ export function buildGraph(
     }
   }
   if (filters.layers.semantic) {
-    for (const [source, vecinos] of knn) {
-      for (const v of vecinos) {
+    for (const [source, neighbors] of knn) {
+      for (const v of neighbors) {
         if (v.id !== source) brutas.push({ source, target: v.id, layer: 'semantic', sim: v.sim })
       }
     }
@@ -218,13 +218,13 @@ export function buildGraph(
 
   // 3) Filtros de nodo, que se aplican sobre las aristas porque una arista con un extremo
   //    filtrado deja de tener sentido.
-  const proyectoDeId = (id: string) => proyectoDe(porId.get(id)?.path)
+  const proyectoDeId = (id: string) => projectOf(porId.get(id)?.path)
   // Lo que el arbol esconde se lleva por delante sus aristas, y esto NO es opcional: sin ello el
-  // grado seguiria contando vecinos que ya no se ven, y `ocultarAislados` dejaria en pie nodos
+  // grado seguiria contando vecinos que ya no se ven, y `hideIsolated` dejaria en pie nodos
   // que en pantalla no tocan nada. Lo cazo un test antes que ningun ojo.
-  if (filters.ocultos) {
-    const o = filters.ocultos
-    const ex = filters.exento ?? null
+  if (filters.hidden) {
+    const o = filters.hidden
+    const ex = filters.exempt ?? null
     const fuera = (id: string) => o.has(id) && id !== ex
     edges = edges.filter((e) => !fuera(e.source) && !fuera(e.target))
   }
@@ -232,7 +232,7 @@ export function buildGraph(
     const p = filters.projects
     edges = edges.filter((e) => p.has(proyectoDeId(e.source)) && p.has(proyectoDeId(e.target)))
   }
-  if (filters.soloTransversales) {
+  if (filters.crossOnly) {
     edges = edges.filter((e) => proyectoDeId(e.source) !== proyectoDeId(e.target))
   }
 
@@ -250,26 +250,26 @@ export function buildGraph(
   // El EXENTO no lo esconde ningun filtro. Es para lo que se senala desde el arbol: pedir ver una
   // nota y que el grafo se quede callado porque un filtro la tapaba es la peor respuesta posible,
   // y ademas invisible (no hay forma de saber que el filtro fue la causa).
-  const exento = filters.exento ?? null
-  const ocultos = filters.ocultos ?? null
-  const conCarpeta = ocultos
-    ? tree.filter((r) => r.id === exento || !ocultos.has(r.id))
+  const exempt = filters.exempt ?? null
+  const hidden = filters.hidden ?? null
+  const conCarpeta = hidden
+    ? tree.filter((r) => r.id === exempt || !hidden.has(r.id))
     : tree
-  const ocultas = tree.length - conCarpeta.length
+  const hiddenEdges = tree.length - conCarpeta.length
   const visibles = filters.projects
-    ? conCarpeta.filter((r) => r.id === exento || filters.projects!.has(proyectoDe(r.path)))
+    ? conCarpeta.filter((r) => r.id === exempt || filters.projects!.has(projectOf(r.path)))
     : conCarpeta
-  const candidatos = filters.ocultarAislados
-    ? visibles.filter((r) => adj.has(r.id) || r.id === exento)
+  const candidatos = filters.hideIsolated
+    ? visibles.filter((r) => adj.has(r.id) || r.id === exempt)
     : visibles
-  const aislados = visibles.length - visibles.filter((r) => adj.has(r.id)).length
+  const isolated = visibles.length - visibles.filter((r) => adj.has(r.id)).length
 
   const comp = componentesDe(candidatos.map((r) => r.id), adj)
   const nodes: GraphNode[] = candidatos.map((r) => ({
     id: r.id,
     title: r.title,
     path: r.path,
-    project: proyectoDe(r.path),
+    project: projectOf(r.path),
     memory_type: r.memory_type,
     degree: adj.get(r.id)?.size ?? 0,
     component: comp.get(r.id) ?? 0,
@@ -278,14 +278,14 @@ export function buildGraph(
   return {
     nodes,
     edges,
-    aislados,
-    ocultas,
-    componentes: new Set(nodes.map((n) => n.component)).size,
+    isolated,
+    hiddenEdges,
+    components: new Set(nodes.map((n) => n.component)).size,
   }
 }
 
 /** Vecindario a un salto de una memoria. Es lo que pinta el mini grafo de la ficha. */
-export function vecindario(model: GraphModel, id: string): GraphModel {
+export function neighborhood(model: GraphModel, id: string): GraphModel {
   const edges = model.edges.filter((e) => e.source === id || e.target === id)
   const ids = new Set<string>([id])
   for (const e of edges) {
@@ -293,7 +293,7 @@ export function vecindario(model: GraphModel, id: string): GraphModel {
     ids.add(e.target)
   }
   const nodes = model.nodes.filter((n) => ids.has(n.id))
-  return { nodes, edges, aislados: 0, ocultas: 0, componentes: nodes.length ? 1 : 0 }
+  return { nodes, edges, isolated: 0, hiddenEdges: 0, components: nodes.length ? 1 : 0 }
 }
 
 /**
@@ -304,7 +304,7 @@ export function vecindario(model: GraphModel, id: string): GraphModel {
  * parecia conectada cuando esta sola. La linea discontinua ya lo insinuaba, pero un numero es
  * mas fuerte que un trazo, y era el numero el que mentia.
  */
-export function etiquetaVecindario(model: GraphModel | null): string {
+export function neighborhoodLabel(model: GraphModel | null): string {
   const reales = model?.edges.filter((e) => e.layer !== 'semantic').length ?? 0
   const sugeridos = model?.edges.filter((e) => e.layer === 'semantic').length ?? 0
   if (reales && sugeridos) return `${reales} + ${sugeridos} sugeridos`
@@ -314,11 +314,11 @@ export function etiquetaVecindario(model: GraphModel | null): string {
 }
 
 /** Filtros de partida: las tres capas encendidas y los aislados fuera. */
-export const filtrosPorDefecto = (): GraphFilters => ({
+export const defaultFilters = (): GraphFilters => ({
   layers: { relation: true, wikilink: true, semantic: false },
   projects: null,
-  soloTransversales: false,
-  ocultarAislados: true,
-  exento: null,
-  ocultos: null,
+  crossOnly: false,
+  hideIsolated: true,
+  exempt: null,
+  hidden: null,
 })

@@ -13,7 +13,7 @@
 // QUE MIDE, en dos mitades:
 //
 //   1. ARITMETICA. Asienta el grafo real, calcula el `k` de encuadre con la MISMA formula que
-//      `Lienzo.svelte` (min(w/ancho, h/alto) * 0.9, y 0.72 en el compacto) y convierte las
+//      `Canvas.svelte` (min(w/ancho, h/alto) * 0.9, y 0.72 en el compacto) y convierte las
 //      longitudes de arista a pixeles. Percentiles, y cuantas superan cada umbral de legibilidad.
 //
 //   2. PERCEPTIVA, que es la que no se puede deducir. Pinta las candidatas A SU TAMANO REAL
@@ -27,8 +27,8 @@
 // Salen de que el trazo mide 1,2 px de ancho: por debajo de unas 8 veces el ancho, el ojo ve un
 // punto y no una forma.
 
-import { buildGraph, filtrosPorDefecto, type GraphModel } from '../src/lib/graph'
-import { crearSimulador } from '../src/lib/sim'
+import { buildGraph, defaultFilters, type GraphModel } from '../src/lib/graph'
+import { createSimulator } from '../src/lib/sim'
 import type { GraphResponse, TreeRow } from '../src/lib/types'
 
 const salida = document.getElementById('salida') as HTMLPreElement
@@ -62,16 +62,16 @@ function percentil(v: number[], p: number) {
 }
 
 /** Asienta hasta que la simulacion se calla, con tope. */
-function asentar(s: ReturnType<typeof crearSimulador>, tope = 600) {
+function asentar(s: ReturnType<typeof createSimulator>, tope = 600) {
   let n = 0
-  while (n < tope && s.paso()) n++
+  while (n < tope && s.step()) n++
   return n
 }
 
 /** El mismo calculo que `encuadraTodo` en Lienzo.svelte, sin copiar mas de lo necesario. */
-function escalaEncuadre(caja: { x0: number; y0: number; x1: number; y1: number },
+function escalaEncuadre(bounds: { x0: number; y0: number; x1: number; y1: number },
                         w: number, h: number, compacto: boolean) {
-  const k = Math.min(w / Math.max(caja.x1 - caja.x0, 1), h / Math.max(caja.y1 - caja.y0, 1)) *
+  const k = Math.min(w / Math.max(bounds.x1 - bounds.x0, 1), h / Math.max(bounds.y1 - bounds.y0, 1)) *
     (compacto ? 0.72 : 0.9)
   return Math.min(k, 4)
 }
@@ -85,14 +85,14 @@ function linea(txt = '') {
 // Cada una recibe un contexto ya trasladado y girado: la arista va de (0,0) a (largo,0). Asi la
 // candidata solo se ocupa de decir la direccion, y no de la trigonometria.
 
-type Candidata = { nombre: string; nota: string; pinta: (c: CanvasRenderingContext2D, largo: number) => void }
+type Candidata = { nombre: string; note: string; pinta: (c: CanvasRenderingContext2D, largo: number) => void }
 
 const TINTA = '#c8c9d4'
 
 const DIRECCION: Candidata[] = [
   {
     nombre: 'punta de flecha',
-    nota: 'lo que hace Obsidian',
+    note: 'lo que hace Obsidian',
     pinta(c, largo) {
       c.strokeStyle = TINTA
       c.lineWidth = 1.2
@@ -111,7 +111,7 @@ const DIRECCION: Candidata[] = [
   },
   {
     nombre: 'degradado',
-    nota: 'transparente en el origen, opaco en el destino',
+    note: 'transparente en el origen, opaco en el destino',
     pinta(c, largo) {
       const g = c.createLinearGradient(0, 0, largo, 0)
       g.addColorStop(0, 'rgba(200,201,212,0.12)')
@@ -126,7 +126,7 @@ const DIRECCION: Candidata[] = [
   },
   {
     nombre: 'trazo que engorda',
-    nota: 'fino en el origen, grueso en el destino',
+    note: 'fino en el origen, grueso en el destino',
     pinta(c, largo) {
       c.fillStyle = TINTA
       c.beginPath()
@@ -140,7 +140,7 @@ const DIRECCION: Candidata[] = [
   },
   {
     nombre: 'punto en el destino',
-    nota: 'no ocupa largo, ocupa ancho',
+    note: 'no ocupa largo, ocupa ancho',
     pinta(c, largo) {
       c.strokeStyle = TINTA
       c.lineWidth = 1.2
@@ -156,7 +156,7 @@ const DIRECCION: Candidata[] = [
   },
   {
     nombre: 'curva asimetrica',
-    nota: 'se lee en el conjunto, no en una arista',
+    note: 'se lee en el conjunto, no en una arista',
     pinta(c, largo) {
       c.strokeStyle = TINTA
       c.lineWidth = 1.2
@@ -171,7 +171,7 @@ const DIRECCION: Candidata[] = [
 const TIPO: Candidata[] = [
   {
     nombre: 'color',
-    nota: 'tres tintes. El patron NO esta libre: lo usan las capas',
+    note: 'tres tintes. El patron NO esta libre: lo usan las capas',
     pinta(c, largo) {
       const tintes = ['#6ba6e8', '#b394e3', '#4dbba7']
       for (let i = 0; i < 3; i++) {
@@ -186,7 +186,7 @@ const TIPO: Candidata[] = [
   },
   {
     nombre: 'grosor',
-    nota: 'tres grosores, que compiten con el peso de la arista',
+    note: 'tres grosores, que compiten con el peso de la arista',
     pinta(c, largo) {
       const grosores = [0.7, 1.4, 2.4]
       for (let i = 0; i < 3; i++) {
@@ -225,15 +225,15 @@ async function main() {
 
   // El mismo modelo que usa el mapa compartido: sin ocultar aisladas, porque el mapa las necesita.
   const model: GraphModel = buildGraph(tree, graph, new Map(), {
-    ...filtrosPorDefecto(),
-    ocultarAislados: false,
+    ...defaultFilters(),
+    hideIsolated: false,
   })
 
   estado.textContent = `asentando ${model.nodes.length} nodos y ${model.edges.length} aristas...`
-  const sim = crearSimulador(model)
+  const sim = createSimulator(model)
   const pasos = asentar(sim)
 
-  const pos = new Map(sim.nodos.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]))
+  const pos = new Map(sim.nodes.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]))
   const largos: number[] = []
   for (const e of model.edges) {
     const a = pos.get(e.source)
@@ -242,12 +242,12 @@ async function main() {
   }
   largos.sort((x, y) => x - y)
 
-  const caja = sim.caja()
+  const bounds = sim.bounds()
   estado.textContent = `listo: ${model.nodes.length} nodos, ${largos.length} aristas, ${pasos} pasos`
 
   salida.textContent = ''
   linea(`GRAFO REAL   ${model.nodes.length} nodos · ${largos.length} aristas · ${pasos} pasos hasta asentarse`)
-  linea(`CAJA         ${Math.round(caja.x1 - caja.x0)} x ${Math.round(caja.y1 - caja.y0)} unidades de mundo`)
+  linea(`CAJA         ${Math.round(bounds.x1 - bounds.x0)} x ${Math.round(bounds.y1 - bounds.y0)} unidades de mundo`)
   linea(`ARISTA       en unidades: p10 ${percentil(largos, 0.1).toFixed(1)} · mediana ${percentil(largos, 0.5).toFixed(1)} · p90 ${percentil(largos, 0.9).toFixed(1)}`)
   linea()
   linea('A ENCUADRE COMPLETO, que es como se abre el grafo:')
@@ -257,7 +257,7 @@ async function main() {
 
   const filas: { nombre: string; k: number; mediana: number }[] = []
   for (const L of LIENZOS) {
-    const k = escalaEncuadre(caja, L.w, L.h, L.compacto)
+    const k = escalaEncuadre(bounds, L.w, L.h, L.compacto)
     const px = (u: number) => u * k
     const cuenta = (t: number) => largos.filter((l) => px(l) >= t).length
     const pc = (n: number) => ((n / largos.length) * 100).toFixed(0) + '%'
@@ -314,13 +314,13 @@ async function main() {
 
   linea()
   linea(`EL MINI DE LA FICHA, medido vecindario a vecindario (${kMini.length} fichas con vecinos):`)
-  linea(`  vecindario mediano ${percentil(tamVec, 0.5).toFixed(0)} nodos · aumento mediano k=${percentil(kMini, 0.5).toFixed(2)} (tope 4)`)
+  linea(`  vecindario mediano ${percentil(tamVec, 0.5).toFixed(0)} nodes · aumento mediano k=${percentil(kMini, 0.5).toFixed(2)} (tope 4)`)
   linea(`  arista:  p10 ${percentil(largosMini, 0.1).toFixed(1)} px · mediana ${percentil(largosMini, 0.5).toFixed(1)} px · p90 ${percentil(largosMini, 0.9).toFixed(1)} px`)
   linea(`  supera:  >=10px ${pcMini(UMBRAL_FLECHA)} · >=18px ${pcMini(UMBRAL_PATRON)} · >=30px ${pcMini(UMBRAL_DEGRADADO)}`)
 
   linea()
   linea('A QUE AUMENTO la arista MEDIANA cruza cada umbral (el encuadre de escritorio es la base):')
-  const kBase = escalaEncuadre(caja, 1400, 900, false)
+  const kBase = escalaEncuadre(bounds, 1400, 900, false)
   const medianaU = percentil(largos, 0.5)
   for (const [nombre, t] of [['flecha', UMBRAL_FLECHA], ['patron', UMBRAL_PATRON], ['degradado', UMBRAL_DEGRADADO]] as const) {
     const kNec = t / medianaU
@@ -354,7 +354,7 @@ async function main() {
       const tr = document.createElement('tr')
       const td0 = document.createElement('td')
       td0.className = 'nom'
-      td0.innerHTML = `${cand.nombre}<br><small>${cand.nota}</small>`
+      td0.innerHTML = `${cand.nombre}<br><small>${cand.note}</small>`
       tr.appendChild(td0)
       for (const t of tamanos) {
         const td = document.createElement('td')

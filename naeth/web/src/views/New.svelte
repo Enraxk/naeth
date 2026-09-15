@@ -15,7 +15,7 @@
   /**
    * Alta de memoria.
    *
-   * Es el editor de `Memoria.svelte` sin la mitad de lectura, contra `POST /api/memory` en vez de
+   * Es el editor de `Memory.svelte` sin la mitad de lectura, contra `POST /api/memory` en vez de
    * contra el supersede. Lo que cambia de verdad respecto a editar:
    *
    *  - No hay nota de la que partir, asi que el `dirty` se mide contra el vacio y no contra un
@@ -25,13 +25,13 @@
    *    devuelve la fila que ya habia. Eso hay que contarlo, no tragarselo.
    *
    * ⚠ El aspecto de esta vista es PROVISIONAL. Los estilos de abajo son los del editor de
-   * `Memoria.svelte`, con los mismos valores, para que no desentone mientras tanto. El diseno
+   * `Memory.svelte`, con los mismos valores, para que no desentone mientras tanto. El diseno
    * definitivo (arranque en vacio, selector de ruta sobre las 80 rutas, acuse de guardado) esta
    * encargado aparte; cuando llegue, se sustituye lo visual sin tocar la logica de este fichero.
    */
 
   // El vocabulario canonico (ver CLAUDE.md), y desde el 28/08/2026 el unico: ese dia se cerro en
-  // estos cuatro, el editor de `Memoria.svelte` dejo de ofrecer `learning` y `error` (cero uso) y
+  // estos cuatro, el editor de `Memory.svelte` dejo de ofrecer `learning` y `error` (cero uso) y
   // las dos notas que quedaban en `reference` se migraron a `fact`. El corpus ya no usa ningun otro.
   const TYPES = ['fact', 'observation', 'decision', 'preference']
 
@@ -39,7 +39,10 @@
   // desde el visor y crear desde el MCP no diverjan sin querer.
   const TYPE_DEFAULT = 'observation'
 
-  const DRAFT_KEY = 'naeth-draft-nueva'
+  const DRAFT_KEY = 'naeth-draft-new'
+  // Hasta la 2.2026.09.3 (15/09/2026) se llamaba `naeth-draft-new`; un borrador a medias no se
+  // pierde por un rename: se lee de la vieja si no hay nueva, y al guardar ya va a la nueva.
+  const DRAFT_KEY_VIEJA = 'naeth-draft-nueva'
 
   let dTitle = $state('')
   let dType = $state(TYPE_DEFAULT)
@@ -61,9 +64,9 @@
   // ---- borrador -----------------------------------------------------------------------------
   type Draft = { title: string; memory_type: string; tags: string[]; path: string; content: string; digest?: string }
   function readDraft(): Draft | null {
-    try { const s = localStorage.getItem(DRAFT_KEY); return s ? JSON.parse(s) : null } catch { return null }
+    try { const s = localStorage.getItem(DRAFT_KEY) ?? localStorage.getItem(DRAFT_KEY_VIEJA); return s ? JSON.parse(s) : null } catch { return null }
   }
-  function clearDraft() { try { localStorage.removeItem(DRAFT_KEY) } catch { /* noop */ } }
+  function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); localStorage.removeItem(DRAFT_KEY_VIEJA) } catch { /* noop */ } }
 
   /**
    * Markdown que produce el editor recien montado y VACIO.
@@ -212,7 +215,7 @@
         return
       }
       await syncRelations(nuevo, content)
-      navigate('memoria', nuevo)
+      navigate('memory', nuevo)
     } catch {
       error = 'No se pudo guardar. ¿Sigue viva la pila?'
       saving = false
@@ -251,7 +254,7 @@
     {#if draftAvail}
       <div class="draft-banner">
         <Icon name="square-pen" size={13} />
-        <span>Tienes una memoria a medio escribir.</span>
+        <span>Tienes una memoria a medio write.</span>
         <button class="lnk" onclick={retomarDraft}>Retomar</button>
         <button class="lnk dim" onclick={descartarDraft}>Descartar</button>
       </div>
@@ -260,8 +263,8 @@
     {#if yaExistia}
       <div class="aviso">
         <Icon name="eye" size={13} />
-        <span>Ya existía una memoria con este mismo texto. No se ha duplicado.</span>
-        <button class="lnk" onclick={() => navigate('memoria', yaExistia)}>Abrir la que hay</button>
+        <span>Ya existía una memoria con este mismo text. No se ha duplicado.</span>
+        <button class="lnk" onclick={() => navigate('memory', yaExistia)}>Abrir la que hay</button>
       </div>
     {/if}
 
@@ -272,7 +275,7 @@
     <input class="e-title" bind:value={dTitle} oninput={() => (dirty = true)} placeholder="Título" />
 
     <div class="e-row">
-      <label>tipo
+      <label>kind
         <select bind:value={dType} onchange={() => (dirty = true)}>
           {#each TYPES as t}<option value={t}>{t}</option>{/each}
         </select>

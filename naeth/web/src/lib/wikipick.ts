@@ -3,7 +3,7 @@ import type { TreeRow } from './types'
 /**
  * Ranking de candidatos del selector de `[[wikilinks]]`.
  *
- * Vivia dentro de `Memoria.svelte` como un `$derived.by` de treinta lineas, sin tests y sin
+ * Vivia dentro de `Memory.svelte` como un `$derived.by` de treinta lineas, sin tests y sin
  * forma de ejercitarlo salvo abriendo el editor y tecleando. Se saca aqui porque la vista de
  * alta necesita exactamente el mismo comportamiento: si se copiaba, cualquier arreglo futuro
  * habria que hacerlo dos veces, y este repo ya tiene la cicatriz de eso.

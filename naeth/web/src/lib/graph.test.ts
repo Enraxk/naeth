@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildGraph, etiquetaVecindario, filtrosPorDefecto, proyectoDe, vecindario,
+  buildGraph, neighborhoodLabel, defaultFilters, projectOf, neighborhood,
   type GraphFilters, type GraphModel,
 } from './graph'
 import type { GraphResponse, TreeRow } from './types'
@@ -39,8 +39,8 @@ const resp = (over: Partial<GraphResponse> = {}): GraphResponse => ({
 })
 
 const filtros = (over: Partial<GraphFilters> = {}): GraphFilters => ({
-  ...filtrosPorDefecto(),
-  ocultarAislados: false,
+  ...defaultFilters(),
+  hideIsolated: false,
   ...over,
 })
 
@@ -152,7 +152,7 @@ describe('buildGraph · filtros', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'a', target_id: 'c', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros({ soloTransversales: true }))
+    }), new Map(), filtros({ crossOnly: true }))
     expect(arista(m, 'a', 'b')).toBeUndefined()
     expect(arista(m, 'a', 'c')).toBeDefined()
   })
@@ -162,9 +162,9 @@ describe('buildGraph · filtros', () => {
     // numero moviendose cuenta una historia sola, y por eso se devuelve en vez de callarlo.
     const m = buildGraph(TREE, resp({
       edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }],
-    }), new Map(), filtros({ ocultarAislados: true }))
+    }), new Map(), filtros({ hideIsolated: true }))
     expect(m.nodes.map((n) => n.id).sort()).toEqual(['a', 'b'])
-    expect(m.aislados).toBe(3)
+    expect(m.isolated).toBe(3)
   })
 
   it('sin ocultar aislados, estan todos y con grado cero', () => {
@@ -183,41 +183,41 @@ describe('buildGraph · el exento, que ningun filtro puede esconder', () => {
   const rel = resp({ edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }] })
 
   it('sin exento, una nota sin vinculos se queda fuera', () => {
-    const m = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true }))
+    const m = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true }))
     expect(m.nodes.map((n) => n.id)).not.toContain('z')
-    expect(m.aislados).toBeGreaterThan(0)
+    expect(m.isolated).toBeGreaterThan(0)
   })
 
   it('con exento, esa misma nota SI sale', () => {
-    const m = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true, exento: 'z' }))
+    const m = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true, exempt: 'z' }))
     expect(m.nodes.map((n) => n.id)).toContain('z')
   })
 
   it('el exento tambien se salta el filtro de proyecto', () => {
     const m = buildGraph(TREE, rel, new Map(), filtros({
-      projects: new Set(['naeth']), ocultarAislados: false, exento: 'c',
+      projects: new Set(['naeth']), hideIsolated: false, exempt: 'c',
     }))
     expect(m.nodes.map((n) => n.id)).toContain('c')
   })
 
   it('un exento que no existe no cambia nada', () => {
-    const a = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true }))
-    const b = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true, exento: 'nada' }))
+    const a = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true }))
+    const b = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true, exempt: 'nada' }))
     expect(b.nodes.map((n) => n.id)).toEqual(a.nodes.map((n) => n.id))
   })
 
   it('el exento NO se cuela en el contador de sueltas', () => {
     // El contador dice cuantas hay fuera; que enseñar una no cambie ese numero es lo que impide
     // que el mensaje de la franja empiece a bailar con el raton.
-    const sin = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true }))
-    const con = buildGraph(TREE, rel, new Map(), filtros({ ocultarAislados: true, exento: 'z' }))
-    expect(con.aislados).toBe(sin.aislados)
+    const sin = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true }))
+    const con = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true, exempt: 'z' }))
+    expect(con.isolated).toBe(sin.isolated)
   })
 })
 
 describe('buildGraph · el arbol esconde lo que colapsas', () => {
   // Decidido el 05/09/2026: cerrar una carpeta la retira del grafo. El coste esta asumido y hay
-  // que poder verlo, que es para lo que existe `ocultas`: al esconder una carpeta desaparecen
+  // que poder verlo, que es para lo que existe `hiddenEdges`: al esconder una carpeta desaparecen
   // tambien las aristas que salian de ella hacia otros proyectos.
   const rel = resp({
     edges: [
@@ -225,32 +225,32 @@ describe('buildGraph · el arbol esconde lo que colapsas', () => {
       { source_id: 'a', target_id: 'c', predicate: 'links_to', n: 1 },
     ],
   })
-  const f = (over: Partial<GraphFilters> = {}) => filtros({ ocultarAislados: false, ...over })
+  const f = (over: Partial<GraphFilters> = {}) => filtros({ hideIsolated: false, ...over })
 
   it('sin nada oculto, estan todas', () => {
     const m = buildGraph(TREE, rel, new Map(), f())
     expect(m.nodes).toHaveLength(TREE.length)
-    expect(m.ocultas).toBe(0)
+    expect(m.hiddenEdges).toBe(0)
   })
 
   it('lo oculto desaparece y se cuenta', () => {
-    const m = buildGraph(TREE, rel, new Map(), f({ ocultos: new Set(['c', 'd']) }))
+    const m = buildGraph(TREE, rel, new Map(), f({ hidden: new Set(['c', 'd']) }))
     expect(m.nodes.map((n) => n.id)).not.toContain('c')
-    expect(m.ocultas).toBe(2)
+    expect(m.hiddenEdges).toBe(2)
   })
 
   it('al ocultar un extremo tambien se va su arista', () => {
     // Es el coste de la decision, y por eso se fija con un test: esconder una carpeta esconde los
     // vinculos que salian de ella, no solo sus nodos.
     const con = buildGraph(TREE, rel, new Map(), f())
-    const sin = buildGraph(TREE, rel, new Map(), f({ ocultos: new Set(['c']) }))
+    const sin = buildGraph(TREE, rel, new Map(), f({ hidden: new Set(['c']) }))
     expect(con.edges.length - sin.edges.length).toBe(1)
   })
 
   it('el exento se salva tambien de esto', () => {
-    const m = buildGraph(TREE, rel, new Map(), f({ ocultos: new Set(['c', 'd']), exento: 'c' }))
+    const m = buildGraph(TREE, rel, new Map(), f({ hidden: new Set(['c', 'd']), exempt: 'c' }))
     expect(m.nodes.map((n) => n.id)).toContain('c')
-    expect(m.ocultas).toBe(1)
+    expect(m.hiddenEdges).toBe(1)
   })
 })
 
@@ -276,17 +276,17 @@ describe('buildGraph · grado y componentes', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'b', target_id: 'z', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros({ ocultarAislados: true }))
+    }), new Map(), filtros({ hideIsolated: true }))
     const compDe = (id: string) => m.nodes.find((n) => n.id === id)!.component
     expect(compDe('a')).toBe(0)
     expect(compDe('b')).toBe(0)
     expect(compDe('z')).toBe(0)
     expect(compDe('c')).toBe(1)
-    expect(m.componentes).toBe(2)
+    expect(m.components).toBe(2)
   })
 })
 
-describe('vecindario · lo que pinta el mini grafo de la ficha', () => {
+describe('neighborhood · lo que pinta el mini grafo de la ficha', () => {
   it('trae solo los vecinos a un salto', () => {
     const m = buildGraph(TREE, resp({
       edges: [
@@ -294,54 +294,54 @@ describe('vecindario · lo que pinta el mini grafo de la ficha', () => {
         { source_id: 'b', target_id: 'c', predicate: 'links_to', n: 1 },
       ],
     }), new Map(), filtros())
-    const v = vecindario(m, 'a')
+    const v = neighborhood(m, 'a')
     expect(v.nodes.map((n) => n.id).sort()).toEqual(['a', 'b'])
     expect(v.edges).toHaveLength(1)
   })
 
   it('una nota sin vinculos da un vecindario vacio', () => {
     const m = buildGraph(TREE, resp(), new Map(), filtros())
-    expect(vecindario(m, 'z').edges).toHaveLength(0)
+    expect(neighborhood(m, 'z').edges).toHaveLength(0)
   })
 })
 
-describe('proyectoDe', () => {
+describe('projectOf', () => {
   it('es el primer segmento del path', () => {
-    expect(proyectoDe('naeth/viewer')).toBe('naeth')
+    expect(projectOf('naeth/viewer')).toBe('naeth')
   })
 
   it('una nota sin path no se queda sin grupo', () => {
-    expect(proyectoDe(null)).toBe('(sin path)')
+    expect(projectOf(null)).toBe('(sin path)')
   })
 })
 
-describe('etiquetaVecindario · el contador que no puede mentir', () => {
+describe('neighborhoodLabel · el contador que no puede mentir', () => {
   const conCapas = (layers: ('relation' | 'wikilink' | 'semantic')[]): GraphModel => ({
     nodes: [],
     edges: layers.map((layer, i) => ({ source: 'a', target: `v${i}`, layer })),
-    aislados: 0,
-    ocultas: 0,
-    componentes: 1,
+    isolated: 0,
+    hiddenEdges: 0,
+    components: 1,
   })
 
   it('una nota SOLA con vecinos semanticos dice que son sugeridos', () => {
     // El caso que motivo la funcion: sin esto la cabecera decia "6" y la nota parecia conectada.
-    expect(etiquetaVecindario(conCapas(['semantic', 'semantic']))).toBe('2 sugeridos')
+    expect(neighborhoodLabel(conCapas(['semantic', 'semantic']))).toBe('2 sugeridos')
   })
 
   it('un solo sugerido va en singular', () => {
-    expect(etiquetaVecindario(conCapas(['semantic']))).toBe('1 sugerido')
+    expect(neighborhoodLabel(conCapas(['semantic']))).toBe('1 sugerido')
   })
 
   it('con vinculos reales, el numero es el de los reales', () => {
-    expect(etiquetaVecindario(conCapas(['relation', 'wikilink']))).toBe('2')
+    expect(neighborhoodLabel(conCapas(['relation', 'wikilink']))).toBe('2')
   })
 
   it('con las dos cosas, se dicen las dos por separado', () => {
-    expect(etiquetaVecindario(conCapas(['relation', 'wikilink', 'semantic']))).toBe('2 + 1 sugeridos')
+    expect(neighborhoodLabel(conCapas(['relation', 'wikilink', 'semantic']))).toBe('2 + 1 sugeridos')
   })
 
   it('sin modelo no revienta', () => {
-    expect(etiquetaVecindario(null)).toBe('0')
+    expect(neighborhoodLabel(null)).toBe('0')
   })
 })

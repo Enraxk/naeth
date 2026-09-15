@@ -3,7 +3,7 @@ import type { GraphResponse, TreeRow } from './types'
 
 // Contrato del mapa de posiciones compartido.
 //
-// POR QUE ESTOS TESTS Y NO OTROS. Aqui vivio el peor bug del 05/09/2026: `pedirMapa` muta el estado
+// POR QUE ESTOS TESTS Y NO OTROS. Aqui vivio el peor bug del 05/09/2026: `requestMap` muta el estado
 // que las vistas leen, asi que llamada desde un efecto reactivo se reinvocaba sola y hacia QUINCE
 // peticiones a `/api/graph` por abrir una ficha. Se arreglo moviendo la guarda por delante de la
 // red, y no habia nada que impidiera que volviera a ponerse detras. Eso es lo que fija el primer
@@ -48,94 +48,94 @@ beforeEach(async () => {
   })
   getGraph.mockReset()
   arbol.tree = [fila('a'), fila('b')]
-  const { olvidarMapa } = await import('./mapa.svelte')
-  olvidarMapa()
+  const { forgetMap } = await import('./layout-map.svelte')
+  forgetMap()
 })
 
-describe('pedirMapa · una sola peticion', () => {
+describe('requestMap · una sola peticion', () => {
   it('DOS llamadas seguidas piden el grafo UNA vez', async () => {
     // El test de regresion de las quince peticiones. Si la guarda vuelve a quedar por detras de la
     // llamada de red, esto cae.
     getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
-    const { pedirMapa } = await import('./mapa.svelte')
-    await pedirMapa()
-    await pedirMapa()
-    await pedirMapa()
+    const { requestMap } = await import('./layout-map.svelte')
+    await requestMap()
+    await requestMap()
+    await requestMap()
     expect(getGraph).toHaveBeenCalledTimes(1)
   })
 
   it('deja el mapa listo y con una posicion por memoria', async () => {
     getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
-    const { pedirMapa, mapa } = await import('./mapa.svelte')
-    await pedirMapa()
-    expect(mapa.listo).toBe(true)
-    expect(mapa.calculando).toBe(false)
-    expect([...mapa.pos.keys()].sort()).toEqual(['a', 'b'])
-    for (const p of mapa.pos.values()) {
+    const { requestMap, layoutMap } = await import('./layout-map.svelte')
+    await requestMap()
+    expect(layoutMap.ready).toBe(true)
+    expect(layoutMap.computing).toBe(false)
+    expect([...layoutMap.pos.keys()].sort()).toEqual(['a', 'b'])
+    for (const p of layoutMap.pos.values()) {
       expect(Number.isFinite(p.x) && Number.isFinite(p.y)).toBe(true)
     }
   })
 })
 
-describe('pedirMapa · cuando el corpus cambia', () => {
+describe('requestMap · cuando el corpus cambia', () => {
   it('con memorias nuevas SI se recalcula, sin volver a pedir el grafo', async () => {
     // El grafo solo se pide una vez por sesion; lo que cambia el mapa es la firma del corpus.
     getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
-    const { pedirMapa, mapa } = await import('./mapa.svelte')
-    await pedirMapa()
-    const v = mapa.version
+    const { requestMap, layoutMap } = await import('./layout-map.svelte')
+    await requestMap()
+    const v = layoutMap.version
 
     arbol.tree = [fila('a'), fila('b'), fila('c')]
-    await pedirMapa()
+    await requestMap()
     expect(getGraph).toHaveBeenCalledTimes(1)
-    expect(mapa.version).toBeGreaterThan(v)
-    expect(mapa.pos.has('c')).toBe(true)
+    expect(layoutMap.version).toBeGreaterThan(v)
+    expect(layoutMap.pos.has('c')).toBe(true)
   })
 
   it('las memorias que siguen estando CONSERVAN su posicion', async () => {
     // Es la conclusion del banco: mantener el mapa mueve la forma de lo que no ha cambiado tres
     // grados por jornada, y rehacerlo doce. Si esto cae, se esta rehaciendo.
     getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
-    const { pedirMapa, mapa } = await import('./mapa.svelte')
-    await pedirMapa()
-    const antes = new Map([...mapa.pos].map(([k, v]) => [k, { ...v }]))
+    const { requestMap, layoutMap } = await import('./layout-map.svelte')
+    await requestMap()
+    const antes = new Map([...layoutMap.pos].map(([k, v]) => [k, { ...v }]))
 
     arbol.tree = [fila('a'), fila('b'), fila('c')]
-    await pedirMapa()
+    await requestMap()
     // No tienen por que quedarse clavadas (lo nuevo las empuja un poco), pero si cerca: rehacer
     // desde cero las mandaria a cualquier sitio.
     for (const [id, p] of antes) {
-      const d = Math.hypot(mapa.pos.get(id)!.x - p.x, mapa.pos.get(id)!.y - p.y)
+      const d = Math.hypot(layoutMap.pos.get(id)!.x - p.x, layoutMap.pos.get(id)!.y - p.y)
       expect(d).toBeLessThan(200)
     }
   })
 })
 
-describe('pedirMapa · lo que degrada sin romper', () => {
+describe('requestMap · lo que degrada sin romper', () => {
   it('sin arbol cargado no hace nada, y no pide el grafo', async () => {
     arbol.tree = null
-    const { pedirMapa, mapa } = await import('./mapa.svelte')
-    await pedirMapa()
+    const { requestMap, layoutMap } = await import('./layout-map.svelte')
+    await requestMap()
     expect(getGraph).not.toHaveBeenCalled()
-    expect(mapa.listo).toBe(false)
+    expect(layoutMap.ready).toBe(false)
   })
 
   it('si el grafo falla, el mapa se queda sin listo pero deja de calcular', async () => {
     // La ficha degrada a su vecindario propio. No es un error fatal y no puede dejar el estado
     // colgado en "calculando", que bloquearia todos los intentos posteriores.
     getGraph.mockRejectedValue(new Error('sin red'))
-    const { pedirMapa, mapa } = await import('./mapa.svelte')
-    await pedirMapa()
-    expect(mapa.listo).toBe(false)
-    expect(mapa.calculando).toBe(false)
+    const { requestMap, layoutMap } = await import('./layout-map.svelte')
+    await requestMap()
+    expect(layoutMap.ready).toBe(false)
+    expect(layoutMap.computing).toBe(false)
   })
 
   it('tras un fallo, una llamada posterior vuelve a intentarlo', async () => {
     getGraph.mockRejectedValueOnce(new Error('sin red'))
     getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
-    const { pedirMapa, mapa } = await import('./mapa.svelte')
-    await pedirMapa()
-    await pedirMapa()
-    expect(mapa.listo).toBe(true)
+    const { requestMap, layoutMap } = await import('./layout-map.svelte')
+    await requestMap()
+    await requestMap()
+    expect(layoutMap.ready).toBe(true)
   })
 })

@@ -13,7 +13,7 @@
   import { typeMeta, typeColor } from '../lib/colors'
   import { fmtDate, fmtAuthor } from '../lib/format'
   import { buildIndex, toDisplayMarkdown, extractLinkedIds } from '../lib/wikilinks'
-  import { buildGraph, etiquetaVecindario, filtrosPorDefecto, vecindario } from '../lib/graph'
+  import { buildGraph, neighborhoodLabel, defaultFilters, neighborhood } from '../lib/graph'
   import type { KnnNeighbor } from '../lib/types'
 
   let { id }: { id: string } = $props()
@@ -59,20 +59,20 @@
       links: { [id]: extractLinkedIds(mdValue, wikiIndex) },
     }
     const model = buildGraph(tree, resp, new Map([[id, knn]]), {
-      ...filtrosPorDefecto(),
+      ...defaultFilters(),
       // Las tres encendidas: en el vecindario de UNA nota, el vecino semantico es justo lo que
       // enseña lo que no enlazaste a mano, y cuesta una consulta de 10 ms.
       layers: { relation: true, wikilink: true, semantic: true },
-      ocultarAislados: false,
+      hideIsolated: false,
     })
-    return vecindario(model, id)
+    return neighborhood(model, id)
   })
 
   const miniVecinos = $derived(miniModel?.edges.length ?? 0)
 
   // El contador SEPARA los vinculos reales de los parecidos calculados. El porque y su caso
-  // medido estan en `etiquetaVecindario`, que vive en lib/graph.ts para poder probarlo.
-  const miniEtiqueta = $derived(etiquetaVecindario(miniModel))
+  // medido estan en `neighborhoodLabel`, que vive en lib/graph.ts para poder probarlo.
+  const miniEtiqueta = $derived(neighborhoodLabel(miniModel))
 
   // edición
   let editing = $state(false)
@@ -382,7 +382,7 @@
         // Antes de navegar: así la carga de la versión nueva ya trae las relaciones y el panel
         // no tiene que refrescarse dos veces ni competir consigo mismo.
         await syncRelations(newId, content)
-        navigate('memoria', newId)
+        navigate('memory', newId)
       }
     } catch {
       error = 'No se pudo guardar. ¿Sigue viva la pila?'
@@ -426,7 +426,7 @@
     {#if draftAvail && !editing}
       <div class="draft-banner">
         <Icon name="square-pen" size={13} />
-        <span>Tienes un borrador sin guardar de esta nota.</span>
+        <span>Tienes un borrador sin guardar de esta note.</span>
         <button class="lnk" onclick={retomarDraft}>Retomar</button>
         <button class="lnk dim" onclick={descartarDraft}>Descartar</button>
       </div>
@@ -438,7 +438,7 @@
       {/if}
       <input class="e-title" bind:value={dTitle} oninput={() => (dirty = true)} placeholder="Título" />
       <div class="e-row">
-        <label>tipo
+        <label>kind
           <select bind:value={dType} onchange={() => (dirty = true)}>
             {#each typeOptions as t}<option value={t}>{t}</option>{/each}
           </select>
@@ -570,7 +570,7 @@
             <div class="ctx-head">Relaciones · {relations.length}</div>
             <div class="rels-list">
               {#each relations as r (r.id)}
-                <button class="rel" title={r.predicate} onclick={() => navigate('memoria', otherId(r))}>
+                <button class="rel" title={r.predicate} onclick={() => navigate('memory', otherId(r))}>
                   <span class="rel-dir" title={r.direction === 'out' ? 'esta nota enlaza a' : 'le enlaza'}>{r.direction === 'out' ? '→' : '←'}</span>
                   <span class="rel-title">{titleOf(otherId(r))}</span>
                 </button>
@@ -583,7 +583,7 @@
             <div class="ctx-head">
               <span>Vecindario · {miniEtiqueta}</span>
               <button class="ctx-mas" title="Ver esta memoria dentro del grafo completo"
-                      onclick={() => navigate('grafo', id)}>
+                      onclick={() => navigate('graph', id)}>
                 <Icon name="share-2" size={12} color="var(--dim)" /><span>en el grafo</span>
               </button>
             </div>
@@ -596,7 +596,7 @@
             <div class="timeline">
               {#each [...chain].reverse() as v, idx (v.id)}
                 {@const ver = 'v' + (chain.length - idx)}
-                <button class="ver" class:cur={v.cur} onclick={() => navigate('memoria', v.id)}>
+                <button class="ver" class:cur={v.cur} onclick={() => navigate('memory', v.id)}>
                   <span class="vg"><span class="dot"></span><span>{ver}{v.cur ? ' · actual' : ''}</span></span>
                   <span class="vdate">{fmtDate(v.created_at)}</span>
                 </button>
@@ -648,7 +648,7 @@
   .d-body { font: 14px/1.65 var(--font-sans); color: var(--ink); margin-top: 4px; }
 
   /* Selector de `[[`: fixed porque se posiciona con coordenadas de viewport (coordsAtPos). */
-  /* Mismos valores y mismo motivo que en `Nueva.svelte`, donde está explicado: el popover se salía
+  /* Mismos valores y mismo motivo que en `New.svelte`, donde está explicado: el popover se salía
      por la derecha en móvil y los títulos quedaban cortados. Si cambian allí, cambian aquí. */
   .wikipop {
     position: fixed; z-index: 60; width: min(460px, 90vw);
@@ -739,7 +739,7 @@
     .d-title, .e-title { font-size: 20px; }
     .note-inner, .memoria.editing .note-inner { max-width: none; }
 
-    /* Dos líneas para el título del candidato, por lo mismo que en `Nueva.svelte`: con el prefijo
+    /* Dos líneas para el título del candidato, por lo mismo que en `New.svelte`: con el prefijo
        compartido de tantas memorias, a una línea varios candidatos se ven idénticos. */
     .wp-item { align-items: flex-start; }
     .wp-title {

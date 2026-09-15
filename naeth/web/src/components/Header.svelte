@@ -64,7 +64,7 @@
       El boton conserva su `aria-label`, y los SVG entran decorativos: para un lector de pantalla
       esto no ha cambiado.
     -->
-    <button class="wordmark" title="Ir al inicio" aria-label="Ir al inicio" onclick={() => navigate('inicio')}>
+    <button class="wordmark" title="Ir al inicio" aria-label="Ir al inicio" onclick={() => navigate('home')}>
       <span class="bd"><Brand variant="lockup" height={24} /></span>
       <span class="bm"><Brand variant="symbol" height={20} /></span>
     </button>

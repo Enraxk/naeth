@@ -67,7 +67,7 @@
   <section class="est-sec">
     <div class="charts">
       <div class="chart">
-        <h3><Icon name="eye" size={13} color="var(--dim)" /><span>Memorias por tipo</span></h3>
+        <h3><Icon name="eye" size={13} color="var(--dim)" /><span>Memorias por kind</span></h3>
         {#each byType as [k, n] (k)}
           <div class="bar-row">
             <span class="bar-label"><Icon name={typeMeta(k).icon} size={13} color={typeColor(k)} /><span>{k}</span></span>

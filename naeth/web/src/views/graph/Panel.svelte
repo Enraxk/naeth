@@ -1,9 +1,9 @@
 <script lang="ts">
   import Icon from '../../components/Icon.svelte'
   import {
-    CATALOGO, grafoPrefs, GRUPOS, mandosDe, poner, restaurar,
-    type Clave, type Grupo,
-  } from '../../lib/prefs-grafo.svelte'
+    CATALOG, graphPrefs, GROUPS, controlsOf, set, restore,
+    type Key, type Group,
+  } from '../../lib/prefs-graph.svelte'
 
   // El panel de ajustes del grafo.
   //
@@ -16,20 +16,20 @@
 
   let { abierto = $bindable(false) }: { abierto?: boolean } = $props()
 
-  // Un `Record<Grupo, ...>`, no una lista: asi añadir un grupo al catalogo y olvidarse de darle
+  // Un `Record<Group, ...>`, no una lista: asi añadir un grupo al catalogo y olvidarse de darle
   // titulo aqui NO COMPILA, en vez de quedarse como una seccion que no se pinta y de la que nadie se
-  // entera. El orden lo pone `GRUPOS`, que es de donde tira el `{#each}`.
-  const SECCIONES: Record<Grupo, { titulo: string; icono: string }> = {
-    texto: { titulo: 'Texto', icono: 'file-text' },
-    nodos: { titulo: 'Nodos', icono: 'circle' },
-    aristas: { titulo: 'Aristas', icono: 'share-2' },
-    fisica: { titulo: 'Física', icono: 'zap' },
+  // entera. El orden lo pone `GROUPS`, que es de donde tira el `{#each}`.
+  const SECCIONES: Record<Group, { titulo: string; icono: string }> = {
+    text: { titulo: 'Texto', icono: 'file-text' },
+    nodes: { titulo: 'Nodos', icono: 'circle' },
+    edges: { titulo: 'Aristas', icono: 'share-2' },
+    physics: { titulo: 'Física', icono: 'zap' },
     experimental: { titulo: 'Experimental', icono: 'flask-conical' },
   }
 
   /** Cuantos decimales enseñar, deducidos del paso: un paso de 1 no quiere ver "34,00". */
-  function fmt(v: number, paso: number) {
-    const d = paso >= 1 ? 0 : paso >= 0.1 ? 1 : 2
+  function fmt(v: number, step: number) {
+    const d = step >= 1 ? 0 : step >= 0.1 ? 1 : 2
     return v.toFixed(d).replace('.', ',')
   }
 
@@ -54,13 +54,13 @@
     </header>
 
     <div class="cuerpo">
-      {#each GRUPOS as g (g)}
+      {#each GROUPS as g (g)}
         {@const s = SECCIONES[g]}
         <section>
           <div class="sec-cab">
             <Icon name={s.icono} size={12} color="var(--dim)" />
             <span>{s.titulo}</span>
-            <button class="mini" onclick={() => restaurar(g)} title="Devolver esta sección a sus valores de fábrica">
+            <button class="mini" onclick={() => restore(g)} title="Devolver esta sección a sus valores de fábrica">
               restaurar
             </button>
           </div>
@@ -72,24 +72,24 @@
               Estos cambian cómo se lee el grafo entero. Si lo dejas ilegible, la salida está abajo.
             </p>
           {/if}
-          {#each mandosDe(g) as { clave, mando } (clave)}
+          {#each controlsOf(g) as { clave, mando } (clave)}
             {@const id = 'aj-' + clave}
-            {#if mando.tipo === 'bool'}
+            {#if mando.kind === 'bool'}
               <div class="mando bool">
                 <input type="checkbox" {id}
                        bind:checked={
-                         () => grafoPrefs[clave] as boolean,
-                         (v) => poner(clave as Clave, v as never)
+                         () => graphPrefs[clave] as boolean,
+                         (v) => set(clave as Key, v as never)
                        } />
-                <label for={id}>{mando.etiqueta}</label>
+                <label for={id}>{mando.label}</label>
               </div>
             {:else}
               <div class="mando">
                 <label for={id}>
-                  {mando.etiqueta}
+                  {mando.label}
                   <!-- El numero SIEMPRE a la vista: un deslizador sin valor no se puede comunicar
                        ("subelo un poco" no es un ajuste) ni comparar con lo que se midio. -->
-                  <output for={id}>{fmt(grafoPrefs[clave] as number, mando.paso)}</output>
+                  <output for={id}>{fmt(graphPrefs[clave] as number, mando.step)}</output>
                 </label>
                 <!-- ⚠ `bind:` CON GETTER Y SETTER, no `value=` mas `oninput`.
                      Con el atributo controlado, cada cambio vuelve a renderizar el input a mitad del
@@ -98,21 +98,21 @@
                      clic en otra parte, que es justo lo que reporto Eneko el 08/09. Con `bind:` el
                      valor lo lleva el propio input y el setter solo lo propaga. -->
                 <input type="range" {id}
-                       min={mando.min} max={mando.max} step={mando.paso}
+                       min={mando.min} max={mando.max} step={mando.step}
                        bind:value={
-                         () => grafoPrefs[clave] as number,
-                         (v) => poner(clave as Clave, v as never)
+                         () => graphPrefs[clave] as number,
+                         (v) => set(clave as Key, v as never)
                        } />
               </div>
             {/if}
-            {#if mando.nota}<p class="nota">{mando.nota}</p>{/if}
+            {#if mando.note}<p class="note">{mando.note}</p>{/if}
           {/each}
         </section>
       {/each}
     </div>
 
     <footer>
-      <button class="todo" onclick={() => restaurar()}>
+      <button class="todo" onclick={() => restore()}>
         <Icon name="refresh" size={12} color="currentColor" />
         Restaurar todo
       </button>
@@ -120,7 +120,7 @@
            grafo queda ilegible, porque el boton vive dentro del grafo; la barra de direcciones sigue
            ahi pase lo que pase. -->
       <span class="pista">
-        Se guarda en este navegador. Si algo queda ilegible: <code>#/grafo?reset</code>
+        Se guarda en este navegador. Si algo queda ilegible: <code>#/graph?reset</code>
       </span>
     </footer>
   </aside>
@@ -210,7 +210,7 @@
   input[type='range'] { width: 100%; accent-color: var(--accent); }
   input[type='checkbox'] { accent-color: var(--accent); }
 
-  .nota {
+  .note {
     margin: -5px 0 10px;
     font-size: 10.5px;
     line-height: 1.4;

@@ -15,7 +15,7 @@ y luego `http://localhost:5173/bench/<el que sea>.html` (o el puerto que use tu 
 | Banco | Fecha | Qué decidió |
 |---|---|---|
 | [`motor`](motor.html) | 05/09/2026 | **Canvas contra SVG.** Con el corpus de hoy los cuatro candidatos pasaban de 140 fps; a diez veces el corpus, canvas sostiene 45 y SVG 19. ⚠ Su criterio, declarado antes de mirar, **no discriminó**: la elección la dio el margen a futuro, y eso quedó escrito tal cual |
-| [`vecindario`](vecindario.html) | 05/09/2026 | **El mapa de posiciones compartido.** Simular el vecindario aparte pierde 66 grados y el 90% del orden de los vecinos. Y tumbó el anclado selectivo, que era una propuesta mía: sale peor a partir del mes |
+| [`neighborhood`](vecindario.html) | 05/09/2026 | **El mapa de posiciones compartido.** Simular el vecindario aparte pierde 66 grados y el 90% del orden de los vecinos. Y tumbó el anclado selectivo, que era una propuesta mía: sale peor a partir del mes |
 | [`arista`](arista.html) | 06/09/2026 | **Cuánto sitio hay en un trazo.** La arista mediana mide 19 px a encuadre completo, así que la punta de flecha entra en el 97%. Mató el degradado (necesita 30 px y solo los tiene el 18%) y el grosor |
 | [`canal-vivo`](canal-vivo.html) | 06/09/2026 | **Que "cabe" no es "se lee".** Las mismas candidatas sobre el grafo entero, con resalte y aumento. De aquí salió el control de fuerza del tinte, porque a plena saturación el grafo se vuelve azul |
 | [`fuerzas`](fuerzas.html) | 06/09/2026 | **Que los deslizadores de física van en continuo.** Reconfigurar una fuerza viva cuesta 0,05-0,2 ms contra los 121-269 ms de reconstruir el simulador |

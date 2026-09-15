@@ -98,6 +98,6 @@ export function choose(i: number) {
   if (!h) return
   if (h.cmd) { qo.query = PREFIX[h.kind] + h.value; doSearch(qo.query); return }
   closeSearch()
-  navigate('memoria', h.row.id)
+  navigate('memory', h.row.id)
 }
 export { PREFIX }

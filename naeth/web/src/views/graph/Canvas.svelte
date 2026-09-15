@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
-  import { crearSimulador, encendidosDe, type Simulador } from '../../lib/sim'
-  import { pintorCanvas } from '../../lib/pintor-canvas'
-  import { aMundo, radioEnPantalla, type Pintor, type Vista } from '../../lib/pintor'
+  import { createSimulator, litFrom, type Simulator } from '../../lib/sim'
+  import { canvasPainter } from '../../lib/painter-canvas'
+  import { toWorld, screenRadius, type Painter, type Viewport } from '../../lib/painter'
   import { theme } from '../../lib/theme.svelte'
-  import { grafoPrefs } from '../../lib/prefs-grafo.svelte'
+  import { graphPrefs } from '../../lib/prefs-graph.svelte'
   import type { GraphModel } from '../../lib/graph'
 
   // El lienzo del grafo: fisica, pintado e interaccion cosidos, y nada mas.
@@ -25,7 +25,7 @@
   let {
     model,
     foco = null,
-    grupo = null,
+    group = null,
     seleccion = null,
     compacto = false,
     posiciones = null,
@@ -47,19 +47,19 @@
     /** Resaltado que viene de fuera: la ruta, o el raton sobre el arbol. */
     foco?: string | null
     /** Varias memorias encendidas a la vez: la carpeta que se senala en el arbol. */
-    grupo?: string[] | null
+    group?: string[] | null
     seleccion?: string | null
     onSelect?: (id: string | null) => void
     onOpen?: (id: string) => void
   } = $props()
 
-  let caja = $state<HTMLDivElement | null>(null)
-  let sim: Simulador | null = null
-  let pintor: Pintor | null = null
+  let bounds = $state<HTMLDivElement | null>(null)
+  let sim: Simulator | null = null
+  let pintor: Painter | null = null
 
   // ── EL MINI HEREDA EN PROPORCION, no tiene sus propios numeros ────────────────────────────
   //
-  // Antes el compacto llevaba `{distancia: 96, repulsion: -140}` escritos a fuego. Ahora esos dos
+  // Antes el compacto llevaba `{distance: 96, repulsion: -140}` escritos a fuego. Ahora esos dos
   // numeros son FACTORES sobre lo que ajuste Eneko en el panel, para que al mover la fisica del
   // grafo grande el mini se mueva con el y las dos vistas sigan pareciendose, que es exactamente lo
   // que se pidio el 05/09: "el mini grafo quiero que se vea y se sienta como el grafo normal".
@@ -75,18 +75,18 @@
   const F_NOMBRES = 6 / 26
 
   const fisicaDePrefs = () => ({
-    distancia: grafoPrefs.distancia * (compacto ? F_DISTANCIA : 1),
-    repulsion: grafoPrefs.repulsion * (compacto ? F_REPULSION : 1),
-    frenado: grafoPrefs.frenado,
+    distance: graphPrefs.distance * (compacto ? F_DISTANCIA : 1),
+    repulsion: graphPrefs.repulsion * (compacto ? F_REPULSION : 1),
+    damping: graphPrefs.damping,
     // En el compacto NO se agrupa por proyecto: un vecindario de tres nodos no tiene proyectos que
     // separar, y la fuerza solo conseguiria deformarlo.
-    agruparProyecto: compacto ? 0 : grafoPrefs.separaProyectos,
+    groupByProject: compacto ? 0 : graphPrefs.splitProjects,
   })
 
   // ESTADO DEL LIENZO, DELIBERADAMENTE FUERA DE SVELTE. Se toca hasta seis veces por frame, y
   // pasarlo por `$state` seria invalidar el grafo de dependencias de Svelte 60 veces por segundo
   // para que al final solo cambie un `<canvas>` que se pinta a mano de todos modos.
-  const vista: Vista = { cx: 0, cy: 0, k: 1, w: 0, h: 0 }
+  const vista: Viewport = { cx: 0, cy: 0, k: 1, w: 0, h: 0 }
   let objetivoK = 1
   let anclaZoom: { wx: number; wy: number; sx: number; sy: number } | null = null
   let panv = { x: 0, y: 0 }
@@ -111,7 +111,7 @@
 
   // Lo unico que SI vive en Svelte, y solo porque lo lee el marcado: el cursor de agarrar. El
   // resto del estado del lienzo se queda fuera a proposito, arriba.
-  let listo = $state(false)
+  let ready = $state(false)
   let agarrando = $state(false)
 
   const reduce =
@@ -133,7 +133,7 @@
     if (!sim || !pintor) return
     let vivo = false
 
-    if (sim.paso()) vivo = true
+    if (sim.step()) vivo = true
 
     // El aumento se desliza hacia su objetivo. Es el `scale` interpolado hacia `targetScale` de
     // Obsidian, y es la mitad de la sensacion de que el lienzo tiene peso.
@@ -168,10 +168,10 @@
     // seleccion, que en el mini es la nota que estas leyendo: senalar algo de fuera no puede dejar
     // este grafo sin nada senalado.
     const idFoco =
-      foco && sim.tiene(foco) ? foco : seleccion && sim.tiene(seleccion) ? seleccion : null
+      foco && sim.has(foco) ? foco : seleccion && sim.has(seleccion) ? seleccion : null
     const enc = encendidos(idFoco)
 
-    const objAten = enc || grupo?.length ? 1 : 0
+    const objAten = enc || group?.length ? 1 : 0
     if (Math.abs(atenuacion - objAten) > 0.004) {
       atenuacion = reduce ? objAten : atenuacion + (objAten - atenuacion) * 0.18
       vivo = true
@@ -181,15 +181,15 @@
 
     if (autoEncuadre) {
       encuadraTodo(reduce ? 1 : 0.12)
-      if (sim.viva()) vivo = true
-    } else if (grupo?.length && siguiendoGrupo) {
+      if (sim.alive()) vivo = true
+    } else if (group?.length && siguiendoGrupo) {
       // Al senalar una carpeta la camara va a su centro pero NO cambia el aumento: una carpeta de
       // 83 memorias y una de 2 pediran aumentos muy distintos, y recorrer el arbol con la rueda
       // moviendose sola es mareante. Se llega, y desde ahi decide la mano.
       let cx = 0
       let cy = 0
       let n = 0
-      for (const nd of sim.nodos)
+      for (const nd of sim.nodes)
         if (siguiendoGrupo.has(nd.id)) {
           cx += nd.x ?? 0
           cy += nd.y ?? 0
@@ -208,7 +208,7 @@
       // Se persigue la posicion ACTUAL del nodo, no la que tenia al empezar: mientras la
       // simulacion respira, el nodo se mueve, y una camara que va a donde estaba deja el nodo
       // descentrado justo al llegar.
-      const nd = sim.nodos.find((n) => n.id === siguiendo)
+      const nd = sim.nodes.find((n) => n.id === siguiendo)
       if (nd) {
         const dx = (nd.x ?? 0) - vista.cx
         const dy = (nd.y ?? 0) - vista.cy
@@ -222,28 +222,28 @@
 
     amarrar()
 
-    pintor.dibujar(sim, vista, {
+    pintor.draw(sim, vista, {
       foco: idFoco,
       encendidos: enc,
       atenuacion,
       arrastrando,
       color: true,
-      escalaNodo: grafoPrefs.escalaNodo * (compacto ? F_NODO : 1),
-      textoDesde: grafoPrefs.textoDesde,
-      textoPleno: grafoPrefs.textoPleno,
-      nodoExp: grafoPrefs.nodoExponente,
-      nodoMin: grafoPrefs.nodoMin,
-      nodoMax: grafoPrefs.nodoMax,
-      flechas: grafoPrefs.flechas,
-      puntaPx: grafoPrefs.puntaPx,
-      puntaMedio: grafoPrefs.puntaMedio,
-      tintado: grafoPrefs.tintado,
-      tinteFuerza: grafoPrefs.tinteFuerza,
-      curvatura: grafoPrefs.curvatura,
+      nodeScale: graphPrefs.nodeScale * (compacto ? F_NODO : 1),
+      textFrom: graphPrefs.textFrom,
+      textFull: graphPrefs.textFull,
+      nodoExp: graphPrefs.nodeExponent,
+      nodeMin: graphPrefs.nodeMin,
+      nodeMax: graphPrefs.nodeMax,
+      arrows: graphPrefs.arrows,
+      arrowPx: graphPrefs.arrowPx,
+      arrowMid: graphPrefs.arrowMid,
+      tinted: graphPrefs.tinted,
+      tintStrength: graphPrefs.tintStrength,
+      curvature: graphPrefs.curvature,
       pesoCapa: {
-        relation: grafoPrefs.opRelacion,
-        wikilink: grafoPrefs.opWikilink,
-        semantic: grafoPrefs.opSemantica,
+        relation: graphPrefs.opRelation,
+        wikilink: graphPrefs.opWikilink,
+        semantic: graphPrefs.opSemantic,
       },
       // El mini juega con las MISMAS tres reglas que el grande, solo que con menos sitio: en 300 px
       // un vecindario de quince nombres no cabe. Con seis, un vecindario pequeño los enseña ya y
@@ -252,9 +252,9 @@
       // la misma mecanica del grafo grande, con el tope ajustado al hueco. Los seis de antes son
       // ahora la misma proporcion (6/26) sobre el tope que ajuste Eneko, para que bajarlo en el
       // grafo grande no acabe subiendolo en el mini.
-      topeNombres: compacto
-        ? Math.max(1, Math.round(grafoPrefs.topeNombres * F_NOMBRES))
-        : grafoPrefs.topeNombres,
+      labelCap: compacto
+        ? Math.max(1, Math.round(graphPrefs.labelCap * F_NOMBRES))
+        : graphPrefs.labelCap,
     })
 
     if (vivo) despertar()
@@ -276,11 +276,11 @@
   let cacheSet: Set<string> | null = null
   function encendidos(id: string | null): Set<string> | null {
     if (!sim) return null
-    if (grupo === cacheGrupo && id === cacheId && model === cacheModel) return cacheSet
-    cacheGrupo = grupo
+    if (group === cacheGrupo && id === cacheId && model === cacheModel) return cacheSet
+    cacheGrupo = group
     cacheId = id
     cacheModel = model
-    cacheSet = encendidosDe(sim, id, grupo)
+    cacheSet = litFrom(sim, id, group)
     return cacheSet
   }
 
@@ -296,7 +296,7 @@
    */
   function amarrar() {
     if (!sim || !vista.w) return
-    const c = sim.caja()
+    const c = sim.bounds()
     const mx = vista.w / vista.k
     const my = vista.h / vista.k
     vista.cx = Math.max(c.x0 - mx, Math.min(c.x1 + mx, vista.cx))
@@ -305,10 +305,10 @@
     if (!Number.isFinite(vista.cy)) vista.cy = (c.y0 + c.y1) / 2
   }
 
-  /** Lleva la camara a que quepa todo, de golpe o poco a poco segun `paso`. */
-  function encuadraTodo(paso = 1) {
+  /** Lleva la camara a que quepa todo, de golpe o poco a poco segun `step`. */
+  function encuadraTodo(step = 1) {
     if (!sim || !vista.w) return
-    const c = sim.caja()
+    const c = sim.bounds()
     // Mas margen en el compacto: ahi los nombres salen al senalar y necesitan sitio a los lados,
     // que en 276 px es lo primero que se acaba.
     const k = Math.min(
@@ -317,9 +317,9 @@
     ) * (compacto ? 0.72 : 0.9)
     const cx = (c.x0 + c.x1) / 2
     const cy = (c.y0 + c.y1) / 2
-    vista.k += (Math.min(k, 4) - vista.k) * paso
-    vista.cx += (cx - vista.cx) * paso
-    vista.cy += (cy - vista.cy) * paso
+    vista.k += (Math.min(k, 4) - vista.k) * step
+    vista.cx += (cx - vista.cx) * step
+    vista.cy += (cy - vista.cy) * step
     objetivoK = vista.k
   }
 
@@ -362,9 +362,9 @@
     despertar()
   }
 
-  /** Va a un nodo y se acerca. Lo usa el boton del mini grafo y la ruta `#/grafo/<id>`. */
+  /** Va a un nodo y se acerca. Lo usa el boton del mini grafo y la ruta `#/graph/<id>`. */
   export function encuadrar(id: string) {
-    const nd = sim?.nodos.find((n) => n.id === id)
+    const nd = sim?.nodes.find((n) => n.id === id)
     if (!nd) return
     autoEncuadre = false
     siguiendo = null
@@ -382,20 +382,20 @@
    *
    * El radio de captura es GENEROSO a proposito, y ademas es el de un nodo de grado medio y no el
    * del nodo concreto: apuntar a un punto de tres pixeles con el raton es una prueba de punteria,
-   * y la del grafo de Obsidian tampoco la exige. `cerca` devuelve el mas cercano, asi que un radio
+   * y la del grafo de Obsidian tampoco la exige. `nearest` devuelve el mas cercano, asi que un radio
    * amplio no roba clics al vecino: solo perdona el temblor de la mano.
    */
   const RADIO_MEDIO = 5.3
   function nodoEn(sx: number, sy: number) {
     if (!sim) return null
-    const m = aMundo(sx, sy, vista)
+    const m = toWorld(sx, sy, vista)
     // El radio se pide en unidades de mundo, pero quien apunta lo hace en pantalla: la conversion
     // va aqui, que es el sitio donde no se puede olvidar.
-    return sim.cerca(m.x, m.y, (radioEnPantalla(RADIO_MEDIO, vista.k) + 7) / vista.k)
+    return sim.nearest(m.x, m.y, (screenRadius(RADIO_MEDIO, vista.k) + 7) / vista.k)
   }
 
   const enLienzo = (ev: PointerEvent) => {
-    const r = caja!.getBoundingClientRect()
+    const r = bounds!.getBoundingClientRect()
     return { x: ev.clientX - r.left, y: ev.clientY - r.top }
   }
 
@@ -413,15 +413,15 @@
    * El ultimo nodo que este lienzo ha senalado, para no repetir el aviso en cada pixel de raton.
    *
    * ⚠ NO SE COMPARA CONTRA `foco`, y ese era el bug. `foco` incluye el id de la ruta, asi que
-   * llegando por `#/grafo/<id>` ese nodo concreto ya venia como foco y la comparacion lo daba por
+   * llegando por `#/graph/<id>` ese nodo concreto ya venia como foco y la comparacion lo daba por
    * senalado sin haberlo estado: era el unico nodo de la vista cuya fila no se encendia nunca en el
    * arbol. Con una cuenta propia, el lienzo sabe lo que ha dicho EL, que es lo que quiere saber.
    */
   let ultimoSenalado: string | null = null
 
   function abajo(ev: PointerEvent) {
-    if (ev.button !== 0 || !caja) return
-    caja.setPointerCapture(ev.pointerId)
+    if (ev.button !== 0 || !bounds) return
+    bounds.setPointerCapture(ev.pointerId)
     const p = enLienzo(ev)
     // Lo que se pulsa es lo que hay DEBAJO, y solo eso. Probe darle un margen para alcanzar al
     // nodo senalado aunque se hubiera movido, y lo quite: en el uso real apuntas a donde VES el
@@ -439,19 +439,19 @@
       arrastrando = nd.id
       // Sostenida: mientras el nodo esta en la mano la simulacion no se enfria, asi que los
       // vecinos se apartan de verdad en vez de quedarse tiesos.
-      sim?.agitar(0.35, true)
-      sim?.sujetar(nd.id, nd.x ?? 0, nd.y ?? 0)
+      sim?.reheat(0.35, true)
+      sim?.pin(nd.id, nd.x ?? 0, nd.y ?? 0)
     }
     despertar()
   }
 
   function mueve(ev: PointerEvent) {
-    if (!caja || !sim) return
+    if (!bounds || !sim) return
     const p = enLienzo(ev)
 
     if (arrastrando && pulsa) {
-      const m = aMundo(p.x, p.y, vista)
-      sim.sujetar(arrastrando, m.x, m.y)
+      const m = toWorld(p.x, p.y, vista)
+      sim.pin(arrastrando, m.x, m.y)
       despertar()
       return
     }
@@ -498,8 +498,8 @@
       Math.abs(p.y - pulsa.sy) < 5
 
     if (arrastrando) {
-      sim?.soltar(arrastrando)
-      sim?.agitar(0.15)
+      sim?.release(arrastrando)
+      sim?.reheat(0.15)
       arrastrando = null
       panv = { x: 0, y: 0 }
     }
@@ -520,11 +520,11 @@
 
   function rueda(ev: WheelEvent) {
     ev.preventDefault()
-    if (!caja) return
-    const r = caja.getBoundingClientRect()
+    if (!bounds) return
+    const r = bounds.getBoundingClientRect()
     const sx = ev.clientX - r.left
     const sy = ev.clientY - r.top
-    const m = aMundo(sx, sy, vista)
+    const m = toWorld(sx, sy, vista)
     anclaZoom = { wx: m.x, wy: m.y, sx, sy }
     autoEncuadre = false
     siguiendo = null
@@ -578,12 +578,12 @@
 
     // Al vecino que mejor cae en esa direccion: se puntua el coseno del angulo, con la distancia
     // desempatando. Saltar "al de la derecha" tiene que llevar a uno que este a la derecha.
-    const yo = sim.nodos.find((n) => n.id === actual)
+    const yo = sim.nodes.find((n) => n.id === actual)
     if (!yo) return
     let mejor: string | null = null
     let puntos = -Infinity
-    for (const v of sim.vecinos(actual)) {
-      const o = sim.nodos.find((n) => n.id === v)
+    for (const v of sim.neighbors(actual)) {
+      const o = sim.nodes.find((n) => n.id === v)
       if (!o) continue
       const dx = (o.x ?? 0) - (yo.x ?? 0)
       const dy = (o.y ?? 0) - (yo.y ?? 0)
@@ -597,7 +597,7 @@
     if (mejor && puntos > 0) {
       ultimoSenalado = mejor
       onSelect?.(mejor)
-      const nd = sim.nodos.find((n) => n.id === mejor)
+      const nd = sim.nodes.find((n) => n.id === mejor)
       if (nd) {
         vista.cx = nd.x ?? 0
         vista.cy = nd.y ?? 0
@@ -609,8 +609,8 @@
   // --- ciclo de vida ------------------------------------------------------------------------
 
   onMount(() => {
-    if (!caja) return
-    pintor = pintorCanvas(caja)
+    if (!bounds) return
+    pintor = canvasPainter(bounds)
     // LA FISICA DEL COMPACTO ES OTRA, y no es un capricho de tamaño.
     //
     // Con la distancia de enlace del grafo grande (34) y quince vecinos alrededor de un centro, el
@@ -621,53 +621,53 @@
     // Con la distancia larga, las aristas vuelven a ser lineas que salen del centro, que es la
     // forma que tiene el vecindario cuando lo miras en el grafo grande. Y la repulsion sube para
     // que los vecinos se repartan por el anillo en vez de agruparse por un lado.
-    sim = crearSimulador(model, {
+    sim = createSimulator(model, {
       ...fisicaDePrefs(),
       ...(compacto ? { ancho: 420 } : {}),
     })
 
     const ro = new ResizeObserver(() => {
-      if (!caja) return
-      vista.w = caja.clientWidth
-      vista.h = caja.clientHeight
-      pintor?.medir(vista.w, vista.h)
+      if (!bounds) return
+      vista.w = bounds.clientWidth
+      vista.h = bounds.clientHeight
+      pintor?.resize(vista.w, vista.h)
       if (encuadrePendiente && vista.w) {
         encuadrePendiente = false
         encuadraTodo(1)
       }
       despertar()
     })
-    ro.observe(caja)
+    ro.observe(bounds)
 
     // Con movimiento reducido no se ensena la simulacion: se adelanta en silencio y se pinta ya
     // asentada. Es la primera excepcion a que el movimiento se gobierne desde `app.css`, y no
     // puede resolverse con tokens porque esto no es una transicion CSS, son objetos moviendose.
     if (posiciones?.size) colocarYEncuadrar(posiciones)
-    else if (reduce) for (let i = 0; i < 260 && sim.paso(); i++)
+    else if (reduce) for (let i = 0; i < 260 && sim.step(); i++)
 
-    listo = true
+    ready = true
     despertar()
     return () => {
       ro.disconnect()
-      sim?.parar()
-      pintor?.destruir()
+      sim?.stop()
+      pintor?.destroy()
       pintor = null
       sim = null
     }
   })
 
-  // El modelo cambia al tocar un filtro o una capa. `cambiar` conserva la posicion de lo que sigue
+  // El modelo cambia al tocar un filtro o una capa. `update` conserva la posicion de lo que sigue
   // estando, asi que esto ya no es el recalculo de 265 a 411 ms que medimos el 04/09.
   $effect(() => {
     const m = model
-    if (!sim || !listo) return
-    sim.cambiar(m)
+    if (!sim || !ready) return
+    sim.update(m)
     // Si el lienzo vive de un mapa (la ficha de una memoria), cambiar de nota cambia el modelo
     // ENTERO, no un filtro: hay que volver a colocar desde el mapa y reencuadrar, porque los nodos
     // nuevos entran donde los deje el empaquetado y la camara sigue mirando al vecindario anterior.
     //
     // ⚠ `posiciones` SE LEE CON `untrack`. Sin eso este efecto tambien depende de ella, asi que al
-    // llegar el mapa se ejecutaba `sim.cambiar` sin que el modelo hubiera cambiado, y el efecto de
+    // llegar el mapa se ejecutaba `sim.update` sin que el modelo hubiera cambiado, y el efecto de
     // abajo repetia el trabajo. Es la misma familia de reentrada que ya costo quince peticiones a
     // `/api/graph`: un efecto que reacciona a algo que no es lo suyo.
     const p = untrack(() => posiciones)
@@ -680,7 +680,7 @@
   // forma inventada para siempre.
   $effect(() => {
     const p = posiciones
-    if (!sim || !listo || !p?.size) return
+    if (!sim || !ready || !p?.size) return
     colocarYEncuadrar(p)
     despertar()
   })
@@ -688,13 +688,13 @@
   /**
    * Coloca desde el mapa y encuadra DE GOLPE.
    *
-   * El encuadre de golpe no es un atajo: `colocar` deja la simulacion dormida, y el encuadre
+   * El encuadre de golpe no es un atajo: `place` deja la simulacion dormida, y el encuadre
    * automatico avanza un 12% por frame contando con que la simulacion mantenga vivo el bucle.
    * Sin ella, el bucle pinta una vez y se para, asi que la camara se quedaba a un 12% del camino y
    * el vecindario aparecia descuadrado. Aqui no hay nada que interpolar: es la primera imagen.
    */
   function colocarYEncuadrar(p: ReadonlyMap<string, { x: number; y: number }>) {
-    sim?.colocar(p)
+    sim?.place(p)
     autoEncuadre = false
     if (!vista.w) {
       // Todavia no se ha medido el contenedor: el encuadre se apunta y lo hace el ResizeObserver.
@@ -707,7 +707,7 @@
   // Un lienzo no entiende `var(--ink)`: hay que releer los tokens al cambiar de tema.
   $effect(() => {
     theme.value
-    pintor?.tema()
+    pintor?.theme()
     despertar()
   })
 
@@ -733,21 +733,21 @@
     // un mando al añadirlo y nadie se entera (el mando queda mudo hasta que algo mas despierte el
     // bucle), y una sentencia `void` sin uso es justo lo que un empaquetador puede decidir que no
     // hace nada. Extender el objeto lee TODAS las claves de una vez y no hay nada que olvidar.
-    const todo = { ...grafoPrefs }
-    // ⚠ AQUI NO SE MIRA `listo`, Y ESO ES EL ARREGLO. La primera version copiaba la guarda
-    // `if (!sim || !listo)` de los efectos de al lado sin preguntarse si aplicaba, y no aplica:
-    // `listo` existe para que el MARCADO sepa cuando puede enseñar el cursor de agarrar, no para
+    const todo = { ...graphPrefs }
+    // ⚠ AQUI NO SE MIRA `ready`, Y ESO ES EL ARREGLO. La primera version copiaba la guarda
+    // `if (!sim || !ready)` de los efectos de al lado sin preguntarse si aplicaba, y no aplica:
+    // `ready` existe para que el MARCADO sepa cuando puede enseñar el cursor de agarrar, no para
     // decir si se puede pintar. Con ella, el efecto salia por el return y el grafo no se enteraba
     // de ningun ajuste hasta que un clic despertaba el bucle por la via de la interaccion, que es
     // exactamente el sintoma que reporto Eneko el 08/09. Si hay simulador, hay con que ajustar y
     // con que pintar; no hace falta nada mas.
     if (!sim) return
-    sim.ajustar(
+    sim.tune(
       {
-        distancia: todo.distancia * (compacto ? F_DISTANCIA : 1),
+        distance: todo.distance * (compacto ? F_DISTANCIA : 1),
         repulsion: todo.repulsion * (compacto ? F_REPULSION : 1),
-        frenado: todo.frenado,
-        agruparProyecto: compacto ? 0 : todo.separaProyectos,
+        damping: todo.damping,
+        groupByProject: compacto ? 0 : todo.splitProjects,
       },
       0.12,
     )
@@ -769,9 +769,9 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
-  class="caja"
+  class="bounds"
   class:agarrando
-  bind:this={caja}
+  bind:this={bounds}
   role="application"
   tabindex={compacto ? -1 : 0}
   aria-label={compacto
@@ -818,7 +818,7 @@
 </details>
 
 <style>
-  .caja {
+  .bounds {
     width: 100%;
     height: 100%;
     touch-action: none;
@@ -828,8 +828,8 @@
        superficie propia en la que se entra, y no como un hueco del panel. */
     background: var(--bg2);
   }
-  .caja:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .caja.agarrando { cursor: grabbing; }
+  .bounds:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .bounds.agarrando { cursor: grabbing; }
 
   /* Fuera de la vista, dentro del arbol de accesibilidad. No se usa `display:none` ni
      `visibility:hidden` porque eso lo retira tambien para el lector, que es justo lo contrario de

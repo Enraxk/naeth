@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Lienzo from '../views/graph/Lienzo.svelte'
+  import Canvas from '../views/graph/Canvas.svelte'
   import { navigate } from '../lib/router.svelte'
-  import { resalte, resaltar } from '../lib/ui.svelte'
-  import { TRAZO } from '../lib/pintor'
-  import { mapa, pedirMapa } from '../lib/mapa.svelte'
+  import { highlight, highlightNode } from '../lib/ui.svelte'
+  import { DASH } from '../lib/painter'
+  import { layoutMap, requestMap } from '../lib/layout-map.svelte'
   import { data } from '../lib/data.svelte'
   import type { GraphModel, EdgeLayer } from '../lib/graph'
 
@@ -30,8 +30,8 @@
   // aqui y no en la vista: es esta pieza la que lo necesita, y asi la ficha no paga nada si el
   // panel de contexto no llega a mostrarse.
   //
-  // ⚠ DEPENDE SOLO DE `data.tree`, y eso es lo que hace que no reviente. `pedirMapa` muta `mapa`,
-  // que este mismo componente lee en el marcado, asi que un efecto que leyera `mapa` se reinvocaria
+  // ⚠ DEPENDE SOLO DE `data.tree`, y eso es lo que hace que no reviente. `requestMap` muta `layoutMap`,
+  // que este mismo componente lee en el marcado, asi que un efecto que leyera `layoutMap` se reinvocaria
   // solo: fueron 15 peticiones a `/api/graph` por abrir una ficha, medidas. Leyendo unicamente el
   // arbol no hay ciclo.
   //
@@ -39,7 +39,7 @@
   // abrieras OTRA ficha, aunque hubieran entrado memorias nuevas mientras leias esta.
   $effect(() => {
     data.tree
-    pedirMapa()
+    requestMap()
   })
 
   const ETIQUETA: Record<EdgeLayer, string> = {
@@ -54,22 +54,22 @@
 
 {#if model.nodes.length > 1}
   <div class="mini">
-    <Lienzo
+    <Canvas
       {model}
       seleccion={centro}
-      foco={resalte.id}
+      foco={highlight.id}
       compacto
-      posiciones={mapa.listo ? mapa.pos : null}
-      onSelect={(id) => resaltar(id ?? centro, 'arbol')}
-      onOpen={(id) => navigate('memoria', id)}
+      posiciones={layoutMap.ready ? layoutMap.pos : null}
+      onSelect={(id) => highlightNode(id ?? centro, 'tree')}
+      onOpen={(id) => navigate('memory', id)}
     />
   </div>
 
-  {#if mapa.calculando && !mapa.listo}
+  {#if layoutMap.computing && !layoutMap.ready}
     <!-- La primera ficha de la sesion espera a que el mapa se calcule, cosa de un segundo. Las
          demas lo encuentran hecho. Se dice, en vez de enseñar una forma provisional que luego
          cambia sola delante de los ojos. -->
-    <div class="esperando">calculando la forma del grafo…</div>
+    <div class="esperando">computing la forma del grafo…</div>
   {/if}
 
   <div class="leyenda">
@@ -77,7 +77,7 @@
       <span class="lg">
         <svg width="16" height="6" aria-hidden="true">
           <line x1="0" y1="3" x2="16" y2="3" stroke="var(--dim)"
-                stroke-dasharray={TRAZO[l].join(' ')} />
+                stroke-dasharray={DASH[l].join(' ')} />
         </svg>
         {ETIQUETA[l]}
       </span>

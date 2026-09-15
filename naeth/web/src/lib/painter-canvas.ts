@@ -13,23 +13,23 @@
 //     BARATO en vez de mas caro, que es justo cuando el usuario esta interactuando.
 
 import { predColor, projColor } from './colors'
-import type { NodoSim, Simulador } from './sim'
-import { radioNodo } from './sim'
+import type { SimNode, Simulator } from './sim'
+import { nodeRadius } from './sim'
 import {
-  aPantalla,
-  mezcla,
-  opacidadTexto,
-  radioEnPantalla,
-  TOPE_ETIQUETAS,
-  TOPE_ETIQUETAS_FOCO,
-  partirEnLineas,
-  recortarALinea,
-  TRAZO,
-  trazarForma,
-  type EstadoPintado,
-  type Pintor,
-  type Vista,
-} from './pintor'
+  toScreen,
+  blend,
+  textOpacity,
+  screenRadius,
+  LABEL_CAP,
+  LABEL_CAP_FOCUS,
+  wrapLines,
+  clipToLine,
+  DASH,
+  strokeShape,
+  type PaintState,
+  type Painter,
+  type Viewport,
+} from './painter'
 
 interface Tokens {
   ink: string
@@ -51,7 +51,7 @@ function leerTokens(): Tokens {
   }
 }
 
-export function pintorCanvas(host: HTMLElement): Pintor {
+export function canvasPainter(host: HTMLElement): Painter {
   const cv = document.createElement('canvas')
   cv.style.width = '100%'
   cv.style.height = '100%'
@@ -65,11 +65,11 @@ export function pintorCanvas(host: HTMLElement): Pintor {
   let h = 0
 
   /** Nodos y aristas visibles, reutilizados entre frames para no crear basura a 60 fps. */
-  const visibles: NodoSim[] = []
-  const porColor = new Map<string, NodoSim[]>()
+  const visibles: SimNode[] = []
+  const porColor = new Map<string, SimNode[]>()
 
   return {
-    medir(nw, nh) {
+    resize(nw, nh) {
       w = nw
       h = nh
       // Tope de 2 en el ratio: por encima se cuadruplican los pixeles a rellenar sin que nadie
@@ -79,16 +79,16 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       cv.height = Math.max(1, Math.round(h * dpr))
     },
 
-    tema() {
+    theme() {
       tk = leerTokens()
     },
 
-    dibujar(sim: Simulador, v: Vista, est: EstadoPintado) {
+    draw(sim: Simulator, v: Viewport, est: PaintState) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, w, h)
-      if (!sim.nodos.length) return
+      if (!sim.nodes.length) return
 
-      const P = (nd: NodoSim) => aPantalla(nd.x ?? 0, nd.y ?? 0, v)
+      const P = (nd: SimNode) => toScreen(nd.x ?? 0, nd.y ?? 0, v)
       // Margen de un radio grande para que un nodo a medio salir no parpadee al entrar.
       const m = 48
       const dentro = (p: { x: number; y: number }) =>
@@ -101,12 +101,12 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // todo y el grafo se quedaba sin contexto alrededor de lo que miras. A 0,3 el resto sigue
       // ahi, como fondo, que es lo que hace que resaltar signifique algo.
       const apagado = 1 - 0.7 * est.atenuacion
-      const esc = est.escalaNodo ?? 1
-      const radio = (nd: NodoSim) =>
-        radioEnPantalla(radioNodo(nd.n) * esc, v.k, est.nodoExp, est.nodoMin, est.nodoMax)
+      const esc = est.nodeScale ?? 1
+      const radio = (nd: SimNode) =>
+        screenRadius(nodeRadius(nd.n) * esc, v.k, est.nodoExp, est.nodeMin, est.nodeMax)
 
       visibles.length = 0
-      for (const nd of sim.nodos) if (dentro(P(nd))) visibles.push(nd)
+      for (const nd of sim.nodes) if (dentro(P(nd))) visibles.push(nd)
 
       // --- aristas ---------------------------------------------------------------------------
       //
@@ -115,22 +115,22 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // El grupo era la capa; ahora es capa mas tipo de relacion, porque cada tipo puede llevar su
       // tinte. Siguen siendo pocos grupos (tres capas por tres predicados como mucho), asi que la
       // optimizacion de un `stroke` por grupo se conserva entera.
-      const tintado = est.tintado ?? false
-      const fuerza = est.tinteFuerza ?? 0
+      const tinted = est.tinted ?? false
+      const fuerza = est.tintStrength ?? 0
       const capas: Record<string, {
         capa: string; pred: string
         fondo: [number, number, number, number][]; foco: [number, number, number, number][]
       }> = {}
-      for (const e of sim.aristas) {
-        const a = e.source as NodoSim
-        const b = e.target as NodoSim
+      for (const e of sim.edges) {
+        const a = e.source as SimNode
+        const b = e.target as SimNode
         const pa = P(a)
         const pb = P(b)
         // Basta con que uno de los dos extremos se vea: si no, las aristas largas se cortarian al
         // acercarse, que es cuando mas se miran.
         if (!dentro(pa) && !dentro(pb)) continue
         const capa = e.e.layer
-        const pred = tintado && capa === 'relation' ? (e.e.predicate ?? '') : ''
+        const pred = tinted && capa === 'relation' ? (e.e.predicate ?? '') : ''
         const c = (capas[capa + '|' + pred] ??= { capa, pred, fondo: [], foco: [] })
         const destino = hayFoco && enFoco(a.id) && enFoco(b.id) ? c.foco : c.fondo
         destino.push([pa.x, pa.y, pb.x, pb.y])
@@ -159,10 +159,10 @@ export function pintorCanvas(host: HTMLElement): Pintor {
         ctx.moveTo(ex, ey)
         ctx.lineTo(ex - l * Math.cos(ang + 0.42), ey - l * Math.sin(ang + 0.42))
       }
-      const conFlechas = (est.flechas ?? false) && (est.puntaPx ?? 0) > 0
-      const puntaPx = est.puntaPx ?? 5
-      const puntaMedio = est.puntaMedio ?? true
-      const curva = est.curvatura ?? 0
+      const conFlechas = (est.arrows ?? false) && (est.arrowPx ?? 0) > 0
+      const arrowPx = est.arrowPx ?? 5
+      const arrowMid = est.arrowMid ?? true
+      const curva = est.curvature ?? 0
 
       ctx.lineCap = 'round'
       for (const l of Object.values(capas)) {
@@ -188,23 +188,23 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           } else {
             ctx.lineTo(x2, y2)
           }
-          if (flechasAqui) punta(x1, y1, x2, y2, puntaPx, puntaMedio)
+          if (flechasAqui) punta(x1, y1, x2, y2, arrowPx, arrowMid)
         }
 
         if (l.fondo.length) {
           ctx.globalAlpha = (hayFoco ? apagado : 1) * 0.55 * peso
-          ctx.strokeStyle = tinte ? mezcla(tinte, tk.dim, fuerza) : tk.dim
+          ctx.strokeStyle = tinte ? blend(tinte, tk.dim, fuerza) : tk.dim
           ctx.lineWidth = 1
-          ctx.setLineDash(TRAZO[l.capa] ?? [])
+          ctx.setLineDash(DASH[l.capa] ?? [])
           ctx.beginPath()
           for (const [x1, y1, x2, y2] of l.fondo) traza(x1, y1, x2, y2)
           ctx.stroke()
         }
         if (l.foco.length) {
           ctx.globalAlpha = peso
-          ctx.strokeStyle = tinte ? mezcla(tinte, tk.ink, fuerza) : tk.ink
+          ctx.strokeStyle = tinte ? blend(tinte, tk.ink, fuerza) : tk.ink
           ctx.lineWidth = 1.5
-          ctx.setLineDash(TRAZO[l.capa] ?? [])
+          ctx.setLineDash(DASH[l.capa] ?? [])
           ctx.beginPath()
           for (const [x1, y1, x2, y2] of l.foco) traza(x1, y1, x2, y2)
           ctx.stroke()
@@ -213,7 +213,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       ctx.setLineDash([])
 
       // --- nodos -----------------------------------------------------------------------------
-      const pinta = (lista: NodoSim[], alpha: number) => {
+      const pinta = (lista: SimNode[], alpha: number) => {
         porColor.clear()
         for (const nd of lista) {
           const c = est.color ? projColor(nd.n.project) : tk.dim
@@ -227,7 +227,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           ctx.beginPath()
           for (const nd of l) {
             const p = P(nd)
-            trazarForma(ctx, nd.n.memory_type, p.x, p.y, radio(nd))
+            strokeShape(ctx, nd.n.memory_type, p.x, p.y, radio(nd))
           }
           ctx.fill()
         }
@@ -246,7 +246,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       // Un ANILLO alrededor, no un disco de otro color encima: el disco tapaba el color del
       // proyecto, que es la informacion que el nodo lleva. Va en `--accent`, que es el color con
       // el que esta aplicacion senala "esto".
-      const foco = est.foco ? sim.nodos.find((n) => n.id === est.foco) : null
+      const foco = est.foco ? sim.nodes.find((n) => n.id === est.foco) : null
       if (foco) {
         const p = P(foco)
         const r = radio(foco)
@@ -272,16 +272,16 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       //     puede depender de a que distancia estas.
       //  2. Sus VECINOS, solo a partir del aumento en el que el texto empieza a leerse. De lejos se
       //     viene a mirar la forma, y cinco enunciados largos alrededor solo tapan.
-      //  3. Sin nada senalado, lo que diga `TOPE_ETIQUETAS`, hoy cero.
-      const op = opacidadTexto(v.k, est.textoDesde, est.textoPleno)
+      //  3. Sin nada senalado, lo que diga `LABEL_CAP`, hoy cero.
+      const op = textOpacity(v.k, est.textFrom, est.textFull)
       const enc = hayFoco ? visibles.filter((nd) => enFoco(nd.id)) : []
-      const vecinos =
-        op > 0.02 && enc.length <= (est.topeNombres ?? TOPE_ETIQUETAS_FOCO)
+      const neighbors =
+        op > 0.02 && enc.length <= (est.labelCap ?? LABEL_CAP_FOCUS)
           ? enc.filter((nd) => nd.id !== est.foco)
           : []
       const conNombre = foco
-        ? [foco, ...vecinos]
-        : op > 0.02 && visibles.length <= TOPE_ETIQUETAS
+        ? [foco, ...neighbors]
+        : op > 0.02 && visibles.length <= LABEL_CAP
           ? visibles
           : []
 
@@ -313,11 +313,11 @@ export function pintorCanvas(host: HTMLElement): Pintor {
           // corpus los titulos son enunciados y dos notas del mismo proyecto se distinguen por el
           // final, asi que recortar el que miras se comia justo lo que lo identifica. Los vecinos
           // van a una linea recortada: estan para decir CON QUIEN habla, no para leerlos.
-          const medir = (t: string) => ctx.measureText(t).width
+          const resize = (t: string) => ctx.measureText(t).width
           const titulo = nd.n.title ?? '(sin título)'
           const lineas = esFoco
-            ? partirEnLineas(titulo, anchoLinea, medir)
-            : [recortarALinea(titulo, anchoLinea, medir)]
+            ? wrapLines(titulo, anchoLinea, resize)
+            : [clipToLine(titulo, anchoLinea, resize)]
           for (let i = 0; i < lineas.length; i++) {
             const y = p.y + sep + i * alto
             ctx.strokeText(lineas[i], p.x, y)
@@ -329,7 +329,7 @@ export function pintorCanvas(host: HTMLElement): Pintor {
       }
     },
 
-    destruir() {
+    destroy() {
       cv.remove()
     },
   }

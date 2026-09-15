@@ -14,7 +14,7 @@
    * sola memoria). Por eso no hay `<select>` ni validacion: se puede teclear cualquier cosa y
    * guardar, exactamente igual que antes de que existiera este componente.
    *
-   * Vive en las DOS vistas que editan metadatos, `Memoria.svelte` y `Nueva.svelte`. Se saco a
+   * Vive en las DOS vistas que editan metadatos, `Memory.svelte` y `New.svelte`. Se saco a
    * componente por eso: es lo unico del bloque `e-row` que gana logica, y duplicarlo obligaria a
    * arreglar cada fallo futuro dos veces. El resto del `e-row` sigue duplicado, que es deuda
    * anterior y no la toca este cambio.

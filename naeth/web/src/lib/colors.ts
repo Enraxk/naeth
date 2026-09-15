@@ -83,9 +83,9 @@ const FALLBACK: Meta = { icon: 'folder', c: ['#8a8e95', '#72767e'] }
  * no podia contarlo porque su patron ya distingue las tres CAPAS (relacion, wikilink, semantica), y
  * el grosor se descarto midiendo: no se separa hasta unos 38 px y la arista mediana mide 19.
  *
- * ⚠ Nunca se usan a pelo: el pintor los mezcla con el gris del tema segun `tinteFuerza`, porque a
+ * ⚠ Nunca se usan a pelo: el pintor los mezcla con el gris del tema segun `tintStrength`, porque a
  * plena saturacion el grafo entero se vuelve azul (el 57% de las relaciones son `links_to`) y pelea
- * con el apagado del resalte. Ver `mezcla` en `pintor.ts`.
+ * con el apagado del resalte. Ver `blend` en `painter.ts`.
  */
 export const PREDICATE: Record<string, Pair> = {
   links_to: ['#6ba6e8', '#2f6fb8'],

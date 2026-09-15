@@ -6,7 +6,7 @@ export function closeDrawer() { ui.drawer = false }
 /** De dónde viene el resalte. El grafo solo persigue con la cámara lo que se señala desde el
  *  árbol: si persiguiera lo que señala el ratón sobre el propio lienzo, movería el nodo fuera
  *  del cursor. */
-export type Origen = 'arbol' | 'grafo' | null
+export type Origin = 'tree' | 'graph' | null
 
 /**
  * De qué se está hablando ahora mismo, lo diga la vista que lo diga.
@@ -25,48 +25,48 @@ export type Origen = 'arbol' | 'grafo' | null
  * grafo, dejarías de ver hacia dónde sale esa carpeta, que es lo único que el grafo aporta sobre el
  * árbol. Así que lo señalado se enciende con sus vecinos y lo demás se queda de fondo, apagado.
  */
-export const resalte = $state<{
+export const highlight = $state<{
   id: string | null
-  desde: Origen
+  from: Origin
   /** Ids encendidos a la vez, al señalar una carpeta del árbol. */
-  grupo: string[] | null
+  group: string[] | null
   /** Cómo se llama esa carpeta. Lo dice la franja, porque en el lienzo no cabe. */
-  etiqueta: string | null
+  label: string | null
   /** El puntero está sobre la sidebar. Gobierna el apagado del resto de la aplicación. */
-  enArbol: boolean
-}>({ id: null, desde: null, grupo: null, etiqueta: null, enArbol: false })
+  inTree: boolean
+}>({ id: null, from: null, group: null, label: null, inTree: false })
 
-export function resaltar(id: string | null, desde: Exclude<Origen, null> = 'grafo') {
-  if (resalte.id === id && !resalte.grupo) return
-  resalte.id = id
-  resalte.desde = id ? desde : null
+export function highlightNode(id: string | null, from: Exclude<Origin, null> = 'graph') {
+  if (highlight.id === id && !highlight.group) return
+  highlight.id = id
+  highlight.from = id ? from : null
   // Señalar una nota apaga el grupo: son dos maneras de decir "esto", y a la vez no significan
   // nada. Fijarse en una nota concreta gana sobre estar mirando su carpeta.
   if (id) {
-    resalte.grupo = null
-    resalte.etiqueta = null
+    highlight.group = null
+    highlight.label = null
   }
 }
 
 /** Enciende un puñado de memorias a la vez: lo que hay dentro de la carpeta que se señala. */
-export function resaltarGrupo(ids: string[] | null, etiqueta: string | null = null) {
-  resalte.grupo = ids && ids.length ? ids : null
-  resalte.etiqueta = resalte.grupo ? etiqueta : null
-  if (resalte.grupo) {
-    resalte.id = null
-    resalte.desde = 'arbol'
+export function highlightGroup(ids: string[] | null, label: string | null = null) {
+  highlight.group = ids && ids.length ? ids : null
+  highlight.label = highlight.group ? label : null
+  if (highlight.group) {
+    highlight.id = null
+    highlight.from = 'tree'
   }
 }
 
-export function entrarArbol(dentro: boolean) {
-  if (resalte.enArbol === dentro) return
-  resalte.enArbol = dentro
+export function enterTree(dentro: boolean) {
+  if (highlight.inTree === dentro) return
+  highlight.inTree = dentro
   if (!dentro) {
-    resalte.grupo = null
-    resalte.etiqueta = null
-    if (resalte.desde === 'arbol') {
-      resalte.id = null
-      resalte.desde = null
+    highlight.group = null
+    highlight.label = null
+    if (highlight.from === 'tree') {
+      highlight.id = null
+      highlight.from = null
     }
   }
 }

@@ -25,8 +25,8 @@ import {
   type Simulation,
   type SimulationNodeDatum,
 } from 'd3-force'
-import { buildGraph, filtrosPorDefecto, type GraphModel } from '../src/lib/graph'
-import { colocar } from '../src/lib/layout'
+import { buildGraph, defaultFilters, type GraphModel } from '../src/lib/graph'
+import { place } from '../src/lib/layout'
 import { projColor } from '../src/lib/colors'
 import type { GraphResponse, TreeRow } from '../src/lib/types'
 
@@ -49,9 +49,9 @@ interface Arista {
 type NombrePintor = 'svg' | 'canvas'
 type NombreFisica = 'd3' | 'propia'
 
-interface Pintor {
-  dibujar(nodos: Nodo[], aristas: Arista[]): void
-  destruir(): void
+interface Painter {
+  draw(nodes: Nodo[], edges: Arista[]): void
+  destroy(): void
 }
 
 const W = 900
@@ -68,8 +68,8 @@ const H = 620
  * replica, que es ademas lo que pasa de verdad: las notas nuevas enlazan a las viejas.
  */
 function escalar(model: GraphModel, k: number, centros: Map<number, { x: number; y: number }>) {
-  const nodos: Nodo[] = []
-  const aristas: Arista[] = []
+  const nodes: Nodo[] = []
+  const edges: Arista[] = []
   let semilla = 1
   const rnd = () => {
     semilla = (semilla * 1664525 + 1013904223) >>> 0
@@ -80,7 +80,7 @@ function escalar(model: GraphModel, k: number, centros: Map<number, { x: number;
     const desvio = { x: (r % 4) * 2600, y: Math.floor(r / 4) * 2600 }
     for (const n of model.nodes) {
       const c = centros.get(n.component) ?? { x: 0, y: 0 }
-      nodos.push({
+      nodes.push({
         id: r === 0 ? n.id : `${n.id}#${r}`,
         proyecto: n.project,
         grado: n.degree,
@@ -95,13 +95,13 @@ function escalar(model: GraphModel, k: number, centros: Map<number, { x: number;
       if (k > 1 && rnd() < 0.08) {
         const otra = Math.floor(rnd() * k)
         const s = otra === 0 ? e.source : `${e.source}#${otra}`
-        aristas.push({ source: suf(e.target), target: s })
+        edges.push({ source: suf(e.target), target: s })
       } else {
-        aristas.push({ source: suf(e.source), target: suf(e.target) })
+        edges.push({ source: suf(e.source), target: suf(e.target) })
       }
     }
   }
-  return { nodos, aristas }
+  return { nodes, edges }
 }
 
 // --- fisica ----------------------------------------------------------------------------------
@@ -109,9 +109,9 @@ function escalar(model: GraphModel, k: number, centros: Map<number, { x: number;
 /** El radio del nodo, que es tambien el radio de colision. Mismo criterio que la app de hoy. */
 const radio = (n: Nodo) => 3.5 + Math.min(n.grado, 10) * 0.45
 
-function fisicaD3(nodos: Nodo[], aristas: Arista[]): Simulation<Nodo, undefined> {
-  return forceSimulation(nodos)
-    .force('link', forceLink<Nodo, Arista>(aristas).id((d) => d.id).distance(34).strength(0.6))
+function fisicaD3(nodes: Nodo[], edges: Arista[]): Simulation<Nodo, undefined> {
+  return forceSimulation(nodes)
+    .force('link', forceLink<Nodo, Arista>(edges).id((d) => d.id).distance(34).strength(0.6))
     .force('charge', forceManyBody<Nodo>().strength(-38).distanceMax(600))
     .force('collide', forceCollide<Nodo>((d) => radio(d) + 2))
     // Las anclas por componente: es lo que evita que las islas salgan despedidas, que era la razon
@@ -130,17 +130,17 @@ function fisicaD3(nodos: Nodo[], aristas: Arista[]): Simulation<Nodo, undefined>
  * es la comparacion contra el quadtree de Barnes-Hut, y esa es la pregunta que interesa: a partir
  * de cuantos nodos el O(n^2) deja de caber en un frame.
  */
-function pasoPropio(nodos: Nodo[], aristas: Arista[], k: number, t: number) {
-  const n = nodos.length
+function pasoPropio(nodes: Nodo[], edges: Arista[], k: number, t: number) {
+  const n = nodes.length
   const dspx = new Float64Array(n)
   const dspy = new Float64Array(n)
   const idx = new Map<string, number>()
-  nodos.forEach((nd, i) => idx.set(nd.id, i))
+  nodes.forEach((nd, i) => idx.set(nd.id, i))
 
   for (let i = 0; i < n; i++) {
-    const a = nodos[i]
+    const a = nodes[i]
     for (let j = i + 1; j < n; j++) {
-      const b = nodos[j]
+      const b = nodes[j]
       let dx = a.x! - b.x!
       let dy = a.y! - b.y!
       let d2 = dx * dx + dy * dy
@@ -160,12 +160,12 @@ function pasoPropio(nodos: Nodo[], aristas: Arista[], k: number, t: number) {
     }
   }
 
-  for (const e of aristas) {
+  for (const e of edges) {
     const i = idx.get(typeof e.source === 'string' ? e.source : e.source.id)
     const j = idx.get(typeof e.target === 'string' ? e.target : e.target.id)
     if (i === undefined || j === undefined) continue
-    const a = nodos[i]
-    const b = nodos[j]
+    const a = nodes[i]
+    const b = nodes[j]
     const dx = a.x! - b.x!
     const dy = a.y! - b.y!
     const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.01)
@@ -178,17 +178,17 @@ function pasoPropio(nodos: Nodo[], aristas: Arista[], k: number, t: number) {
 
   for (let i = 0; i < n; i++) {
     const len = Math.max(Math.sqrt(dspx[i] * dspx[i] + dspy[i] * dspy[i]), 0.01)
-    nodos[i].x! += (dspx[i] / len) * Math.min(len, t)
-    nodos[i].y! += (dspy[i] / len) * Math.min(len, t)
+    nodes[i].x! += (dspx[i] / len) * Math.min(len, t)
+    nodes[i].y! += (dspy[i] / len) * Math.min(len, t)
   }
 }
 
 // --- pintores --------------------------------------------------------------------------------
 
 /** Encuadre comun a los dos pintores, para que dibujen lo mismo y la comparacion valga. */
-function encuadre(nodos: Nodo[]) {
+function encuadre(nodes: Nodo[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-  for (const n of nodos) {
+  for (const n of nodes) {
     if (n.x! < x0) x0 = n.x!
     if (n.x! > x1) x1 = n.x!
     if (n.y! < y0) y0 = n.y!
@@ -198,7 +198,7 @@ function encuadre(nodos: Nodo[]) {
   return { x0, y0, k }
 }
 
-function pintorCanvas(host: HTMLElement): Pintor {
+function canvasPainter(host: HTMLElement): Painter {
   const cv = document.createElement('canvas')
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
   cv.width = W * dpr
@@ -209,8 +209,8 @@ function pintorCanvas(host: HTMLElement): Pintor {
   const ctx = cv.getContext('2d')!
 
   return {
-    dibujar(nodos, aristas) {
-      const { x0, y0, k } = encuadre(nodos)
+    draw(nodes, edges) {
+      const { x0, y0, k } = encuadre(nodes)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, W, H)
       const X = (v: number) => (v - x0) * k + 8
@@ -220,7 +220,7 @@ function pintorCanvas(host: HTMLElement): Pintor {
       ctx.strokeStyle = 'rgba(130,130,140,0.45)'
       ctx.lineWidth = 1
       ctx.beginPath()
-      for (const e of aristas) {
+      for (const e of edges) {
         const a = e.source as Nodo
         const b = e.target as Nodo
         ctx.moveTo(X(a.x!), Y(a.y!))
@@ -230,7 +230,7 @@ function pintorCanvas(host: HTMLElement): Pintor {
 
       // Los nodos AGRUPADOS POR COLOR: un `fillStyle` por proyecto en vez de uno por nodo.
       const porColor = new Map<string, Nodo[]>()
-      for (const n of nodos) {
+      for (const n of nodes) {
         const c = projColor(n.proyecto)
         let l = porColor.get(c)
         if (!l) porColor.set(c, (l = []))
@@ -247,13 +247,13 @@ function pintorCanvas(host: HTMLElement): Pintor {
         ctx.fill()
       }
     },
-    destruir() {
+    destroy() {
       cv.remove()
     },
   }
 }
 
-function pintorSvg(host: HTMLElement, nodos: Nodo[], aristas: Arista[]): Pintor {
+function pintorSvg(host: HTMLElement, nodes: Nodo[], edges: Arista[]): Painter {
   const NS = 'http://www.w3.org/2000/svg'
   const svg = document.createElementNS(NS, 'svg')
   svg.setAttribute('width', String(W))
@@ -269,12 +269,12 @@ function pintorSvg(host: HTMLElement, nodos: Nodo[], aristas: Arista[]): Pintor 
 
   // Los elementos se crean UNA VEZ. En cada frame solo se actualizan atributos, que es lo mas
   // rapido que se puede hacer en SVG.
-  const lineas = aristas.map(() => {
+  const lineas = edges.map(() => {
     const l = document.createElementNS(NS, 'line')
     gA.appendChild(l)
     return l
   })
-  const circulos = nodos.map((n) => {
+  const circulos = nodes.map((n) => {
     const c = document.createElementNS(NS, 'circle')
     c.setAttribute('r', String(radio(n) * 0.9))
     c.setAttribute('fill', projColor(n.proyecto))
@@ -283,7 +283,7 @@ function pintorSvg(host: HTMLElement, nodos: Nodo[], aristas: Arista[]): Pintor 
   })
 
   return {
-    dibujar(ns, es) {
+    draw(ns, es) {
       const { x0, y0, k } = encuadre(ns)
       const X = (v: number) => (v - x0) * k + 8
       const Y = (v: number) => (v - y0) * k + 8
@@ -301,7 +301,7 @@ function pintorSvg(host: HTMLElement, nodos: Nodo[], aristas: Arista[]): Pintor 
         circulos[i].setAttribute('cy', Y(ns[i].y!).toFixed(1))
       }
     },
-    destruir() {
+    destroy() {
       svg.remove()
     },
   }
@@ -311,10 +311,10 @@ function pintorSvg(host: HTMLElement, nodos: Nodo[], aristas: Arista[]): Pintor 
 
 interface Medida {
   escala: number
-  nodos: number
-  aristas: number
+  nodes: number
+  edges: number
   pintor: NombrePintor
-  fisica: NombreFisica
+  physics: NombreFisica
   fps: number
   fisicaMs: number
   pintadoMs: number
@@ -327,58 +327,58 @@ const p = (xs: number[], q: number) => {
   return s[Math.min(s.length - 1, Math.floor(s.length * q))] ?? 0
 }
 
-async function medir(
+async function resize(
   model: GraphModel,
   centros: Map<number, { x: number; y: number }>,
   escala: number,
   pintor: NombrePintor,
-  fisica: NombreFisica,
+  physics: NombreFisica,
   segundos = 4,
 ): Promise<Medida> {
   const host = document.getElementById('lienzo')!
   host.innerHTML = ''
   const t0 = performance.now()
-  const { nodos, aristas } = escalar(model, escala, centros)
+  const { nodes, edges } = escalar(model, escala, centros)
 
   let sim: Simulation<Nodo, undefined> | null = null
-  if (fisica === 'd3') {
-    sim = fisicaD3(nodos, aristas)
+  if (physics === 'd3') {
+    sim = fisicaD3(nodes, edges)
   } else {
     // d3 sustituye las cadenas de las aristas por los objetos; la propia no, asi que se hace aqui
     // para que los dos pintores reciban exactamente la misma estructura.
-    const idx = new Map(nodos.map((n) => [n.id, n]))
-    for (const e of aristas) {
+    const idx = new Map(nodes.map((n) => [n.id, n]))
+    for (const e of edges) {
       e.source = idx.get(e.source as string)!
       e.target = idx.get(e.target as string)!
     }
   }
 
-  const pt = pintor === 'canvas' ? pintorCanvas(host) : pintorSvg(host, nodos, aristas)
+  const pt = pintor === 'canvas' ? canvasPainter(host) : pintorSvg(host, nodes, edges)
   const arranqueMs = performance.now() - t0
 
-  const kFR = Math.sqrt((Math.max(nodos.length, 2) * 2000) / Math.max(nodos.length, 2))
+  const kFR = Math.sqrt((Math.max(nodes.length, 2) * 2000) / Math.max(nodes.length, 2))
   const fis: number[] = []
   const pin: number[] = []
   const tot: number[] = []
 
-  await new Promise<void>((listo) => {
+  await new Promise<void>((ready) => {
     const fin = performance.now() + segundos * 1000
     let frames = 0
-    const paso = () => {
+    const step = () => {
       const a = performance.now()
       if (sim) sim.tick()
-      else pasoPropio(nodos, aristas, kFR, 8)
+      else pasoPropio(nodes, edges, kFR, 8)
       const b = performance.now()
-      pt.dibujar(nodos, aristas)
+      pt.draw(nodes, edges)
       const c = performance.now()
       fis.push(b - a)
       pin.push(c - b)
       tot.push(c - a)
       frames++
-      if (performance.now() < fin) requestAnimationFrame(paso)
-      else listo()
+      if (performance.now() < fin) requestAnimationFrame(step)
+      else ready()
     }
-    requestAnimationFrame(paso)
+    requestAnimationFrame(step)
   })
 
   // El pintor NO se destruye aqui: la siguiente medida ya limpia el `host`, y asi al terminar la
@@ -391,10 +391,10 @@ async function medir(
 
   return {
     escala,
-    nodos: nodos.length,
-    aristas: aristas.length,
+    nodes: nodes.length,
+    edges: edges.length,
     pintor,
-    fisica,
+    physics,
     fps: Math.round(fps),
     fisicaMs: +p(fis, 0.5).toFixed(2),
     pintadoMs: +p(pin, 0.5).toFixed(2),
@@ -410,10 +410,10 @@ const estado = document.getElementById('estado') as HTMLElement
 const filas: Medida[] = []
 
 function pinta() {
-  const cab = ['escala', 'nodos', 'aristas', 'pintor', 'fisica', 'fps', 'fis ms', 'pin ms', 'p95 ms', 'arranque']
+  const cab = ['escala', 'nodes', 'edges', 'pintor', 'physics', 'fps', 'fis ms', 'sujetar ms', 'p95 ms', 'arranque']
   const anchos = cab.map((c) => c.length)
   const cuerpo = filas.map((f) => [
-    'x' + f.escala, String(f.nodos), String(f.aristas), f.pintor, f.fisica,
+    'x' + f.escala, String(f.nodes), String(f.edges), f.pintor, f.physics,
     String(f.fps), String(f.fisicaMs), String(f.pintadoMs), String(f.p95Ms), f.arranqueMs + ' ms',
   ])
   for (const r of cuerpo) r.forEach((v, i) => (anchos[i] = Math.max(anchos[i], v.length)))
@@ -429,13 +429,13 @@ async function arranca() {
   ])
 
   // Las tres capas menos la semantica, que se pide por nodo y no forma parte del grafo de partida.
-  const filtros = filtrosPorDefecto()
+  const filtros = defaultFilters()
   filtros.layers.wikilink = true
   const model = buildGraph(tree, graph, new Map(), filtros)
 
   // Las anclas salen del empaquetado por componentes que ya tenemos, que es justo el papel que le
   // da el plan: dejar de decidir la posicion final y pasar a decidir de donde se parte.
-  const col = colocar(model, { ancho: 1600, iteraciones: 40 })
+  const col = place(model, { ancho: 1600, iteraciones: 40 })
   const centros = new Map<number, { x: number; y: number }>()
   for (const c of col.cajas) centros.set(c.comp, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
 
@@ -453,7 +453,7 @@ async function arranca() {
           // El O(n^2) propio a x10 son 28 millones de pares por frame: no se mide, se declara.
           if (f === 'propia' && e >= 10) continue
           estado.textContent = `midiendo x${e} ${pn} ${f}...`
-          filas.push(await medir(model, centros, e, pn, f))
+          filas.push(await resize(model, centros, e, pn, f))
           pinta()
         }
       }

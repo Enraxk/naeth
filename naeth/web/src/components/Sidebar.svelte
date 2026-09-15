@@ -3,14 +3,14 @@
   import Icon from './Icon.svelte'
   import { data, revealInTree, collapseAuto, untrackAuto } from '../lib/data.svelte'
   import { collapsed, saveCollapsed, prefs, setSort, setSide } from '../lib/prefs.svelte'
-  import { buildTree, carpetaQueEsconde } from '../lib/tree'
+  import { buildTree, hidingFolder } from '../lib/tree'
   import { route, navigate } from '../lib/router.svelte'
-  import { ui, closeDrawer, resalte, resaltar, resaltarGrupo, entrarArbol } from '../lib/ui.svelte'
+  import { ui, closeDrawer, highlight, highlightNode, highlightGroup, enterTree } from '../lib/ui.svelte'
   import { typeMeta, typeColor, projMeta, projColor } from '../lib/colors'
   import { fmtShort } from '../lib/format'
 
   function openMem(id: string) {
-    navigate('memoria', id)
+    navigate('memory', id)
     closeDrawer()
   }
 
@@ -32,7 +32,7 @@
    * en una direccion.
    */
   $effect(() => {
-    const id = resalte.desde === 'grafo' ? resalte.id : null
+    const id = highlight.from === 'graph' ? highlight.id : null
     if (!id) return
     // ⚠ NO SE ABRE LO QUE ESTA CERRADO. Aqui habia un `revealInTree` y era un error: colapsar una
     // carpeta es una decision deliberada, y pasar el raton por un nodo no puede deshacerla. Si la
@@ -53,10 +53,10 @@
    * Es lo que sustituye a abrir la carpeta por la cara: se senala donde esta sin tocar nada.
    */
   const carpetaEco = $derived.by(() => {
-    const id = resalte.id
+    const id = highlight.id
     if (!id) return null
     const row = (data.tree || []).find((r) => r.id === id)
-    return row ? carpetaQueEsconde(row.path, collapsed) : null
+    return row ? hidingFolder(row.path, collapsed) : null
   })
 
   function toggle(key: string) {
@@ -68,8 +68,8 @@
 
   // reveal-in-tree al abrir memoria; collapseAuto al volver a Inicio
   $effect(() => {
-    if (route.view === 'inicio') { collapseAuto(); return }
-    if (route.view === 'memoria' && route.id) {
+    if (route.view === 'home') { collapseAuto(); return }
+    if (route.view === 'memory' && route.id) {
       const row = (data.tree || []).find((r) => r.id === route.id)
       revealInTree(row?.path ?? null)
       const id = route.id
@@ -106,8 +106,8 @@
   class="sidebar"
   class:open={ui.drawer}
   aria-label="Árbol de memorias"
-  onpointerenter={() => entrarArbol(true)}
-  onpointerleave={() => entrarArbol(false)}
+  onpointerenter={() => enterTree(true)}
+  onpointerleave={() => enterTree(false)}
 >
   <div class="tools">
     <button class="sortbtn" title="Cambiar orden" onclick={() => setSort(SORT_NEXT[prefs.sort])}>
@@ -122,13 +122,13 @@
        lista de botones, y asi queda hasta que el rol se implemente entero. El aria-label del <nav>
        se queda: describe el contenido sin prometer una semantica que no se cumple. -->
   <div id="tree" class="tree"
-       class:senalando={route.view === 'grafo' && (resalte.id !== null || !!resalte.grupo)}>
+       class:senalando={route.view === 'graph' && (highlight.id !== null || !!highlight.group)}>
     {#each projects as p (p.proj)}
       {@const pKey = 'p:' + p.proj}
       {@const pc = projColor(p.proj)}
       <div class="group" class:collapsed={collapsed.has(pKey)}>
         <button class="row proj" class:eco={carpetaEco === pKey} onclick={() => toggle(pKey)}
-                onpointerenter={() => resaltarGrupo(idsProy(p), p.proj)}>
+                onpointerenter={() => highlightGroup(idsProy(p), p.proj)}>
           <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
           <span class="ico"><Icon name={projMeta(p.proj).icon} size={13} color={pc} /></span>
           <span class="label">{p.proj}</span>
@@ -141,7 +141,7 @@
             {@const sKey = 'o:' + p.proj + '/' + s.subtopic}
             <div class="group" class:collapsed={collapsed.has(sKey)}>
               <button class="row subtopic" class:eco={carpetaEco === sKey} onclick={() => toggle(sKey)}
-                      onpointerenter={() => resaltarGrupo(idsDe(s.leaves), p.proj + '/' + s.subtopic)}>
+                      onpointerenter={() => highlightGroup(idsDe(s.leaves), p.proj + '/' + s.subtopic)}>
                 <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
                 <span class="ico"><Icon name="folder" size={13} color={pc} /></span>
                 <span class="label">{s.subtopic}</span>
@@ -154,13 +154,13 @@
                        la memoria. -->
                   <button
                     class="row leaf"
-                    class:sel={route.view === 'memoria' && route.id === m.id}
-                    class:eco={resalte.id === m.id}
-                    class:enGrupo={!!resalte.grupo?.includes(m.id)}
+                    class:sel={route.view === 'memory' && route.id === m.id}
+                    class:eco={highlight.id === m.id}
+                    class:enGrupo={!!highlight.group?.includes(m.id)}
                     data-id={m.id}
                     title={m.title || '(sin título)'}
                     onclick={() => openMem(m.id)}
-                    onpointerenter={() => resaltar(m.id, 'arbol')}
+                    onpointerenter={() => highlightNode(m.id, 'tree')}
                   >
                     <span class="ico"><Icon name={typeMeta(m.memory_type).icon} size={13} color={typeColor(m.memory_type)} /></span>
                     <span class="label">{m.title || '(sin título)'}</span>
