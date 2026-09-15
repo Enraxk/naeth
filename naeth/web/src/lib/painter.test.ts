@@ -14,11 +14,11 @@ import type { MemType } from './types'
 // par de funciones inversas mal casadas no lanzan nada, solo hacen que apuntar falle por unos
 // pixeles y que parezca que el raton no responde.
 
-const vista = (p: Partial<Viewport> = {}): Viewport => ({ cx: 0, cy: 0, k: 1, w: 800, h: 600, ...p })
+const view = (p: Partial<Viewport> = {}): Viewport => ({ cx: 0, cy: 0, k: 1, w: 800, h: 600, ...p })
 
 describe('mundo y pantalla, ida y vuelta', () => {
   it('el centro de la vista cae en el centro del lienzo', () => {
-    const v = vista({ cx: 120, cy: -40 })
+    const v = view({ cx: 120, cy: -40 })
     const p = toScreen(120, -40, v)
     expect(p.x).toBeCloseTo(400)
     expect(p.y).toBeCloseTo(300)
@@ -26,7 +26,7 @@ describe('mundo y pantalla, ida y vuelta', () => {
 
   it('`toWorld` deshace `toScreen` EXACTAMENTE, a cualquier aumento', () => {
     for (const k of [0.2, 0.75, 1, 3.5, 12]) {
-      const v = vista({ cx: -300, cy: 88, k })
+      const v = view({ cx: -300, cy: 88, k })
       for (const [x, y] of [[0, 0], [1234, -567], [-9, 9]]) {
         const p = toScreen(x, y, v)
         const m = toWorld(p.x, p.y, v)
@@ -37,17 +37,17 @@ describe('mundo y pantalla, ida y vuelta', () => {
   })
 
   it('acercarse separa dos puntos en pantalla, pero no los mueve en el mundo', () => {
-    const a = toScreen(100, 0, vista({ k: 1 }))
-    const b = toScreen(200, 0, vista({ k: 1 }))
-    const a2 = toScreen(100, 0, vista({ k: 4 }))
-    const b2 = toScreen(200, 0, vista({ k: 4 }))
+    const a = toScreen(100, 0, view({ k: 1 }))
+    const b = toScreen(200, 0, view({ k: 1 }))
+    const a2 = toScreen(100, 0, view({ k: 4 }))
+    const b2 = toScreen(200, 0, view({ k: 4 }))
     expect(b2.x - a2.x).toBeCloseTo((b.x - a.x) * 4)
   })
 
   it('cambiar el tamaño del lienzo NO desplaza lo que estabas mirando', () => {
     // Es la razon de que la vista guarde el centro y no una esquina.
-    const p1 = toScreen(50, 50, vista({ cx: 50, cy: 50, w: 800, h: 600 }))
-    const p2 = toScreen(50, 50, vista({ cx: 50, cy: 50, w: 1200, h: 400 }))
+    const p1 = toScreen(50, 50, view({ cx: 50, cy: 50, w: 800, h: 600 }))
+    const p2 = toScreen(50, 50, view({ cx: 50, cy: 50, w: 1200, h: 400 }))
     expect(p1.x / 800).toBeCloseTo(p2.x / 1200)
     expect(p1.y / 600).toBeCloseTo(p2.y / 400)
   })
@@ -141,22 +141,22 @@ describe('las cuatro formas, una sola geometria', () => {
   // ficha. Esa duplicacion no falla ruidosamente: cambiar una forma en un sitio y no en el otro
   // hace que el mismo tipo de memoria se vea distinto en dos vistas, y nada avisa. Estos tests
   // son lo que avisa.
-  const TIPOS: MemType[] = ['fact', 'decision', 'observation', 'preference']
+  const TYPES: MemType[] = ['fact', 'decision', 'observation', 'preference']
 
   it('cada tipo tiene su forma, y ninguna se repite', () => {
-    const paths = TIPOS.map((t) => shapePath(t, 0, 0, 10))
-    expect(new Set(paths).size).toBe(TIPOS.length)
+    const paths = TYPES.map((t) => shapePath(t, 0, 0, 10))
+    expect(new Set(paths).size).toBe(TYPES.length)
   })
 
   it('el SVG y el lienzo dibujan LOS MISMOS vertices', () => {
     // El trazador de canvas se graba en un doble que apunta por donde pasa, y se compara contra
     // las coordenadas del `d` del SVG. Si alguien toca una de las dos rutas, esto cae.
-    for (const kind of TIPOS) {
+    for (const kind of TYPES) {
       const vs = shapeVertices(kind, 5, -3, 8)
-      const puntos: number[][] = []
+      const points: number[][] = []
       const espia = {
-        moveTo: (x: number, y: number) => puntos.push([x, y]),
-        lineTo: (x: number, y: number) => puntos.push([x, y]),
+        moveTo: (x: number, y: number) => points.push([x, y]),
+        lineTo: (x: number, y: number) => points.push([x, y]),
         closePath: () => {},
         arc: () => {},
         rect: () => {},
@@ -165,11 +165,11 @@ describe('las cuatro formas, una sola geometria', () => {
 
       if (!vs) {
         // El circulo: el lienzo arranca en el borde derecho y el SVG tambien.
-        expect(puntos[0]).toEqual([13, -3])
+        expect(points[0]).toEqual([13, -3])
         expect(shapePath(kind, 5, -3, 8)).toContain('M-3 -3')
         continue
       }
-      expect(puntos).toEqual(vs.map(([x, y]) => [x, y]))
+      expect(points).toEqual(vs.map(([x, y]) => [x, y]))
       const d = shapePath(kind, 5, -3, 8)
       for (const [x, y] of vs) expect(d).toContain(`${x} ${y}`)
       expect(d.endsWith('Z')).toBe(true)
@@ -240,9 +240,9 @@ describe('wrapLines · el titulo entero, sin puntos suspensivos', () => {
 
   it('cuanto mas estrecho, mas lineas, y siempre el texto completo', () => {
     const t = 'El grafo del visor: las nueve decisiones tomadas el 04/09'
-    const ancho = wrapLines(t, 400, resize)
+    const width = wrapLines(t, 400, resize)
     const estrecho = wrapLines(t, 90, resize)
-    expect(estrecho.length).toBeGreaterThan(ancho.length)
+    expect(estrecho.length).toBeGreaterThan(width.length)
     expect(estrecho.join(' ')).toBe(t)
   })
 })
@@ -267,9 +267,9 @@ describe('clipToLine · los vecinos van a una linea', () => {
   it('el recorte se mide por ANCHO, no por numero de letras', () => {
     // Es el arreglo de contar caracteres: con un medidor donde la eme ocupa el triple, caben menos
     // emes que eles en el mismo ancho. Contando letras las dos frases se cortarian igual.
-    const ancho = (t: string) => [...t].reduce((n, c) => n + (c === 'm' ? 18 : 6), 0)
-    const emes = clipToLine('mmmmmmmmmmmmmmmm', 60, ancho)
-    const eles = clipToLine('llllllllllllllll', 60, ancho)
+    const width = (t: string) => [...t].reduce((n, c) => n + (c === 'm' ? 18 : 6), 0)
+    const emes = clipToLine('mmmmmmmmmmmmmmmm', 60, width)
+    const eles = clipToLine('llllllllllllllll', 60, width)
     expect(emes.length).toBeLessThan(eles.length)
   })
 

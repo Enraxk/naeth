@@ -68,11 +68,11 @@
     return neighborhood(model, id)
   })
 
-  const miniVecinos = $derived(miniModel?.edges.length ?? 0)
+  const miniNeighbors = $derived(miniModel?.edges.length ?? 0)
 
   // El contador SEPARA los vinculos reales de los parecidos calculados. El porque y su caso
   // medido estan en `neighborhoodLabel`, que vive en lib/graph.ts para poder probarlo.
-  const miniEtiqueta = $derived(neighborhoodLabel(miniModel))
+  const miniLabel = $derived(neighborhoodLabel(miniModel))
 
   // edición
   let editing = $state(false)
@@ -152,8 +152,8 @@
   // --- autoría (Paso 10) --------------------------------------------------------------------
   // Corta en la cabecera, completa en el tooltip. Mismo patrón que el `id`, que muestra 8 caracteres
   // y guarda el uuid entero en el title: la línea de meta tiene que caber en móvil.
-  const autoria = $derived(fmtAuthor(detail?.memory.author))
-  const autoriaLarga = $derived.by(() => {
+  const authorship = $derived(fmtAuthor(detail?.memory.author))
+  const authorshipLong = $derived.by(() => {
     const a = detail?.memory.author
     if (!a) return ''
     return [
@@ -180,7 +180,7 @@
     return out
   })
   const hasContext = $derived(
-    !editing && (outline.length > 0 || relations.length > 0 || chain.length > 1 || miniVecinos > 0),
+    !editing && (outline.length > 0 || relations.length > 0 || chain.length > 1 || miniNeighbors > 0),
   )
   function gotoHeading(i: number) {
     const hs = document.querySelectorAll('.d-body :is(h1,h2,h3,h4,h5,h6)')
@@ -307,7 +307,7 @@
     baseMd = m.content; baseReady = false
     editing = true; dirty = false
   }
-  function retomarDraft() {
+  function resumeDraft() {
     const d = readDraft(id); if (!d) return
     dTitle = d.title ?? ''; dType = d.memory_type ?? detail!.memory.memory_type
     dTags = d.tags ?? []; dPath = d.path ?? ''
@@ -319,7 +319,7 @@
     baseMd = detail!.memory.content; baseReady = true
     editing = true; dirty = true
   }
-  function descartarDraft() { clearDraft(id); draftAvail = false }
+  function discardDraft() { clearDraft(id); draftAvail = false }
   function cancel() { editing = false; baseReady = false; draftAvail = !!readDraft(id) }
 
   /**
@@ -336,15 +336,15 @@
     const targets = extractLinkedIds(content, buildIndex(data.tree ?? []))
       .filter((t) => t !== sourceId)                 // una nota no se enlaza a sí misma
     if (!targets.length) return
-    let previas: Relation[] = []
-    try { previas = await getRelations(sourceId) } catch { return }  // sin saber qué hay, no se crea
+    let previousOnes: Relation[] = []
+    try { previousOnes = await getRelations(sourceId) } catch { return }  // sin saber qué hay, no se crea
     // Solo cuentan las SALIENTES con el mismo predicado: que B ya apunte a A no hace redundante
     // que A apunte a B. Sin este filtro, cada guardado añadiría un duplicado más al grafo.
-    const ya = new Set(
-      previas.filter((r) => r.direction === 'out' && r.predicate === 'links_to').map((r) => r.target_id),
+    const already = new Set(
+      previousOnes.filter((r) => r.direction === 'out' && r.predicate === 'links_to').map((r) => r.target_id),
     )
     for (const t of targets) {
-      if (ya.has(t)) continue
+      if (already.has(t)) continue
       try { await addRelation(sourceId, t, 'links_to') } catch { /* una relación no tumba el guardado */ }
     }
   }
@@ -426,9 +426,9 @@
     {#if draftAvail && !editing}
       <div class="draft-banner">
         <Icon name="square-pen" size={13} />
-        <span>Tienes un borrador sin guardar de esta note.</span>
-        <button class="lnk" onclick={retomarDraft}>Retomar</button>
-        <button class="lnk dim" onclick={descartarDraft}>Descartar</button>
+        <span>Tienes un borrador sin guardar de esta nota.</span>
+        <button class="lnk" onclick={resumeDraft}>Retomar</button>
+        <button class="lnk dim" onclick={discardDraft}>Descartar</button>
       </div>
     {/if}
 
@@ -438,7 +438,7 @@
       {/if}
       <input class="e-title" bind:value={dTitle} oninput={() => (dirty = true)} placeholder="Título" />
       <div class="e-row">
-        <label>kind
+        <label>tipo
           <select bind:value={dType} onchange={() => (dirty = true)}>
             {#each typeOptions as t}<option value={t}>{t}</option>{/each}
           </select>
@@ -461,8 +461,8 @@
         <span>{m.path || '(sin path)'}</span><span class="sep">·</span>
         <span class="d-type"><Icon name={typeMeta(m.memory_type).icon} size={13} color={typeColor(m.memory_type)} /><span>{m.memory_type}</span></span>
         <span class="sep">·</span><span>{fmtDate(m.created_at)}</span>
-        {#if autoria}
-          <span class="sep">·</span><span title={autoriaLarga}>{autoria}</span>
+        {#if authorship}
+          <span class="sep">·</span><span title={authorshipLong}>{authorship}</span>
         {/if}
         <span class="sep">·</span><span title={m.id}>id {String(m.id).slice(0, 8)}</span>
       </div>
@@ -578,16 +578,16 @@
             </div>
           </div>
         {/if}
-        {#if miniModel && miniVecinos > 0}
+        {#if miniModel && miniNeighbors > 0}
           <div class="ctx-sec">
             <div class="ctx-head">
-              <span>Vecindario · {miniEtiqueta}</span>
+              <span>Vecindario · {miniLabel}</span>
               <button class="ctx-mas" title="Ver esta memoria dentro del grafo completo"
                       onclick={() => navigate('graph', id)}>
                 <Icon name="share-2" size={12} color="var(--dim)" /><span>en el grafo</span>
               </button>
             </div>
-            <MiniGraph model={miniModel} centro={id} />
+            <MiniGraph model={miniModel} center={id} />
           </div>
         {/if}
         {#if chain.length > 1}
@@ -595,9 +595,9 @@
             <div class="ctx-head">Historial</div>
             <div class="timeline">
               {#each [...chain].reverse() as v, idx (v.id)}
-                {@const ver = 'v' + (chain.length - idx)}
+                {@const versions = 'v' + (chain.length - idx)}
                 <button class="ver" class:cur={v.cur} onclick={() => navigate('memory', v.id)}>
-                  <span class="vg"><span class="dot"></span><span>{ver}{v.cur ? ' · actual' : ''}</span></span>
+                  <span class="vg"><span class="dot"></span><span>{versions}{v.cur ? ' · actual' : ''}</span></span>
                   <span class="vdate">{fmtDate(v.created_at)}</span>
                 </button>
               {/each}

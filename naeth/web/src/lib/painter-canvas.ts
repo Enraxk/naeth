@@ -39,7 +39,7 @@ interface Tokens {
   borde: string
 }
 
-function leerTokens(): Tokens {
+function readTokens(): Tokens {
   const s = getComputedStyle(document.documentElement)
   const v = (n: string) => s.getPropertyValue(n).trim()
   return {
@@ -59,14 +59,14 @@ export function canvasPainter(host: HTMLElement): Painter {
   host.appendChild(cv)
   const ctx = cv.getContext('2d')!
 
-  let tk = leerTokens()
+  let tk = readTokens()
   let dpr = 1
   let w = 0
   let h = 0
 
   /** Nodos y aristas visibles, reutilizados entre frames para no crear basura a 60 fps. */
-  const visibles: SimNode[] = []
-  const porColor = new Map<string, SimNode[]>()
+  const visible: SimNode[] = []
+  const byColor = new Map<string, SimNode[]>()
 
   return {
     resize(nw, nh) {
@@ -80,7 +80,7 @@ export function canvasPainter(host: HTMLElement): Painter {
     },
 
     theme() {
-      tk = leerTokens()
+      tk = readTokens()
     },
 
     draw(sim: Simulator, v: Viewport, est: PaintState) {
@@ -91,22 +91,22 @@ export function canvasPainter(host: HTMLElement): Painter {
       const P = (nd: SimNode) => toScreen(nd.x ?? 0, nd.y ?? 0, v)
       // Margen de un radio grande para que un nodo a medio salir no parpadee al entrar.
       const m = 48
-      const dentro = (p: { x: number; y: number }) =>
+      const inside = (p: { x: number; y: number }) =>
         p.x > -m && p.x < w + m && p.y > -m && p.y < h + m
 
-      const hayFoco = !!est.encendidos?.size && est.atenuacion > 0.001
-      const enFoco = (id: string) => !hayFoco || est.encendidos!.has(id) || id === est.foco
+      const hasFocus = !!est.lit?.size && est.dimming > 0.001
+      const inFocus = (id: string) => !hasFocus || est.lit!.has(id) || id === est.focus
       // Cuanto se apaga lo que no es del vecindario. Quartz usa 0,2 sobre fondo claro; aqui la
       // paleta ya esta desaturada y el fondo es oscuro, asi que a 0,18 el resto desaparecia del
       // todo y el grafo se quedaba sin contexto alrededor de lo que miras. A 0,3 el resto sigue
       // ahi, como fondo, que es lo que hace que resaltar signifique algo.
-      const apagado = 1 - 0.7 * est.atenuacion
+      const dimmed = 1 - 0.7 * est.dimming
       const esc = est.nodeScale ?? 1
-      const radio = (nd: SimNode) =>
+      const radius = (nd: SimNode) =>
         screenRadius(nodeRadius(nd.n) * esc, v.k, est.nodoExp, est.nodeMin, est.nodeMax)
 
-      visibles.length = 0
-      for (const nd of sim.nodes) if (dentro(P(nd))) visibles.push(nd)
+      visible.length = 0
+      for (const nd of sim.nodes) if (inside(P(nd))) visible.push(nd)
 
       // --- aristas ---------------------------------------------------------------------------
       //
@@ -116,10 +116,10 @@ export function canvasPainter(host: HTMLElement): Painter {
       // tinte. Siguen siendo pocos grupos (tres capas por tres predicados como mucho), asi que la
       // optimizacion de un `stroke` por grupo se conserva entera.
       const tinted = est.tinted ?? false
-      const fuerza = est.tintStrength ?? 0
-      const capas: Record<string, {
-        capa: string; pred: string
-        fondo: [number, number, number, number][]; foco: [number, number, number, number][]
+      const force = est.tintStrength ?? 0
+      const layers: Record<string, {
+        layer: string; pred: string
+        fondo: [number, number, number, number][]; focus: [number, number, number, number][]
       }> = {}
       for (const e of sim.edges) {
         const a = e.source as SimNode
@@ -128,12 +128,12 @@ export function canvasPainter(host: HTMLElement): Painter {
         const pb = P(b)
         // Basta con que uno de los dos extremos se vea: si no, las aristas largas se cortarian al
         // acercarse, que es cuando mas se miran.
-        if (!dentro(pa) && !dentro(pb)) continue
-        const capa = e.e.layer
-        const pred = tinted && capa === 'relation' ? (e.e.predicate ?? '') : ''
-        const c = (capas[capa + '|' + pred] ??= { capa, pred, fondo: [], foco: [] })
-        const destino = hayFoco && enFoco(a.id) && enFoco(b.id) ? c.foco : c.fondo
-        destino.push([pa.x, pa.y, pb.x, pb.y])
+        if (!inside(pa) && !inside(pb)) continue
+        const layer = e.e.layer
+        const pred = tinted && layer === 'relation' ? (e.e.predicate ?? '') : ''
+        const c = (layers[layer + '|' + pred] ??= { layer, pred, fondo: [], focus: [] })
+        const target = hasFocus && inFocus(a.id) && inFocus(b.id) ? c.focus : c.fondo
+        target.push([pa.x, pa.y, pb.x, pb.y])
       }
 
       /**
@@ -144,100 +144,100 @@ export function canvasPainter(host: HTMLElement): Painter {
        * viendo las dos en el banco. `d * 0.35` evita que en una arista muy corta la punta sea mas
        * larga que la propia arista.
        */
-      const punta = (x1: number, y1: number, x2: number, y2: number, px: number, medio: boolean) => {
+      const tip = (x1: number, y1: number, x2: number, y2: number, px: number, medio: boolean) => {
         const dx = x2 - x1
         const dy = y2 - y1
         const d = Math.hypot(dx, dy)
         if (d < 6) return
-        const retro = medio ? d * 0.5 : 7
-        const ex = x2 - (dx / d) * retro
-        const ey = y2 - (dy / d) * retro
-        const ang = Math.atan2(dy, dx)
+        const setback = medio ? d * 0.5 : 7
+        const ex = x2 - (dx / d) * setback
+        const ey = y2 - (dy / d) * setback
+        const angle = Math.atan2(dy, dx)
         const l = Math.min(px, d * 0.35)
         ctx.moveTo(ex, ey)
-        ctx.lineTo(ex - l * Math.cos(ang - 0.42), ey - l * Math.sin(ang - 0.42))
+        ctx.lineTo(ex - l * Math.cos(angle - 0.42), ey - l * Math.sin(angle - 0.42))
         ctx.moveTo(ex, ey)
-        ctx.lineTo(ex - l * Math.cos(ang + 0.42), ey - l * Math.sin(ang + 0.42))
+        ctx.lineTo(ex - l * Math.cos(angle + 0.42), ey - l * Math.sin(angle + 0.42))
       }
-      const conFlechas = (est.arrows ?? false) && (est.arrowPx ?? 0) > 0
+      const withArrows = (est.arrows ?? false) && (est.arrowPx ?? 0) > 0
       const arrowPx = est.arrowPx ?? 5
       const arrowMid = est.arrowMid ?? true
-      const curva = est.curvature ?? 0
+      const curve = est.curvature ?? 0
 
       ctx.lineCap = 'round'
-      for (const l of Object.values(capas)) {
+      for (const l of Object.values(layers)) {
         // El tinte tiñe el trazo; el estado (apagado o encendido) sigue mandando en la OPACIDAD y en
         // si el color base es `dim` o `ink`. Son dos canales distintos y por eso conviven: el tipo
         // se lee en el tono y el resalte en cuanta luz tiene.
-        const tinte = l.pred ? predColor(l.pred) : null
-        const flechasAqui = conFlechas && l.capa === 'relation'
+        const tint = l.pred ? predColor(l.pred) : null
+        const arrowsHere = withArrows && l.layer === 'relation'
         // Peso de la capa: multiplica su opacidad. A 0 la capa desaparece SIN salir del modelo, que
         // es distinto de apagarla en los filtros: los nodos que solo cuelgan de ella siguen ahi.
-        const peso = est.pesoCapa?.[l.capa] ?? 1
-        if (peso <= 0.001) continue
+        const weight = est.pesoCapa?.[l.layer] ?? 1
+        if (weight <= 0.001) continue
 
         /** Recta, o arco si hay curvatura. Una sola via para que el fondo y el foco no discrepen. */
-        const traza = (x1: number, y1: number, x2: number, y2: number) => {
+        const stroke = (x1: number, y1: number, x2: number, y2: number) => {
           ctx.moveTo(x1, y1)
-          if (curva > 0.001) {
+          if (curve > 0.001) {
             // Punto de control perpendicular al punto medio: el arco sale siempre al mismo lado, y
             // eso es lo que separa visualmente dos vinculos que van del mismo A al mismo B.
             const mx = (x1 + x2) / 2
             const my = (y1 + y2) / 2
-            ctx.quadraticCurveTo(mx - (y2 - y1) * curva, my + (x2 - x1) * curva, x2, y2)
+            ctx.quadraticCurveTo(mx - (y2 - y1) * curve, my + (x2 - x1) * curve, x2, y2)
           } else {
             ctx.lineTo(x2, y2)
           }
-          if (flechasAqui) punta(x1, y1, x2, y2, arrowPx, arrowMid)
+          if (arrowsHere) tip(x1, y1, x2, y2, arrowPx, arrowMid)
         }
 
         if (l.fondo.length) {
-          ctx.globalAlpha = (hayFoco ? apagado : 1) * 0.55 * peso
-          ctx.strokeStyle = tinte ? blend(tinte, tk.dim, fuerza) : tk.dim
+          ctx.globalAlpha = (hasFocus ? dimmed : 1) * 0.55 * weight
+          ctx.strokeStyle = tint ? blend(tint, tk.dim, force) : tk.dim
           ctx.lineWidth = 1
-          ctx.setLineDash(DASH[l.capa] ?? [])
+          ctx.setLineDash(DASH[l.layer] ?? [])
           ctx.beginPath()
-          for (const [x1, y1, x2, y2] of l.fondo) traza(x1, y1, x2, y2)
+          for (const [x1, y1, x2, y2] of l.fondo) stroke(x1, y1, x2, y2)
           ctx.stroke()
         }
-        if (l.foco.length) {
-          ctx.globalAlpha = peso
-          ctx.strokeStyle = tinte ? blend(tinte, tk.ink, fuerza) : tk.ink
+        if (l.focus.length) {
+          ctx.globalAlpha = weight
+          ctx.strokeStyle = tint ? blend(tint, tk.ink, force) : tk.ink
           ctx.lineWidth = 1.5
-          ctx.setLineDash(DASH[l.capa] ?? [])
+          ctx.setLineDash(DASH[l.layer] ?? [])
           ctx.beginPath()
-          for (const [x1, y1, x2, y2] of l.foco) traza(x1, y1, x2, y2)
+          for (const [x1, y1, x2, y2] of l.focus) stroke(x1, y1, x2, y2)
           ctx.stroke()
         }
       }
       ctx.setLineDash([])
 
       // --- nodos -----------------------------------------------------------------------------
-      const pinta = (lista: SimNode[], alpha: number) => {
-        porColor.clear()
-        for (const nd of lista) {
+      const paint = (list: SimNode[], alpha: number) => {
+        byColor.clear()
+        for (const nd of list) {
           const c = est.color ? projColor(nd.n.project) : tk.dim
-          let l = porColor.get(c)
-          if (!l) porColor.set(c, (l = []))
+          let l = byColor.get(c)
+          if (!l) byColor.set(c, (l = []))
           l.push(nd)
         }
         ctx.globalAlpha = alpha
-        for (const [color, l] of porColor) {
+        for (const [color, l] of byColor) {
           ctx.fillStyle = color
           ctx.beginPath()
           for (const nd of l) {
             const p = P(nd)
-            strokeShape(ctx, nd.n.memory_type, p.x, p.y, radio(nd))
+            strokeShape(ctx, nd.n.memory_type, p.x, p.y, radius(nd))
           }
           ctx.fill()
         }
       }
 
-      if (hayFoco) {
-        pinta(visibles.filter((nd) => !enFoco(nd.id)), apagado)
-        pinta(visibles.filter((nd) => enFoco(nd.id)), 1)
+      if (hasFocus) {
+        paint(visible.filter((nd) => !inFocus(nd.id)), dimmed)
+        paint(visible.filter((nd) => inFocus(nd.id)), 1)
       } else {
-        pinta(visibles, 1)
+        paint(visible, 1)
       }
       ctx.globalAlpha = 1
 
@@ -246,12 +246,12 @@ export function canvasPainter(host: HTMLElement): Painter {
       // Un ANILLO alrededor, no un disco de otro color encima: el disco tapaba el color del
       // proyecto, que es la informacion que el nodo lleva. Va en `--accent`, que es el color con
       // el que esta aplicacion senala "esto".
-      const foco = est.foco ? sim.nodes.find((n) => n.id === est.foco) : null
-      if (foco) {
-        const p = P(foco)
-        const r = radio(foco)
+      const focus = est.focus ? sim.nodes.find((n) => n.id === est.focus) : null
+      if (focus) {
+        const p = P(focus)
+        const r = radius(focus)
         ctx.strokeStyle = tk.accent
-        ctx.lineWidth = est.arrastrando === foco.id ? 3 : 2
+        ctx.lineWidth = est.dragging === focus.id ? 3 : 2
         ctx.beginPath()
         ctx.arc(p.x, p.y, r + 3.5, 0, Math.PI * 2)
         ctx.stroke()
@@ -274,55 +274,55 @@ export function canvasPainter(host: HTMLElement): Painter {
       //     viene a mirar la forma, y cinco enunciados largos alrededor solo tapan.
       //  3. Sin nada senalado, lo que diga `LABEL_CAP`, hoy cero.
       const op = textOpacity(v.k, est.textFrom, est.textFull)
-      const enc = hayFoco ? visibles.filter((nd) => enFoco(nd.id)) : []
+      const enc = hasFocus ? visible.filter((nd) => inFocus(nd.id)) : []
       const neighbors =
         op > 0.02 && enc.length <= (est.labelCap ?? LABEL_CAP_FOCUS)
-          ? enc.filter((nd) => nd.id !== est.foco)
+          ? enc.filter((nd) => nd.id !== est.focus)
           : []
-      const conNombre = foco
-        ? [foco, ...neighbors]
-        : op > 0.02 && visibles.length <= LABEL_CAP
-          ? visibles
+      const withName = focus
+        ? [focus, ...neighbors]
+        : op > 0.02 && visible.length <= LABEL_CAP
+          ? visible
           : []
 
-      if (conNombre.length) {
+      if (withName.length) {
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
         ctx.lineJoin = 'round'
         ctx.strokeStyle = tk.bg
         // Ancho de linea proporcional al lienzo: en el grande son unos 200 px y en el mini de una
         // ficha, mucho mas estrecho, lo que quepa sin salirse por los lados.
-        const anchoLinea = Math.min(210, w * 0.42)
-        for (const nd of conNombre) {
+        const lineWidth = Math.min(210, w * 0.42)
+        for (const nd of withName) {
           const p = P(nd)
-          const r = radio(nd)
+          const r = radius(nd)
           // EL NOMBRE DEL SENALADO SE ESCRIBE MAS GRANDE que el de sus vecinos. Con todos al
           // mismo cuerpo, en un vecindario de cinco no hay forma de saber cual era el que
           // apuntabas: el anillo lo dice, pero el ojo va antes al texto. Y el texto se aparta un
           // poco mas del nodo, que es el `moveText` de Obsidian: deja respirar al anillo.
-          const esFoco = nd.id === est.foco
-          ctx.font = esFoco
+          const isFocus = nd.id === est.focus
+          ctx.font = isFocus
             ? '600 14px ui-sans-serif, system-ui, sans-serif'
             : '11px ui-sans-serif, system-ui, sans-serif'
-          ctx.lineWidth = esFoco ? 4 : 3
-          const alto = esFoco ? 16 : 13
-          const sep = esFoco ? r + 9 : r + 4
+          ctx.lineWidth = isFocus ? 4 : 3
+          const height = isFocus ? 16 : 13
+          const sep = isFocus ? r + 9 : r + 4
           // El senalado a plena luz siempre; los vecinos se funden con el aumento.
-          ctx.globalAlpha = esFoco ? 1 : op
+          ctx.globalAlpha = isFocus ? 1 : op
           // EL TITULO ENTERO SOLO PARA LO SENALADO, partido en las lineas que haga falta. En este
           // corpus los titulos son enunciados y dos notas del mismo proyecto se distinguen por el
           // final, asi que recortar el que miras se comia justo lo que lo identifica. Los vecinos
           // van a una linea recortada: estan para decir CON QUIEN habla, no para leerlos.
           const resize = (t: string) => ctx.measureText(t).width
-          const titulo = nd.n.title ?? '(sin título)'
-          const lineas = esFoco
-            ? wrapLines(titulo, anchoLinea, resize)
-            : [clipToLine(titulo, anchoLinea, resize)]
-          for (let i = 0; i < lineas.length; i++) {
-            const y = p.y + sep + i * alto
-            ctx.strokeText(lineas[i], p.x, y)
+          const title = nd.n.title ?? '(sin título)'
+          const lines = isFocus
+            ? wrapLines(title, lineWidth, resize)
+            : [clipToLine(title, lineWidth, resize)]
+          for (let i = 0; i < lines.length; i++) {
+            const y = p.y + sep + i * height
+            ctx.strokeText(lines[i], p.x, y)
             ctx.fillStyle = tk.ink
-            ctx.fillText(lineas[i], p.x, y)
+            ctx.fillText(lines[i], p.x, y)
           }
         }
         ctx.globalAlpha = 1

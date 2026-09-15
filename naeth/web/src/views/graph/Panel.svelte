@@ -14,17 +14,17 @@
   // Y ES LO QUE JUBILA MEDIA DISCUSION: hasta ahora, elegir el tinte de una arista o el tamaño de
   // un nodo pedia escribir un banco de pruebas. Con esto, el visor ES el banco.
 
-  let { abierto = $bindable(false) }: { abierto?: boolean } = $props()
+  let { open = $bindable(false) }: { open?: boolean } = $props()
 
   // Un `Record<Group, ...>`, no una lista: asi añadir un grupo al catalogo y olvidarse de darle
   // titulo aqui NO COMPILA, en vez de quedarse como una seccion que no se pinta y de la que nadie se
   // entera. El orden lo pone `GROUPS`, que es de donde tira el `{#each}`.
-  const SECCIONES: Record<Group, { titulo: string; icono: string }> = {
-    text: { titulo: 'Texto', icono: 'file-text' },
-    nodes: { titulo: 'Nodos', icono: 'circle' },
-    edges: { titulo: 'Aristas', icono: 'share-2' },
-    physics: { titulo: 'Física', icono: 'zap' },
-    experimental: { titulo: 'Experimental', icono: 'flask-conical' },
+  const SECTIONS: Record<Group, { title: string; icon: string }> = {
+    text: { title: 'Texto', icon: 'file-text' },
+    nodes: { title: 'Nodos', icon: 'circle' },
+    edges: { title: 'Aristas', icon: 'share-2' },
+    physics: { title: 'Física', icon: 'zap' },
+    experimental: { title: 'Experimental', icon: 'flask-conical' },
   }
 
   /** Cuantos decimales enseñar, deducidos del paso: un paso de 1 no quiere ver "34,00". */
@@ -33,33 +33,33 @@
     return v.toFixed(d).replace('.', ',')
   }
 
-  function alTeclado(e: KeyboardEvent) {
-    if (e.key === 'Escape' && abierto) {
-      abierto = false
+  function onKeyboard(e: KeyboardEvent) {
+    if (e.key === 'Escape' && open) {
+      open = false
       e.stopPropagation()
     }
   }
 </script>
 
-<svelte:window onkeydown={alTeclado} />
+<svelte:window onkeydown={onKeyboard} />
 
-{#if abierto}
+{#if open}
   <!-- `aria-label` y no un titulo visible: el titulo lo lleva la cabecera de dentro. -->
   <aside class="panel" aria-label="Ajustes del grafo">
     <header class="cab">
       <span class="tit">Ajustes del grafo</span>
-      <button class="x" onclick={() => (abierto = false)} title="Cerrar (Escape)" aria-label="Cerrar ajustes">
+      <button class="x" onclick={() => (open = false)} title="Cerrar (Escape)" aria-label="Cerrar ajustes">
         <Icon name="x" size={14} color="currentColor" />
       </button>
     </header>
 
     <div class="cuerpo">
       {#each GROUPS as g (g)}
-        {@const s = SECCIONES[g]}
+        {@const s = SECTIONS[g]}
         <section>
           <div class="sec-cab">
-            <Icon name={s.icono} size={12} color="var(--dim)" />
-            <span>{s.titulo}</span>
+            <Icon name={s.icon} size={12} color="var(--dim)" />
+            <span>{s.title}</span>
             <button class="mini" onclick={() => restore(g)} title="Devolver esta sección a sus valores de fábrica">
               restaurar
             </button>
@@ -72,14 +72,14 @@
               Estos cambian cómo se lee el grafo entero. Si lo dejas ilegible, la salida está abajo.
             </p>
           {/if}
-          {#each controlsOf(g) as { clave, mando } (clave)}
-            {@const id = 'aj-' + clave}
+          {#each controlsOf(g) as { key, mando } (key)}
+            {@const id = 'aj-' + key}
             {#if mando.kind === 'bool'}
               <div class="mando bool">
                 <input type="checkbox" {id}
                        bind:checked={
-                         () => graphPrefs[clave] as boolean,
-                         (v) => set(clave as Key, v as never)
+                         () => graphPrefs[key] as boolean,
+                         (v) => set(key as Key, v as never)
                        } />
                 <label for={id}>{mando.label}</label>
               </div>
@@ -89,7 +89,7 @@
                   {mando.label}
                   <!-- El numero SIEMPRE a la vista: un deslizador sin valor no se puede comunicar
                        ("subelo un poco" no es un ajuste) ni comparar con lo que se midio. -->
-                  <output for={id}>{fmt(graphPrefs[clave] as number, mando.step)}</output>
+                  <output for={id}>{fmt(graphPrefs[key] as number, mando.step)}</output>
                 </label>
                 <!-- ⚠ `bind:` CON GETTER Y SETTER, no `value=` mas `oninput`.
                      Con el atributo controlado, cada cambio vuelve a renderizar el input a mitad del
@@ -100,8 +100,8 @@
                 <input type="range" {id}
                        min={mando.min} max={mando.max} step={mando.step}
                        bind:value={
-                         () => graphPrefs[clave] as number,
-                         (v) => set(clave as Key, v as never)
+                         () => graphPrefs[key] as number,
+                         (v) => set(key as Key, v as never)
                        } />
               </div>
             {/if}

@@ -100,8 +100,8 @@ describe('sanitize · lo que impide quedarse sin grafo', () => {
   })
 
   it('lo que no es un objeto no rompe nada', () => {
-    for (const basura of [null, undefined, 42, 'roto', [], true]) {
-      expect(sanitize(basura).distance).toBe(34)
+    for (const garbage of [null, undefined, 42, 'roto', [], true]) {
+      expect(sanitize(garbage).distance).toBe(34)
     }
   })
 

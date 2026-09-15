@@ -52,7 +52,7 @@
   <div class="est-conn">
     <span class="est-dot" class:bad={!data.online}></span>
     <span class="est-state">{data.online ? 'Conectado' : 'Sin conexión'}</span>
-    <span class="est-sub">nodo local · {data.status?.embed_model ?? 'modelo ?'} · {data.status?.embed_dim ?? '?'} dimensiones</span>
+    <span class="est-sub">node local · {data.status?.embed_model ?? 'modelo ?'} · {data.status?.embed_dim ?? '?'} dimensiones</span>
   </div>
 
   <section class="est-sec">
@@ -67,7 +67,7 @@
   <section class="est-sec">
     <div class="charts">
       <div class="chart">
-        <h3><Icon name="eye" size={13} color="var(--dim)" /><span>Memorias por kind</span></h3>
+        <h3><Icon name="eye" size={13} color="var(--dim)" /><span>Memorias por tipo</span></h3>
         {#each byType as [k, n] (k)}
           <div class="bar-row">
             <span class="bar-label"><Icon name={typeMeta(k).icon} size={13} color={typeColor(k)} /><span>{k}</span></span>

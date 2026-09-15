@@ -17,24 +17,24 @@
   }: { value?: string; onDirty?: () => void } = $props()
 
   const n = $derived([...value.trim()].length)
-  const pasa = $derived(n > DIGEST_MAX)
+  const exceeds = $derived(n > DIGEST_MAX)
 </script>
 
 <div class="dg">
   <div class="dg-top">
     <label for="dg-ta">digest</label>
-    <span class="dg-n" class:mal={pasa}>{n}/{DIGEST_MAX}</span>
+    <span class="dg-n" class:mal={exceeds}>{n}/{DIGEST_MAX}</span>
   </div>
   <textarea
     id="dg-ta"
     class="dg-ta"
-    class:mal={pasa}
+    class:mal={exceeds}
     rows="2"
     bind:value
     oninput={() => onDirty?.()}
     placeholder="Dos o tres frases con lo que AFIRMA la nota, no de qué va. Es lo que ve la búsqueda."
   ></textarea>
-  {#if pasa}
+  {#if exceeds}
     <p class="dg-av">
       Se rechaza por encima de {DIGEST_MAX}. Reescríbelo más corto: recortarlo dejaría un resumen
       cortado a mitad de idea que sigue pareciendo entero.

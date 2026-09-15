@@ -38,13 +38,13 @@ const resp = (over: Partial<GraphResponse> = {}): GraphResponse => ({
   ...over,
 })
 
-const filtros = (over: Partial<GraphFilters> = {}): GraphFilters => ({
+const filters = (over: Partial<GraphFilters> = {}): GraphFilters => ({
   ...defaultFilters(),
   hideIsolated: false,
   ...over,
 })
 
-const arista = (m: GraphModel, x: string, y: string) =>
+const edge = (m: GraphModel, x: string, y: string) =>
   m.edges.find((e) => (e.source === x && e.target === y) || (e.source === y && e.target === x))
 
 describe('buildGraph · fusion de las tres capas', () => {
@@ -55,8 +55,8 @@ describe('buildGraph · fusion de las tres capas', () => {
     const m = buildGraph(TREE, resp({
       edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }],
       links: { a: ['beta'] },
-    }), new Map(), filtros())
-    const e = arista(m, 'a', 'b')!
+    }), new Map(), filters())
+    const e = edge(m, 'a', 'b')!
     expect(e.layer).toBe('relation')
     expect(e.confirmed).toBe(true)
     expect(m.edges).toHaveLength(1)
@@ -64,29 +64,29 @@ describe('buildGraph · fusion de las tres capas', () => {
 
   it('un wikilink SIN relacion detras aporta arista nueva y no va marcado', () => {
     // Las otras 162 del corpus, que son las que rescatan 45 nodos del limbo.
-    const m = buildGraph(TREE, resp({ links: { a: ['gamma'] } }), new Map(), filtros())
-    const e = arista(m, 'a', 'c')!
+    const m = buildGraph(TREE, resp({ links: { a: ['gamma'] } }), new Map(), filters())
+    const e = edge(m, 'a', 'c')!
     expect(e.layer).toBe('wikilink')
     expect(e.confirmed).toBeFalsy()
   })
 
   it('la capa semantica entra por nodo, no de golpe', () => {
     const knn = new Map([['a', [{ id: 'd', sim: 0.94 }]]])
-    const m = buildGraph(TREE, resp(), knn, filtros({
+    const m = buildGraph(TREE, resp(), knn, filters({
       layers: { relation: true, wikilink: true, semantic: true },
     }))
-    expect(arista(m, 'a', 'd')!.layer).toBe('semantic')
-    expect(arista(m, 'a', 'd')!.sim).toBe(0.94)
+    expect(edge(m, 'a', 'd')!.layer).toBe('semantic')
+    expect(edge(m, 'a', 'd')!.sim).toBe(0.94)
   })
 
   it('una relacion gana a un vecino semantico de la misma pareja', () => {
     const knn = new Map([['a', [{ id: 'b', sim: 0.94 }]]])
     const m = buildGraph(TREE, resp({
       edges: [{ source_id: 'a', target_id: 'b', predicate: 'depends_on', n: 1 }],
-    }), knn, filtros({ layers: { relation: true, wikilink: true, semantic: true } }))
+    }), knn, filters({ layers: { relation: true, wikilink: true, semantic: true } }))
     expect(m.edges).toHaveLength(1)
-    expect(arista(m, 'a', 'b')!.layer).toBe('relation')
-    expect(arista(m, 'a', 'b')!.predicate).toBe('depends_on')
+    expect(edge(m, 'a', 'b')!.layer).toBe('relation')
+    expect(edge(m, 'a', 'b')!.predicate).toBe('depends_on')
   })
 
   it('A hacia B y B hacia A son LA MISMA arista del dibujo', () => {
@@ -95,7 +95,7 @@ describe('buildGraph · fusion de las tres capas', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'b', target_id: 'a', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros())
+    }), new Map(), filters())
     expect(m.edges).toHaveLength(1)
   })
 
@@ -103,15 +103,15 @@ describe('buildGraph · fusion de las tres capas', () => {
     const m = buildGraph(TREE, resp({
       edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }],
       links: { a: ['gamma'] },
-    }), new Map(), filtros({ layers: { relation: true, wikilink: false, semantic: false } }))
+    }), new Map(), filters({ layers: { relation: true, wikilink: false, semantic: false } }))
     expect(m.edges).toHaveLength(1)
-    expect(arista(m, 'a', 'c')).toBeUndefined()
+    expect(edge(m, 'a', 'c')).toBeUndefined()
   })
 })
 
 describe('buildGraph · lo que NO se pinta', () => {
   it('un wikilink de una nota a si misma no es una arista', () => {
-    const m = buildGraph(TREE, resp({ links: { a: ['alfa'] } }), new Map(), filtros())
+    const m = buildGraph(TREE, resp({ links: { a: ['alfa'] } }), new Map(), filters())
     expect(m.edges).toHaveLength(0)
   })
 
@@ -121,13 +121,13 @@ describe('buildGraph · lo que NO se pinta', () => {
     // titulo ni proyecto.
     const m = buildGraph(TREE, resp({
       edges: [{ source_id: 'a', target_id: 'fantasma', predicate: 'links_to', n: 1 }],
-    }), new Map(), filtros())
+    }), new Map(), filters())
     expect(m.edges).toHaveLength(0)
   })
 
   it('un destino de wikilink que no resuelve no inventa arista', () => {
     const m = buildGraph(TREE, resp({ links: { a: ['esto no existe en el corpus'] } }),
-                         new Map(), filtros())
+                         new Map(), filters())
     expect(m.edges).toHaveLength(0)
   })
 })
@@ -139,9 +139,9 @@ describe('buildGraph · filtros', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'a', target_id: 'c', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros({ projects: new Set(['naeth']) }))
-    expect(arista(m, 'a', 'b')).toBeDefined()
-    expect(arista(m, 'a', 'c')).toBeUndefined()
+    }), new Map(), filters({ projects: new Set(['naeth']) }))
+    expect(edge(m, 'a', 'b')).toBeDefined()
+    expect(edge(m, 'a', 'c')).toBeUndefined()
   })
 
   it('solo transversales deja las que cruzan de proyecto a proyecto', () => {
@@ -152,9 +152,9 @@ describe('buildGraph · filtros', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'a', target_id: 'c', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros({ crossOnly: true }))
-    expect(arista(m, 'a', 'b')).toBeUndefined()
-    expect(arista(m, 'a', 'c')).toBeDefined()
+    }), new Map(), filters({ crossOnly: true }))
+    expect(edge(m, 'a', 'b')).toBeUndefined()
+    expect(edge(m, 'a', 'c')).toBeDefined()
   })
 
   it('ocultar aislados los quita y DICE cuantos', () => {
@@ -162,7 +162,7 @@ describe('buildGraph · filtros', () => {
     // numero moviendose cuenta una historia sola, y por eso se devuelve en vez de callarlo.
     const m = buildGraph(TREE, resp({
       edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }],
-    }), new Map(), filtros({ hideIsolated: true }))
+    }), new Map(), filters({ hideIsolated: true }))
     expect(m.nodes.map((n) => n.id).sort()).toEqual(['a', 'b'])
     expect(m.isolated).toBe(3)
   })
@@ -170,7 +170,7 @@ describe('buildGraph · filtros', () => {
   it('sin ocultar aislados, estan todos y con grado cero', () => {
     const m = buildGraph(TREE, resp({
       edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }],
-    }), new Map(), filtros())
+    }), new Map(), filters())
     expect(m.nodes).toHaveLength(5)
     expect(m.nodes.find((n) => n.id === 'z')!.degree).toBe(0)
   })
@@ -183,35 +183,35 @@ describe('buildGraph · el exento, que ningun filtro puede esconder', () => {
   const rel = resp({ edges: [{ source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 }] })
 
   it('sin exento, una nota sin vinculos se queda fuera', () => {
-    const m = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true }))
+    const m = buildGraph(TREE, rel, new Map(), filters({ hideIsolated: true }))
     expect(m.nodes.map((n) => n.id)).not.toContain('z')
     expect(m.isolated).toBeGreaterThan(0)
   })
 
   it('con exento, esa misma nota SI sale', () => {
-    const m = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true, exempt: 'z' }))
+    const m = buildGraph(TREE, rel, new Map(), filters({ hideIsolated: true, exempt: 'z' }))
     expect(m.nodes.map((n) => n.id)).toContain('z')
   })
 
   it('el exento tambien se salta el filtro de proyecto', () => {
-    const m = buildGraph(TREE, rel, new Map(), filtros({
+    const m = buildGraph(TREE, rel, new Map(), filters({
       projects: new Set(['naeth']), hideIsolated: false, exempt: 'c',
     }))
     expect(m.nodes.map((n) => n.id)).toContain('c')
   })
 
   it('un exento que no existe no cambia nada', () => {
-    const a = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true }))
-    const b = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true, exempt: 'nada' }))
+    const a = buildGraph(TREE, rel, new Map(), filters({ hideIsolated: true }))
+    const b = buildGraph(TREE, rel, new Map(), filters({ hideIsolated: true, exempt: 'nada' }))
     expect(b.nodes.map((n) => n.id)).toEqual(a.nodes.map((n) => n.id))
   })
 
   it('el exento NO se cuela en el contador de sueltas', () => {
     // El contador dice cuantas hay fuera; que enseñar una no cambie ese numero es lo que impide
     // que el mensaje de la franja empiece a bailar con el raton.
-    const sin = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true }))
-    const con = buildGraph(TREE, rel, new Map(), filtros({ hideIsolated: true, exempt: 'z' }))
-    expect(con.isolated).toBe(sin.isolated)
+    const without = buildGraph(TREE, rel, new Map(), filters({ hideIsolated: true }))
+    const withExempt = buildGraph(TREE, rel, new Map(), filters({ hideIsolated: true, exempt: 'z' }))
+    expect(withExempt.isolated).toBe(without.isolated)
   })
 })
 
@@ -225,7 +225,7 @@ describe('buildGraph · el arbol esconde lo que colapsas', () => {
       { source_id: 'a', target_id: 'c', predicate: 'links_to', n: 1 },
     ],
   })
-  const f = (over: Partial<GraphFilters> = {}) => filtros({ hideIsolated: false, ...over })
+  const f = (over: Partial<GraphFilters> = {}) => filters({ hideIsolated: false, ...over })
 
   it('sin nada oculto, estan todas', () => {
     const m = buildGraph(TREE, rel, new Map(), f())
@@ -261,7 +261,7 @@ describe('buildGraph · grado y componentes', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'a', target_id: 'c', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros())
+    }), new Map(), filters())
     expect(m.nodes.find((n) => n.id === 'a')!.degree).toBe(2)
     expect(m.nodes.find((n) => n.id === 'b')!.degree).toBe(1)
   })
@@ -276,7 +276,7 @@ describe('buildGraph · grado y componentes', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'b', target_id: 'z', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros({ hideIsolated: true }))
+    }), new Map(), filters({ hideIsolated: true }))
     const compDe = (id: string) => m.nodes.find((n) => n.id === id)!.component
     expect(compDe('a')).toBe(0)
     expect(compDe('b')).toBe(0)
@@ -293,14 +293,14 @@ describe('neighborhood · lo que pinta el mini grafo de la ficha', () => {
         { source_id: 'a', target_id: 'b', predicate: 'links_to', n: 1 },
         { source_id: 'b', target_id: 'c', predicate: 'links_to', n: 1 },
       ],
-    }), new Map(), filtros())
+    }), new Map(), filters())
     const v = neighborhood(m, 'a')
     expect(v.nodes.map((n) => n.id).sort()).toEqual(['a', 'b'])
     expect(v.edges).toHaveLength(1)
   })
 
   it('una nota sin vinculos da un vecindario vacio', () => {
-    const m = buildGraph(TREE, resp(), new Map(), filtros())
+    const m = buildGraph(TREE, resp(), new Map(), filters())
     expect(neighborhood(m, 'z').edges).toHaveLength(0)
   })
 })

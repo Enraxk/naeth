@@ -22,7 +22,7 @@
 
   // `data` no tiene ni flag de carga ni de error (solo `null` y `online`), asi que los dos
   // endpoints que estrena esta vista se gestionan en local, con el mismo patron que Memoria.
-  const tocados = $derived(changed())
+  const touched = $derived(changed())
 
   /**
    * Lleva al grafo con el panel ya abierto.
@@ -31,7 +31,7 @@
    * vez de inventar un canal aparte: quien pulsa "abrir los ajustes del grafo" espera encontrarlos
    * abiertos al llegar, y no un boton mas que pulsar.
    */
-  function abrirPanelDelGrafo() {
+  function openGraphPanel() {
     try {
       localStorage.setItem(PANEL_LS, '1')
     } catch {
@@ -52,33 +52,33 @@
     const [a, h] = await Promise.allSettled([getAuthors(), getHealth()])
     if (a.status === 'fulfilled') authors = a.value
     if (h.status === 'fulfilled') health = h.value
-    const caidos = [
+    const down = [
       a.status === 'rejected' && 'el desglose de autoria',
       h.status === 'rejected' && 'la salud del nodo',
     ].filter(Boolean)
-    if (caidos.length) error = `No se ha podido leer ${caidos.join(' ni ')}. Lo demas es correcto.`
+    if (down.length) error = `No se ha podido leer ${down.join(' ni ')}. Lo demas es correcto.`
   })
 
   const c = $derived(data.status?.counts)
   const q = $derived(data.status?.queue)
 
-  const totalAutoria = $derived((authors ?? []).reduce((a, r) => a + r.n, 0))
-  const maxAutoria = $derived(Math.max(1, ...(authors ?? []).map((r) => r.n)))
+  const totalAuthorship = $derived((authors ?? []).reduce((a, r) => a + r.n, 0))
+  const maxAuthorship = $derived(Math.max(1, ...(authors ?? []).map((r) => r.n)))
 
   /** `claude-code · code · opus-5`, degradando por escalones como hace `fmtAuthor`. */
-  const quien = (r: AuthorCount) =>
+  const who = (r: AuthorCount) =>
     [r.product, r.surface, r.model?.replace(/^claude-/, '')].filter(Boolean).join(' · ') ||
     '(sin autoria)'
 
   // El tema tiene TRES estados y solo dos se ven en el rail: sin la clave en localStorage sigue al
   // sistema, y en cuanto tocas el interruptor queda forzado para siempre. No hay forma de volver a
   // "sigue al sistema" desde la interfaz, asi que aqui al menos se dice cual de los tres es.
-  let temaForzado = $state(false)
+  let forcedTheme = $state(false)
   onMount(() => {
     try {
-      temaForzado = localStorage.getItem('naeth-theme') !== null
+      forcedTheme = localStorage.getItem('naeth-theme') !== null
     } catch {
-      temaForzado = false
+      forcedTheme = false
     }
   })
 
@@ -87,7 +87,7 @@
   // En desarrollo el proxy de Vite manda `/api` a 127.0.0.1:8800, que es PRODUCCION. Lo que se ve
   // en pantalla son memorias reales aunque la barra diga localhost:5180, y eso no se avisa en
   // ningun otro sitio del visor.
-  const enDesarrollo = import.meta.env.DEV
+  const inDev = import.meta.env.DEV
 </script>
 
 <div class="ajustes">
@@ -97,7 +97,7 @@
     <span class="aj-sub">Del corpus, solo lectura. Las preferencias se cambian donde se usan.</span>
   </div>
 
-  {#if enDesarrollo}
+  {#if inDev}
     <div class="aviso">
       <Icon name="triangle-alert" size={14} color="var(--warn)" />
       <span>Servidor de desarrollo. El proxy manda <code>/api</code> al nodo real, asi que estas
@@ -110,7 +110,7 @@
   {/if}
 
   <section class="aj-sec">
-    <div class="aj-head"><Icon name="server" size={13} color="var(--dim)" /><span>Nodo y conexion</span></div>
+    <div class="aj-head"><Icon name="server" size={13} color="var(--dim)" /><span>Node y conexion</span></div>
     <dl class="aj-list">
       <div><dt>Modelo de embeddings</dt><dd>{data.status?.embed_model ?? '-'}</dd></div>
       <div><dt>Dimension del vector</dt><dd>{data.status?.embed_dim ?? '-'}</dd></div>
@@ -149,8 +149,8 @@
     <div class="aj-head">
       <Icon name="users" size={13} color="var(--dim)" /><span>Quien ha escrito el corpus</span>
       <!-- "vigentes" y no "versiones": la suma de /api/authors da 520, que es `memory_current`,
-           no las 895 filas. Comprobado el 04/09/2026 sumando las ocho filas contra el status. -->
-      {#if totalAutoria}<span class="aj-head-sub">{totalAutoria} vigentes</span>{/if}
+           no las 895 filas. Comprobado el 04/09/2026 sumando las ocho filas contra el estado. -->
+      {#if totalAuthorship}<span class="aj-head-sub">{totalAuthorship} vigentes</span>{/if}
     </div>
     {#if authors === null && !error}
       <div class="empty">Cargando...</div>
@@ -164,9 +164,9 @@
                 size={13}
                 color={r.actor === 'human' ? 'var(--accent)' : 'var(--dim)'}
               />
-              <span>{quien(r)}</span>
+              <span>{who(r)}</span>
             </span>
-            <span class="bar-track"><span class="bar-fill" style="width:{Math.round((r.n / maxAutoria) * 100)}%"></span></span>
+            <span class="bar-track"><span class="bar-fill" style="width:{Math.round((r.n / maxAuthorship) * 100)}%"></span></span>
             <span class="bar-val">{r.n}</span>
           </div>
         {/each}
@@ -177,7 +177,7 @@
         escribieran sin modelo.
       </p>
     {:else if !error}
-      <div class="empty">Sin datos de autoria.</div>
+      <div class="empty">Sin datos de authorship.</div>
     {/if}
   </section>
 
@@ -187,7 +187,7 @@
       <div>
         <dt>Tema</dt>
         <dd>{theme.value === 'dark' ? 'oscuro' : 'claro'}
-          <span class="dd-sub">{temaForzado ? 'elegido a mano' : 'sigue al sistema'} · se cambia en el rail</span>
+          <span class="dd-sub">{forcedTheme ? 'elegido a mano' : 'sigue al sistema'} · se cambia en el rail</span>
         </dd>
       </div>
       <div>
@@ -196,21 +196,21 @@
       </div>
       <div>
         <dt>Ancho de la barra lateral</dt>
-        <dd>{prefs.side} px<span class="dd-sub">se cambia arrastrando su borde</span></dd>
+        <dd>{prefs.side} px<span class="dd-sub">se cambia dragging su borde</span></dd>
       </div>
       <div>
         <dt>Ajustes del grafo</dt>
         <dd>
-          {#if tocados.length === 0}
+          {#if touched.length === 0}
             todo de fábrica
           {:else}
-            {tocados.length} de {KEYS.length} changed
+            {touched.length} de {KEYS.length} changed
           {/if}
           <span class="dd-sub">
             <!-- Enlace y no una copia de los mandos: un deslizador cuyo efecto no se ve mientras se
                  mueve es tocar a ciegas, y por eso los quince viven ENCIMA del grafo. Aqui solo se
                  dice si estan tocados y por donde se llega. -->
-            <button class="enlace" onclick={abrirPanelDelGrafo}>abrir los ajustes del grafo</button>
+            <button class="enlace" onclick={openGraphPanel}>abrir los ajustes del grafo</button>
           </span>
         </dd>
       </div>
@@ -218,7 +218,7 @@
     <p class="note">
       Viven en el <code>localStorage</code> de este navegador con el prefijo <code>naeth-</code>, no
       en el servidor: otro dispositivo tiene las suyas. Si algún ajuste del grafo lo deja ilegible,
-      <code>#/graph?reset</code> los borra todos antes de draw nada.
+      <code>#/graph?reset</code> los borra todos antes de dibujar nada.
     </p>
   </section>
 </div>

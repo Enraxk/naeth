@@ -176,10 +176,10 @@ export function resolve(target: string, ix: WikiIndex): Resolved | null {
   // 6) y 7) prefijo de título o de slug, la forma más común en el corpus, y por eso se acepta
   // pese a ser laxa. El umbral evita que un destino de tres letras arrastre cualquier cosa.
   if (key.length >= MIN_PREFIX) {
-    const porTitulo = ix.entries.filter((e) => e.key.startsWith(key)).map((e) => e.row)
-    if (porTitulo.length) return bestByPrefix(porTitulo)
-    const porSlug = ix.entries.filter((e) => e.slug.startsWith(slug)).map((e) => e.row)
-    if (porSlug.length) return bestByPrefix(porSlug)
+    const byTitle = ix.entries.filter((e) => e.key.startsWith(key)).map((e) => e.row)
+    if (byTitle.length) return bestByPrefix(byTitle)
+    const bySlug = ix.entries.filter((e) => e.slug.startsWith(slug)).map((e) => e.row)
+    if (bySlug.length) return bestByPrefix(bySlug)
   }
 
   return null

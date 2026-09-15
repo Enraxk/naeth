@@ -102,7 +102,7 @@ const LAYER_RANK: Record<EdgeLayer, number> = { relation: 0, wikilink: 1, semant
  * El separador va explicito y no es un espacio porque un espacio invisible en una clave es
  * justo lo que nadie mira cuando dos parejas colisionan. Un uuid no contiene `|`.
  */
-const par = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
+const pair = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
 
 /**
  * Resuelve los destinos en bruto de `/api/graph` a ids, memoizando por cadena.
@@ -111,7 +111,7 @@ const par = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`)
  * por prefijo, y un destino como `[[naeth/status]]` aparece muchas veces en el corpus. Va aqui y
  * no dentro de `wikilinks.ts` para no tocar una funcion que ya tiene 43 tests.
  */
-function resolverDestinos(
+function resolveTargets(
   links: Record<string, string[]>,
   ix: WikiIndex,
 ): { source: string; target: string }[] {
@@ -133,30 +133,30 @@ function resolverDestinos(
 }
 
 /** Componentes conexas por recorrido en anchura. Devuelve el indice de componente por nodo. */
-function componentesDe(ids: string[], adj: Map<string, Set<string>>): Map<string, number> {
+function componentsOf(ids: string[], adj: Map<string, Set<string>>): Map<string, number> {
   const comp = new Map<string, number>()
-  const grupos: string[][] = []
+  const groups: string[][] = []
   for (const id of ids) {
     if (comp.has(id)) continue
     const group: string[] = []
-    const cola = [id]
+    const queue = [id]
     comp.set(id, -1)
-    while (cola.length) {
-      const x = cola.pop()!
+    while (queue.length) {
+      const x = queue.pop()!
       group.push(x)
       for (const v of adj.get(x) ?? []) {
         if (!comp.has(v)) {
           comp.set(v, -1)
-          cola.push(v)
+          queue.push(v)
         }
       }
     }
-    grupos.push(group)
+    groups.push(group)
   }
   // La componente 0 es SIEMPRE la mayor: el dibujo la coloca en el centro, y que su indice
   // dependiera del orden de llegada de los nodos haria saltar el grafo entero al recargar.
-  grupos.sort((a, b) => b.length - a.length)
-  grupos.forEach((g, i) => g.forEach((id) => comp.set(id, i)))
+  groups.sort((a, b) => b.length - a.length)
+  groups.forEach((g, i) => g.forEach((id) => comp.set(id, i)))
   return comp
 }
 
@@ -173,78 +173,78 @@ export function buildGraph(
   knn: Map<string, KnnNeighbor[]>,
   filters: GraphFilters,
 ): GraphModel {
-  const porId = new Map(tree.map((r) => [r.id, r]))
+  const byId = new Map(tree.map((r) => [r.id, r]))
   const ix = buildIndex(tree)
 
   // 1) Reunir las tres capas, cada una con su forma, sin deduplicar todavia.
-  const brutas: GraphEdge[] = []
+  const raw: GraphEdge[] = []
   if (data && filters.layers.relation) {
     for (const e of data.edges) {
-      brutas.push({ source: e.source_id, target: e.target_id, layer: 'relation',
+      raw.push({ source: e.source_id, target: e.target_id, layer: 'relation',
                     predicate: e.predicate, n: e.n })
     }
   }
   if (data && filters.layers.wikilink) {
-    for (const { source, target } of resolverDestinos(data.links, ix)) {
-      brutas.push({ source, target, layer: 'wikilink' })
+    for (const { source, target } of resolveTargets(data.links, ix)) {
+      raw.push({ source, target, layer: 'wikilink' })
     }
   }
   if (filters.layers.semantic) {
     for (const [source, neighbors] of knn) {
       for (const v of neighbors) {
-        if (v.id !== source) brutas.push({ source, target: v.id, layer: 'semantic', sim: v.sim })
+        if (v.id !== source) raw.push({ source, target: v.id, layer: 'semantic', sim: v.sim })
       }
     }
   }
 
   // 2) Deduplicar por pareja no dirigida, quedandose con la capa de mas rango y marcando que la
   //    pareja aparecia tambien mas abajo.
-  const porPar = new Map<string, GraphEdge>()
-  for (const e of brutas) {
+  const byPair = new Map<string, GraphEdge>()
+  for (const e of raw) {
     // Una arista a un nodo que no esta en el arbol no se pinta: seria un punto sin titulo ni
     // proyecto. Pasa con los vecinos semanticos de una memoria recien retirada.
-    if (!porId.has(e.source) || !porId.has(e.target)) continue
-    const k = par(e.source, e.target)
-    const previa = porPar.get(k)
-    if (!previa) {
-      porPar.set(k, e)
+    if (!byId.has(e.source) || !byId.has(e.target)) continue
+    const k = pair(e.source, e.target)
+    const previous = byPair.get(k)
+    if (!previous) {
+      byPair.set(k, e)
       continue
     }
-    const gana = LAYER_RANK[e.layer] < LAYER_RANK[previa.layer] ? e : previa
-    const otra = gana === e ? previa : e
-    porPar.set(k, { ...gana, confirmed: gana.layer !== otra.layer || gana.confirmed })
+    const wins = LAYER_RANK[e.layer] < LAYER_RANK[previous.layer] ? e : previous
+    const other = wins === e ? previous : e
+    byPair.set(k, { ...wins, confirmed: wins.layer !== other.layer || wins.confirmed })
   }
-  let edges = [...porPar.values()]
+  let edges = [...byPair.values()]
 
   // 3) Filtros de nodo, que se aplican sobre las aristas porque una arista con un extremo
   //    filtrado deja de tener sentido.
-  const proyectoDeId = (id: string) => projectOf(porId.get(id)?.path)
+  const projectOfId = (id: string) => projectOf(byId.get(id)?.path)
   // Lo que el arbol esconde se lleva por delante sus aristas, y esto NO es opcional: sin ello el
   // grado seguiria contando vecinos que ya no se ven, y `hideIsolated` dejaria en pie nodos
   // que en pantalla no tocan nada. Lo cazo un test antes que ningun ojo.
   if (filters.hidden) {
     const o = filters.hidden
     const ex = filters.exempt ?? null
-    const fuera = (id: string) => o.has(id) && id !== ex
-    edges = edges.filter((e) => !fuera(e.source) && !fuera(e.target))
+    const outside = (id: string) => o.has(id) && id !== ex
+    edges = edges.filter((e) => !outside(e.source) && !outside(e.target))
   }
   if (filters.projects) {
     const p = filters.projects
-    edges = edges.filter((e) => p.has(proyectoDeId(e.source)) && p.has(proyectoDeId(e.target)))
+    edges = edges.filter((e) => p.has(projectOfId(e.source)) && p.has(projectOfId(e.target)))
   }
   if (filters.crossOnly) {
-    edges = edges.filter((e) => proyectoDeId(e.source) !== proyectoDeId(e.target))
+    edges = edges.filter((e) => projectOfId(e.source) !== projectOfId(e.target))
   }
 
   // 4) Nodos, grado y componentes.
   const adj = new Map<string, Set<string>>()
-  const toca = (a: string, b: string) => {
+  const touches = (a: string, b: string) => {
     if (!adj.has(a)) adj.set(a, new Set())
     adj.get(a)!.add(b)
   }
   for (const e of edges) {
-    toca(e.source, e.target)
-    toca(e.target, e.source)
+    touches(e.source, e.target)
+    touches(e.target, e.source)
   }
 
   // El EXENTO no lo esconde ningun filtro. Es para lo que se senala desde el arbol: pedir ver una
@@ -252,20 +252,20 @@ export function buildGraph(
   // y ademas invisible (no hay forma de saber que el filtro fue la causa).
   const exempt = filters.exempt ?? null
   const hidden = filters.hidden ?? null
-  const conCarpeta = hidden
+  const withFolder = hidden
     ? tree.filter((r) => r.id === exempt || !hidden.has(r.id))
     : tree
-  const hiddenEdges = tree.length - conCarpeta.length
-  const visibles = filters.projects
-    ? conCarpeta.filter((r) => r.id === exempt || filters.projects!.has(projectOf(r.path)))
-    : conCarpeta
-  const candidatos = filters.hideIsolated
-    ? visibles.filter((r) => adj.has(r.id) || r.id === exempt)
-    : visibles
-  const isolated = visibles.length - visibles.filter((r) => adj.has(r.id)).length
+  const hiddenEdges = tree.length - withFolder.length
+  const visible = filters.projects
+    ? withFolder.filter((r) => r.id === exempt || filters.projects!.has(projectOf(r.path)))
+    : withFolder
+  const candidates = filters.hideIsolated
+    ? visible.filter((r) => adj.has(r.id) || r.id === exempt)
+    : visible
+  const isolated = visible.length - visible.filter((r) => adj.has(r.id)).length
 
-  const comp = componentesDe(candidatos.map((r) => r.id), adj)
-  const nodes: GraphNode[] = candidatos.map((r) => ({
+  const comp = componentsOf(candidates.map((r) => r.id), adj)
+  const nodes: GraphNode[] = candidates.map((r) => ({
     id: r.id,
     title: r.title,
     path: r.path,
@@ -305,11 +305,11 @@ export function neighborhood(model: GraphModel, id: string): GraphModel {
  * mas fuerte que un trazo, y era el numero el que mentia.
  */
 export function neighborhoodLabel(model: GraphModel | null): string {
-  const reales = model?.edges.filter((e) => e.layer !== 'semantic').length ?? 0
-  const sugeridos = model?.edges.filter((e) => e.layer === 'semantic').length ?? 0
-  if (reales && sugeridos) return `${reales} + ${sugeridos} sugeridos`
-  if (reales) return String(reales)
-  if (sugeridos) return `${sugeridos} sugerido${sugeridos === 1 ? '' : 's'}`
+  const real = model?.edges.filter((e) => e.layer !== 'semantic').length ?? 0
+  const suggested = model?.edges.filter((e) => e.layer === 'semantic').length ?? 0
+  if (real && suggested) return `${real} + ${suggested} sugeridos`
+  if (real) return String(real)
+  if (suggested) return `${suggested} sugerido${suggested === 1 ? '' : 's'}`
   return '0'
 }
 

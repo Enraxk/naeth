@@ -49,8 +49,8 @@
    * Con la ruta ya escrita entera no se ensena nada: un popover de una sola entrada que repite lo
    * que acabas de teclear es ruido, y encima tapa el campo de abajo.
    */
-  const exacta = $derived(hits.length === 1 && hits[0].path === value.trim())
-  const show = $derived(open && hits.length > 0 && !exacta)
+  const exact = $derived(hits.length === 1 && hits[0].path === value.trim())
+  const show = $derived(open && hits.length > 0 && !exact)
 
   function choose(i: number) {
     const h = hits[i]

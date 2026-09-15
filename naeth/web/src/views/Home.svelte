@@ -20,7 +20,7 @@
     return {
       vig: c?.memory_current ?? (data.tree ? data.tree.length : '-'),
       projs: projs || '-',
-      ver: c?.memory_total ?? '-',
+      versions: c?.memory_total ?? '-',
     }
   })
 </script>
@@ -28,7 +28,7 @@
 <div class="inicio">
   <div class="hero">
     <h1 class="hello">{greeting()}, Eneko</h1>
-    <p class="lede"><b>{lede.vig}</b> memorias vigentes · <b>{lede.projs}</b> proyectos · <b>{lede.ver}</b> versiones</p>
+    <p class="lede"><b>{lede.vig}</b> memorias vigentes · <b>{lede.projs}</b> proyectos · <b>{lede.versions}</b> versiones</p>
   </div>
 
   <section>

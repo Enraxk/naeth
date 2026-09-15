@@ -10,7 +10,7 @@ import type { GraphEdge, GraphModel, GraphNode } from './graph'
 // cambiar de filtro no reordene lo que ya estabas mirando, y que la simulacion se calle sola en
 // vez de quemar CPU para siempre.
 
-const nodo = (id: string, component = 0, degree = 1): GraphNode => ({
+const node = (id: string, component = 0, degree = 1): GraphNode => ({
   id,
   title: id,
   path: 'naeth/core',
@@ -20,7 +20,7 @@ const nodo = (id: string, component = 0, degree = 1): GraphNode => ({
   component,
 })
 
-const arista = (source: string, target: string): GraphEdge => ({ source, target, layer: 'relation' })
+const edge = (source: string, target: string): GraphEdge => ({ source, target, layer: 'relation' })
 
 const modelo = (nodes: GraphNode[], edges: GraphEdge[] = []): GraphModel => ({
   nodes,
@@ -30,9 +30,9 @@ const modelo = (nodes: GraphNode[], edges: GraphEdge[] = []): GraphModel => ({
   components: new Set(nodes.map((n) => n.component)).size,
 })
 
-const cadena = (n: number, comp = 0, pre = 'n') => {
-  const ns = Array.from({ length: n }, (_, i) => nodo(`${pre}${i}`, comp, 2))
-  const es = ns.slice(1).map((x, i) => arista(`${pre}${i}`, x.id))
+const chain = (n: number, comp = 0, pre = 'n') => {
+  const ns = Array.from({ length: n }, (_, i) => node(`${pre}${i}`, comp, 2))
+  const es = ns.slice(1).map((x, i) => edge(`${pre}${i}`, x.id))
   return { ns, es }
 }
 
@@ -47,7 +47,7 @@ describe('simulador · determinismo del punto de partida', () => {
     // Es la razon de sembrar el generador con el id y de pasarselo a d3 con `randomSource`. Un
     // grafo que sale distinto en cada recarga obliga a reorientarse cada vez, y a mirar dos veces
     // para saber si lo que cambio fue el corpus o el sorteo.
-    const { ns, es } = cadena(8)
+    const { ns, es } = chain(8)
     const a = createSimulator(modelo(ns, es))
     const b = createSimulator(modelo(ns, es))
     avanzar(a, 40)
@@ -59,7 +59,7 @@ describe('simulador · determinismo del punto de partida', () => {
   })
 
   it('el orden de los nodos en la entrada no cambia donde acaba cada uno', () => {
-    const { ns, es } = cadena(6)
+    const { ns, es } = chain(6)
     const a = createSimulator(modelo(ns, es))
     const b = createSimulator(modelo([...ns].reverse(), es))
     avanzar(a, 30)
@@ -72,8 +72,8 @@ describe('simulador · determinismo del punto de partida', () => {
 
 describe('simulador · lo degenerado, que no lanza sino que deja de pintar', () => {
   it('NINGUNA posicion es NaN, ni con doce nodos encima del mismo punto', () => {
-    const ns = Array.from({ length: 12 }, (_, i) => nodo(`m${i}`, 0, 11))
-    const es = ns.slice(1).map((n) => arista('m0', n.id))
+    const ns = Array.from({ length: 12 }, (_, i) => node(`m${i}`, 0, 11))
+    const es = ns.slice(1).map((n) => edge('m0', n.id))
     const s = createSimulator(modelo(ns, es))
     avanzar(s, 60)
     for (const nd of s.nodes) {
@@ -91,7 +91,7 @@ describe('simulador · lo degenerado, que no lanza sino que deja de pintar', () 
   })
 
   it('un solo nodo tiene posicion finita y caja con area', () => {
-    const s = createSimulator(modelo([nodo('solo')]))
+    const s = createSimulator(modelo([node('solo')]))
     avanzar(s, 20)
     expect(Number.isFinite(s.nodes[0].x!)).toBe(true)
     const c = s.bounds()
@@ -101,7 +101,7 @@ describe('simulador · lo degenerado, que no lanza sino que deja de pintar', () 
 
 describe('simulador · el arrastre', () => {
   it('un nodo sujetado se queda EXACTAMENTE donde se le pone', () => {
-    const { ns, es } = cadena(10)
+    const { ns, es } = chain(10)
     const s = createSimulator(modelo(ns, es))
     s.pin('n3', 123, -456)
     s.reheat(1, true)
@@ -112,20 +112,20 @@ describe('simulador · el arrastre', () => {
   })
 
   it('al soltarlo vuelve a moverse', () => {
-    const { ns, es } = cadena(10)
+    const { ns, es } = chain(10)
     const s = createSimulator(modelo(ns, es))
     s.pin('n3', 123, -456)
     avanzar(s, 10)
     s.release('n3')
     s.reheat(0.8)
-    const antes = { ...s.nodes.find((n) => n.id === 'n3')! }
+    const before = { ...s.nodes.find((n) => n.id === 'n3')! }
     avanzar(s, 30)
     const nd = s.nodes.find((n) => n.id === 'n3')!
-    expect(nd.x === antes.x && nd.y === antes.y).toBe(false)
+    expect(nd.x === before.x && nd.y === before.y).toBe(false)
   })
 
   it('sujetar un id que no existe no revienta', () => {
-    const s = createSimulator(modelo([nodo('a')]))
+    const s = createSimulator(modelo([node('a')]))
     expect(() => {
       s.pin('fantasma', 0, 0)
       s.release('fantasma')
@@ -137,35 +137,35 @@ describe('simulador · cambiar de filtro no reordena lo que ya mirabas', () => {
   it('los nodos que siguen estando CONSERVAN su posicion', () => {
     // Es el arreglo de los 265 a 411 ms de hilo bloqueado que medimos el 04/09: recalcular desde
     // cero no solo costaba, es que ademas movia de sitio lo que no habia cambiado.
-    const { ns, es } = cadena(10)
+    const { ns, es } = chain(10)
     const s = createSimulator(modelo(ns, es))
     avanzar(s, 50)
-    const antes = new Map(s.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
+    const before = new Map(s.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
 
     s.update(modelo(ns.slice(0, 6), es.slice(0, 5)))
     for (const nd of s.nodes) {
-      expect(nd.x).toBe(antes.get(nd.id)!.x)
-      expect(nd.y).toBe(antes.get(nd.id)!.y)
+      expect(nd.x).toBe(before.get(nd.id)!.x)
+      expect(nd.y).toBe(before.get(nd.id)!.y)
     }
     expect(s.nodes).toHaveLength(6)
   })
 
   it('los nodos nuevos entran con posicion finita y los que se van desaparecen', () => {
-    const { ns, es } = cadena(5)
+    const { ns, es } = chain(5)
     const s = createSimulator(modelo(ns, es))
     avanzar(s, 20)
-    const mas = cadena(9)
-    s.update(modelo(mas.ns, mas.es))
+    const more = chain(9)
+    s.update(modelo(more.ns, more.es))
     expect(s.nodes).toHaveLength(9)
     for (const nd of s.nodes) expect(Number.isFinite(nd.x!)).toBe(true)
 
-    s.update(modelo([nodo('n0')], []))
+    s.update(modelo([node('n0')], []))
     expect(s.nodes.map((n) => n.id)).toEqual(['n0'])
   })
 
   it('una arista a un nodo que ya no esta NO se queda colgada', () => {
     // d3 revienta con "node not found" si un link apunta a un id que no esta en `nodes`.
-    const { ns, es } = cadena(6)
+    const { ns, es } = chain(6)
     const s = createSimulator(modelo(ns, es))
     expect(() => {
       s.update(modelo(ns.slice(0, 3), es))
@@ -177,28 +177,28 @@ describe('simulador · cambiar de filtro no reordena lo que ya mirabas', () => {
 
 describe('simulador · vecinos en O(1)', () => {
   it('da los vecinos de los dos lados de la arista', () => {
-    const s = createSimulator(modelo([nodo('a'), nodo('b'), nodo('c')], [arista('a', 'b'), arista('b', 'c')]))
+    const s = createSimulator(modelo([node('a'), node('b'), node('c')], [edge('a', 'b'), edge('b', 'c')]))
     expect([...s.neighbors('b')].sort()).toEqual(['a', 'c'])
     expect([...s.neighbors('a')]).toEqual(['b'])
   })
 
   it('un nodo suelto devuelve un conjunto vacio, no undefined', () => {
-    const s = createSimulator(modelo([nodo('a'), nodo('b')], []))
+    const s = createSimulator(modelo([node('a'), node('b')], []))
     expect(s.neighbors('a').size).toBe(0)
     expect(s.neighbors('nada').size).toBe(0)
   })
 
   it('la adyacencia se rehace al cambiar el modelo', () => {
-    const s = createSimulator(modelo([nodo('a'), nodo('b')], [arista('a', 'b')]))
+    const s = createSimulator(modelo([node('a'), node('b')], [edge('a', 'b')]))
     expect(s.neighbors('a').size).toBe(1)
-    s.update(modelo([nodo('a'), nodo('b')], []))
+    s.update(modelo([node('a'), node('b')], []))
     expect(s.neighbors('a').size).toBe(0)
   })
 })
 
 describe('simulador · apuntar con el raton', () => {
   it('encuentra el nodo mas cercano y respeta el radio', () => {
-    const s = createSimulator(modelo([nodo('a'), nodo('b')], [arista('a', 'b')]))
+    const s = createSimulator(modelo([node('a'), node('b')], [edge('a', 'b')]))
     const a = s.nodes[0]
     expect(s.nearest(a.x!, a.y!, 10)?.id).toBe('a')
     expect(s.nearest(a.x! + 5000, a.y!, 10)).toBe(null)
@@ -209,14 +209,14 @@ describe('simulador · se calla sola', () => {
   it('deja de moverse y `viva` pasa a false', () => {
     // El `idleFrames` de Obsidian: la simulacion para tras quedarse quieta, no corre para siempre.
     // Sin esto el grafo quema CPU con nadie mirandolo.
-    const { ns, es } = cadena(12)
+    const { ns, es } = chain(12)
     const s = createSimulator(modelo(ns, es))
     expect(avanzar(s, 400)).toBe(false)
     expect(s.alive()).toBe(false)
   })
 
   it('`agitar` la despierta, y sostenida no se enfria', () => {
-    const { ns, es } = cadena(12)
+    const { ns, es } = chain(12)
     const s = createSimulator(modelo(ns, es))
     avanzar(s, 400)
     s.reheat(0.5)
@@ -229,19 +229,19 @@ describe('simulador · se calla sola', () => {
 
 describe('simulador · las componentes se quedan en su sitio', () => {
   it('dos componentes no acaban una encima de la otra', () => {
-    // El caso del corpus: una masa grande y varias islas. Con un force global las islas salen
+    // El caso del corpus: una masa grande y varias islas. Con una fuerza global las islas salen
     // despedidas y su distancia deja de significar algo.
-    const a = cadena(20, 0, 'a')
-    const b = cadena(3, 1, 'b')
+    const a = chain(20, 0, 'a')
+    const b = chain(3, 1, 'b')
     const s = createSimulator(modelo([...a.ns, ...b.ns], [...a.es, ...b.es]))
     avanzar(s, 200)
 
-    const centro = (pre: string) => {
+    const center = (pre: string) => {
       const l = s.nodes.filter((n) => n.id.startsWith(pre))
       return { x: l.reduce((t, n) => t + n.x!, 0) / l.length, y: l.reduce((t, n) => t + n.y!, 0) / l.length }
     }
-    const ca = centro('a')
-    const cb = centro('b')
+    const ca = center('a')
+    const cb = center('b')
     expect(Math.hypot(ca.x - cb.x, ca.y - cb.y)).toBeGreaterThan(60)
   })
 
@@ -249,7 +249,7 @@ describe('simulador · las componentes se quedan en su sitio', () => {
     // El hallazgo de la fase 0: anclando cada nodo a su centro con fuerza uniforme, la componente
     // mayor salia comprimida en un cuadrado. `fuerzaComponente` corrige el centroide y no cada
     // nodo, asi que la componente se traslada entera y por dentro respira.
-    const { ns, es } = cadena(30)
+    const { ns, es } = chain(30)
     const s = createSimulator(modelo(ns, es))
     avanzar(s, 250)
     const c = s.bounds()
@@ -260,8 +260,8 @@ describe('simulador · las componentes se quedan en su sitio', () => {
 
 describe('simulador · el radio', () => {
   it('crece con el grado y tiene techo', () => {
-    expect(nodeRadius(nodo('a', 0, 1))).toBeLessThan(nodeRadius(nodo('b', 0, 5)))
-    expect(nodeRadius(nodo('c', 0, 10))).toBe(nodeRadius(nodo('d', 0, 40)))
+    expect(nodeRadius(node('a', 0, 1))).toBeLessThan(nodeRadius(node('b', 0, 5)))
+    expect(nodeRadius(node('c', 0, 10))).toBe(nodeRadius(node('d', 0, 40)))
   })
 })
 
@@ -274,8 +274,8 @@ describe('litFrom · un foco que no esta aqui no puede apagar lo que si esta', (
   // como "hay foco" mientras ningun nodo presente pasaba el filtro.
 
   const s = () => createSimulator(modelo(
-    [nodo('a'), nodo('b'), nodo('c'), nodo('solo')],
-    [arista('a', 'b'), arista('b', 'c')],
+    [node('a'), node('b'), node('c'), node('solo')],
+    [edge('a', 'b'), edge('b', 'c')],
   ))
 
   it('un id que no esta en el grafo devuelve null, NO un conjunto de uno', () => {
@@ -312,7 +312,7 @@ describe('litFrom · un foco que no esta aqui no puede apagar lo que si esta', (
     // La otra mitad del mismo fallo: la cache del lienzo no llevaba el modelo en la clave, asi que
     // devolvia vecinos de un grafo anterior.
     const sim = s()
-    sim.update(modelo([nodo('a'), nodo('b')], [arista('a', 'b')]))
+    sim.update(modelo([node('a'), node('b')], [edge('a', 'b')]))
     expect(litFrom(sim, 'c', null)).toBe(null)
     expect([...litFrom(sim, 'a', null)!].sort()).toEqual(['a', 'b'])
   })
@@ -320,10 +320,10 @@ describe('litFrom · un foco que no esta aqui no puede apagar lo que si esta', (
 
 describe('simulador · tiene', () => {
   it('dice quien esta y quien no, y se entera de los cambios', () => {
-    const sim = createSimulator(modelo([nodo('a'), nodo('b')], [arista('a', 'b')]))
+    const sim = createSimulator(modelo([node('a'), node('b')], [edge('a', 'b')]))
     expect(sim.has('a')).toBe(true)
     expect(sim.has('z')).toBe(false)
-    sim.update(modelo([nodo('b')], []))
+    sim.update(modelo([node('b')], []))
     expect(sim.has('a')).toBe(false)
     expect(sim.has('b')).toBe(true)
   })

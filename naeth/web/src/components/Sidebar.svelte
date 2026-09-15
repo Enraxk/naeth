@@ -20,9 +20,9 @@
   const SORT_NEXT = { az: 'date-desc', 'date-desc': 'date-asc', 'date-asc': 'az' } as const
 
   /** Todo lo que cuelga de una carpeta, que es lo que se enciende en el grafo al senalarla. */
-  const idsDe = (leaves: { id: string }[]) => leaves.map((m) => m.id)
-  const idsProy = (p: { subtopics: { leaves: { id: string }[] }[] }) =>
-    p.subtopics.flatMap((s) => idsDe(s.leaves))
+  const idsOf = (leaves: { id: string }[]) => leaves.map((m) => m.id)
+  const projIds = (p: { subtopics: { leaves: { id: string }[] }[] }) =>
+    p.subtopics.flatMap((s) => idsOf(s.leaves))
 
   /**
    * Lo que se senala en el GRAFO se busca aqui: se abre su rama y se lleva a la vista.
@@ -52,7 +52,7 @@
    * Devuelve la clave del grupo colapsado mas externo que la esconde, o `null` si la fila se ve.
    * Es lo que sustituye a abrir la carpeta por la cara: se senala donde esta sin tocar nada.
    */
-  const carpetaEco = $derived.by(() => {
+  const echoFolder = $derived.by(() => {
     const id = highlight.id
     if (!id) return null
     const row = (data.tree || []).find((r) => r.id === id)
@@ -122,13 +122,13 @@
        lista de botones, y asi queda hasta que el rol se implemente entero. El aria-label del <nav>
        se queda: describe el contenido sin prometer una semantica que no se cumple. -->
   <div id="tree" class="tree"
-       class:senalando={route.view === 'graph' && (highlight.id !== null || !!highlight.group)}>
+       class:pointing={route.view === 'graph' && (highlight.id !== null || !!highlight.group)}>
     {#each projects as p (p.proj)}
       {@const pKey = 'p:' + p.proj}
       {@const pc = projColor(p.proj)}
       <div class="group" class:collapsed={collapsed.has(pKey)}>
-        <button class="row proj" class:eco={carpetaEco === pKey} onclick={() => toggle(pKey)}
-                onpointerenter={() => highlightGroup(idsProy(p), p.proj)}>
+        <button class="row proj" class:eco={echoFolder === pKey} onclick={() => toggle(pKey)}
+                onpointerenter={() => highlightGroup(projIds(p), p.proj)}>
           <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
           <span class="ico"><Icon name={projMeta(p.proj).icon} size={13} color={pc} /></span>
           <span class="label">{p.proj}</span>
@@ -140,8 +140,8 @@
                  `naeth-collapsed`. Cambiarla olvidaría los colapsos que Eneko ya tiene abiertos. -->
             {@const sKey = 'o:' + p.proj + '/' + s.subtopic}
             <div class="group" class:collapsed={collapsed.has(sKey)}>
-              <button class="row subtopic" class:eco={carpetaEco === sKey} onclick={() => toggle(sKey)}
-                      onpointerenter={() => highlightGroup(idsDe(s.leaves), p.proj + '/' + s.subtopic)}>
+              <button class="row subtopic" class:eco={echoFolder === sKey} onclick={() => toggle(sKey)}
+                      onpointerenter={() => highlightGroup(idsOf(s.leaves), p.proj + '/' + s.subtopic)}>
                 <span class="chev"><Icon name="chevron-down" size={13} color="var(--dim)" /></span>
                 <span class="ico"><Icon name="folder" size={13} color={pc} /></span>
                 <span class="label">{s.subtopic}</span>
@@ -214,7 +214,7 @@
      intensidad, que es lo que hace que el ojo vaya solo a lo senalado sin perder el mapa de
      donde estaba. El fundido se queda con `prefers-reduced-motion` siguiendo la politica de
      app.css: lo que esa preferencia retira es el desplazamiento, no un cambio de intensidad. */
-  .tree.senalando .row:not(.eco):not(.enGrupo) { opacity: .38; }
+  .tree.pointing .row:not(.eco):not(.enGrupo) { opacity: .38; }
   .tree .row { transition: opacity var(--t-fast); }
   .children { display: flex; flex-direction: column; gap: 1px; }
   .indent { margin-left: 16px; border-left: 1px solid var(--border); padding-left: 6px; }

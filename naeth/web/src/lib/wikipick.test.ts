@@ -120,8 +120,8 @@ describe('rankWikiCandidates', () => {
 
   it('no muta el array que recibe', () => {
     const rows = [row('a', 'B nota', '2026-01-01'), row('b', 'A nota', '2026-08-01')]
-    const antes = rows.map((r) => r.id)
+    const before = rows.map((r) => r.id)
     rankWikiCandidates('nota', rows)
-    expect(rows.map((r) => r.id)).toEqual(antes)
+    expect(rows.map((r) => r.id)).toEqual(before)
   })
 })

@@ -63,7 +63,7 @@ export const nodeRadius = (n: GraphNode) => 3.5 + Math.min(n.degree, 10) * 0.45
  * Esta version corrige el CENTROIDE de la componente, no cada nodo. La componente entera se
  * traslada hacia su sitio y por dentro toma la forma que quiera. Es O(n) por tick.
  */
-function fuerzaComponente(fuerza = 0.9) {
+function componentForce(force = 0.9) {
   let nodes: SimNode[] = []
   const f = (alpha: number) => {
     const acc = new Map<number, { x: number; y: number; ax: number; ay: number; n: number }>()
@@ -78,8 +78,8 @@ function fuerzaComponente(fuerza = 0.9) {
     }
     for (const nd of nodes) {
       const a = acc.get(nd.n.component)!
-      nd.vx = (nd.vx ?? 0) + ((a.ax - a.x) / a.n) * fuerza * alpha
-      nd.vy = (nd.vy ?? 0) + ((a.ay - a.y) / a.n) * fuerza * alpha
+      nd.vx = (nd.vx ?? 0) + ((a.ax - a.x) / a.n) * force * alpha
+      nd.vy = (nd.vy ?? 0) + ((a.ay - a.y) / a.n) * force * alpha
     }
   }
   f.initialize = (ns: SimNode[]) => {
@@ -102,7 +102,7 @@ function fuerzaComponente(fuerza = 0.9) {
  *
  * A fuerza 0 no hace absolutamente nada, ni siquiera recorre los nodos.
  */
-function fuerzaProyecto(getFuerza: () => number) {
+function projectForce(getFuerza: () => number) {
   let nodes: SimNode[] = []
   const f = (alpha: number) => {
     const k = getFuerza()
@@ -191,7 +191,7 @@ export interface Simulator {
 
 export interface SimOptions {
   /** Ancho del empaquetado inicial de componentes. */
-  ancho?: number
+  width?: number
   /** Distancia de reposo de una arista. */
   distance?: number
   /** Repulsion entre nodos. Negativa. */
@@ -218,62 +218,62 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
   // La agrupacion por proyecto se lee por closure en cada tick, no se fija al crear: asi el
   // deslizador la mueve en vivo sin reinicializar la fuerza, que es mas barato todavia que el
   // `initialize` que si necesitan `link` y `charge`.
-  let agrupa = opts.groupByProject ?? 0
+  let grouping = opts.groupByProject ?? 0
 
-  const porId = new Map<string, SimNode>()
+  const byId = new Map<string, SimNode>()
   const nodes: SimNode[] = []
   let edges: SimEdge[] = []
-  const adyacencia = new Map<string, Set<string>>()
+  const adjacency = new Map<string, Set<string>>()
 
   /** Centros de componente, del empaquetado por estanterias que ya teniamos. */
-  function anclas(m: GraphModel) {
-    const col = place(m, { ancho: opts.ancho ?? 1600, iteraciones: 40 })
-    const centros = new Map<number, { x: number; y: number }>()
-    for (const c of col.cajas) centros.set(c.comp, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
-    return { centros, pos: col.pos }
+  function anchors(m: GraphModel) {
+    const col = place(m, { width: opts.width ?? 1600, iterations: 40 })
+    const centers = new Map<number, { x: number; y: number }>()
+    for (const c of col.boxes) centers.set(c.comp, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
+    return { centers, pos: col.pos }
   }
 
-  function reconstruir(m: GraphModel) {
-    const { centros, pos } = anclas(m)
-    const vivos = new Set(m.nodes.map((n) => n.id))
+  function rebuild(m: GraphModel) {
+    const { centers, pos } = anchors(m)
+    const live = new Set(m.nodes.map((n) => n.id))
 
     for (const n of m.nodes) {
-      const c = centros.get(n.component) ?? { x: 0, y: 0 }
-      const viejo = porId.get(n.id)
-      if (viejo) {
+      const c = centers.get(n.component) ?? { x: 0, y: 0 }
+      const old = byId.get(n.id)
+      if (old) {
         // CONSERVA LA POSICION. Es lo que hace que cambiar un filtro no sea un salto: lo que sigue
         // estando se queda donde estaba y solo se reacomoda. Medido ayer, recalcular desde cero
         // costaba entre 265 y 411 ms de hilo bloqueado.
-        viejo.n = n
-        viejo.ax = c.x
-        viejo.ay = c.y
+        old.n = n
+        old.ax = c.x
+        old.ay = c.y
       } else {
         const p = pos.get(n.id) ?? c
-        porId.set(n.id, { id: n.id, n, ax: c.x, ay: c.y, x: p.x, y: p.y, vx: 0, vy: 0 })
+        byId.set(n.id, { id: n.id, n, ax: c.x, ay: c.y, x: p.x, y: p.y, vx: 0, vy: 0 })
       }
     }
-    for (const id of [...porId.keys()]) if (!vivos.has(id)) porId.delete(id)
+    for (const id of [...byId.keys()]) if (!live.has(id)) byId.delete(id)
 
     nodes.length = 0
-    for (const n of m.nodes) nodes.push(porId.get(n.id)!)
+    for (const n of m.nodes) nodes.push(byId.get(n.id)!)
 
     edges = m.edges
-      .filter((e) => vivos.has(e.source) && vivos.has(e.target))
+      .filter((e) => live.has(e.source) && live.has(e.target))
       .map((e) => ({ source: e.source, target: e.target, e }))
 
-    adyacencia.clear()
+    adjacency.clear()
     for (const e of m.edges) {
-      if (!vivos.has(e.source) || !vivos.has(e.target)) continue
-      let a = adyacencia.get(e.source)
-      if (!a) adyacencia.set(e.source, (a = new Set()))
+      if (!live.has(e.source) || !live.has(e.target)) continue
+      let a = adjacency.get(e.source)
+      if (!a) adjacency.set(e.source, (a = new Set()))
       a.add(e.target)
-      let b = adyacencia.get(e.target)
-      if (!b) adyacencia.set(e.target, (b = new Set()))
+      let b = adjacency.get(e.target)
+      if (!b) adjacency.set(e.target, (b = new Set()))
       b.add(e.source)
     }
   }
 
-  reconstruir(model)
+  rebuild(model)
 
   const sim: Simulation<SimNode, SimEdge> = forceSimulation(nodes)
     .randomSource(seededRandom(seedOf('naeth')))
@@ -288,8 +288,8 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
     // por algo que no significa nada y el lienzo se estira solo.
     .force('charge', forceManyBody<SimNode>().strength(repulsion).distanceMax(600))
     .force('collide', forceCollide<SimNode>((d) => nodeRadius(d.n) + 2))
-    .force('comp', fuerzaComponente())
-    .force('proy', fuerzaProyecto(() => agrupa))
+    .force('comp', componentForce())
+    .force('proy', projectForce(() => grouping))
     .velocityDecay(opts.damping ?? 0.35)
     .stop()
 
@@ -312,19 +312,19 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
       else sim.alphaTarget(0).alpha(Math.max(sim.alpha(), alpha))
     },
     pin(id, x, y) {
-      const nd = porId.get(id)
+      const nd = byId.get(id)
       if (!nd) return
       nd.fx = x
       nd.fy = y
     },
     release(id) {
-      const nd = porId.get(id)
+      const nd = byId.get(id)
       if (!nd) return
       nd.fx = null
       nd.fy = null
     },
     update(m, alpha = 0.3) {
-      reconstruir(m)
+      rebuild(m)
       sim.nodes(nodes)
       const fl = sim.force('link') as ForceLink<SimNode, SimEdge> | undefined
       fl?.links(edges)
@@ -332,7 +332,7 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
       sim.alpha(Math.max(sim.alpha(), alpha)).alphaTarget(0)
     },
     nearest(x, y, r) {
-      let mejor: SimNode | null = null
+      let best: SimNode | null = null
       let d2 = r * r
       for (const nd of nodes) {
         const dx = (nd.x ?? 0) - x
@@ -340,27 +340,27 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
         const d = dx * dx + dy * dy
         if (d <= d2) {
           d2 = d
-          mejor = nd
+          best = nd
         }
       }
-      return mejor
+      return best
     },
     neighbors(id) {
-      return adyacencia.get(id) ?? VACIO
+      return adjacency.get(id) ?? EMPTY
     },
 
     has(id) {
-      return porId.has(id)
+      return byId.has(id)
     },
     place(pos) {
-      const sueltos: SimNode[] = []
+      const loose: SimNode[] = []
       let cx = 0
       let cy = 0
       let n = 0
       for (const nd of nodes) {
         const p = pos.get(nd.id)
         if (!p) {
-          sueltos.push(nd)
+          loose.push(nd)
           continue
         }
         nd.x = p.x
@@ -380,12 +380,12 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
       // Se les da sitio alrededor del centro de lo conocido y se les deja acomodarse unos pocos
       // ticks CON LO DEMAS CLAVADO, para que se coloquen sin arrastrar a nadie. Es el unico sitio
       // donde el anclado tiene sentido: aqui es local y dura un instante, no una politica global.
-      if (sueltos.length && n) {
-        const r = new Map(nodes.filter((x) => !sueltos.includes(x)).map((x) => [x.id, x]))
-        sueltos.forEach((nd, i) => {
-          const ang = (i / sueltos.length) * Math.PI * 2
-          nd.x = cx / n + Math.cos(ang) * 60
-          nd.y = cy / n + Math.sin(ang) * 60
+      if (loose.length && n) {
+        const r = new Map(nodes.filter((x) => !loose.includes(x)).map((x) => [x.id, x]))
+        loose.forEach((nd, i) => {
+          const angle = (i / loose.length) * Math.PI * 2
+          nd.x = cx / n + Math.cos(angle) * 60
+          nd.y = cy / n + Math.sin(angle) * 60
           nd.vx = 0
           nd.vy = 0
         })
@@ -429,18 +429,18 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
 
     tune(opts, alpha = 0.15) {
       const fLink = sim.force('link') as ReturnType<typeof forceLink<SimNode, SimEdge>> | undefined
-      const fCarga = sim.force('charge') as ReturnType<typeof forceManyBody<SimNode>> | undefined
+      const fCharge = sim.force('charge') as ReturnType<typeof forceManyBody<SimNode>> | undefined
       if (opts.distance !== undefined && fLink) {
         fLink.distance(opts.distance)
         fLink.initialize(nodes, Math.random)
       }
-      if (opts.repulsion !== undefined && fCarga) {
-        fCarga.strength(opts.repulsion)
-        fCarga.initialize(nodes, Math.random)
+      if (opts.repulsion !== undefined && fCharge) {
+        fCharge.strength(opts.repulsion)
+        fCharge.initialize(nodes, Math.random)
       }
       if (opts.damping !== undefined) sim.velocityDecay(opts.damping)
       // Sin `initialize`: la fuerza lee este valor por closure en cada tick.
-      if (opts.groupByProject !== undefined) agrupa = opts.groupByProject
+      if (opts.groupByProject !== undefined) grouping = opts.groupByProject
       // Reavivar, no reiniciar: `alphaTarget` a cero deja que se vuelva a dormir sola en cuanto
       // acomode el cambio, en vez de quedarse corriendo para siempre.
       if (sim.alpha() < alpha) sim.alpha(alpha)
@@ -449,7 +449,7 @@ export function createSimulator(model: GraphModel, opts: SimOptions = {}): Simul
   }
 }
 
-const VACIO: ReadonlySet<string> = new Set()
+const EMPTY: ReadonlySet<string> = new Set()
 
 /**
  * Lo que se queda a plena luz: un nodo con sus vecinos, o una carpeta entera con los suyos.

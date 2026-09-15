@@ -39,11 +39,11 @@ export const layoutMap = $state<{
 }>({ pos: new Map(), ready: false, computing: false, version: 0 })
 
 let sim: Simulator | null = null
-let respuesta: GraphResponse | null = null
+let response: GraphResponse | null = null
 /** Con cuántas memorias y vínculos se calculó lo que hay, para saber si se ha quedado viejo. */
-let firma = ''
+let signature = ''
 
-const firmaDe = (nodes: number, edges: number) => `${nodes}/${edges}`
+const signatureOf = (nodes: number, edges: number) => `${nodes}/${edges}`
 
 /**
  * Asienta la simulación repartida en frames, con presupuesto de tiempo.
@@ -53,18 +53,18 @@ const firmaDe = (nodes: number, edges: number) => `${nodes}/${edges}`
  * reloj sin que nada se congele, y el presupuesto se mide en tiempo y no en ticks porque un tick
  * cuesta muy distinto con 455 nodos que con 1.100.
  */
-function asentarPocoAPoco(s: Simulator, alTerminar: () => void) {
+function settleGradually(s: Simulator, alTerminar: () => void) {
   const step = () => {
-    const fin = performance.now() + 6
-    let vivo = true
-    while (vivo && performance.now() < fin) vivo = s.step()
-    if (vivo) requestAnimationFrame(step)
+    const end = performance.now() + 6
+    let live = true
+    while (live && performance.now() < end) live = s.step()
+    if (live) requestAnimationFrame(step)
     else alTerminar()
   }
   requestAnimationFrame(step)
 }
 
-function volcar(s: Simulator) {
+function dump(s: Simulator) {
   const m = new Map<string, Point>()
   for (const n of s.nodes) m.set(n.id, { x: n.x ?? 0, y: n.y ?? 0 })
   layoutMap.pos = m
@@ -90,19 +90,19 @@ export async function requestMap() {
 
   // Firma barata, sin construir el modelo: cuántas memorias hay y cuántos vínculos trajo la última
   // respuesta. Si no ha cambiado, no hay nada que recalcular.
-  if (layoutMap.ready && respuesta && firmaDe(tree.length, respuesta.edges.length) === firma) return
+  if (layoutMap.ready && response && signatureOf(tree.length, response.edges.length) === signature) return
 
-  if (!respuesta) {
+  if (!response) {
     layoutMap.computing = true
     try {
-      respuesta = await getGraph()
+      response = await getGraph()
     } catch {
       // Sin grafo no hay mapa, y la ficha degrada a su vecindario propio. No es un error fatal.
       layoutMap.computing = false
       return
     }
   }
-  firma = firmaDe(tree.length, respuesta.edges.length)
+  signature = signatureOf(tree.length, response.edges.length)
 
   // Las tres capas menos la semántica, que se pide por nodo y no forma parte del grafo de partida.
   // Y SIN filtros: el mapa es del corpus entero, así que ocultar una carpeta en el grafo no cambia
@@ -113,7 +113,7 @@ export async function requestMap() {
   // abrir la ficha de una nota suelta, ni ella ni sus vecinos semánticos (que suelen ser sueltos
   // también) heredaban posición, y el vecindario volvía a inventarse una. Que no se vean en el
   // grafo grande es cosa de los filtros de ESA vista, no del mapa.
-  const model = buildGraph(tree, respuesta, new Map(), {
+  const model = buildGraph(tree, response, new Map(), {
     ...defaultFilters(),
     hideIsolated: false,
   })
@@ -128,15 +128,15 @@ export async function requestMap() {
     sim = createSimulator(model)
   }
   const s = sim
-  asentarPocoAPoco(s, () => volcar(s))
+  settleGradually(s, () => dump(s))
 }
 
 /** Suelta el mapa. Solo para pruebas y para cuando el corpus cambia de raíz. */
 export function forgetMap() {
   sim?.stop()
   sim = null
-  respuesta = null
-  firma = ''
+  response = null
+  signature = ''
   layoutMap.pos = new Map()
   layoutMap.ready = false
   layoutMap.computing = false

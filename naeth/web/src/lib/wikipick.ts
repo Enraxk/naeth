@@ -21,7 +21,7 @@ export const MAX_HITS = 8
  * literal viaja mal, y un regex con un caracter invisible corrompido no falla en voz alta,
  * simplemente deja de plegar acentos.
  */
-const DIACRITICOS = /[̀-ͯ]/g
+const DIACRITICS = /[̀-ͯ]/g
 
 /**
  * Sin acentos y en minusculas. Los titulos del corpus van llenos de tildes y de `·`, asi que
@@ -29,7 +29,7 @@ const DIACRITICOS = /[̀-ͯ]/g
  * "Naeth: migracion de paths" si el titulo lleva tilde.
  */
 export const fold = (s: string): string =>
-  s.normalize('NFD').replace(DIACRITICOS, '').toLowerCase()
+  s.normalize('NFD').replace(DIACRITICS, '').toLowerCase()
 
 /**
  * Ordena las memorias que casan con lo tecleado tras `[[`.

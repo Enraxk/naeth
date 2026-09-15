@@ -281,15 +281,15 @@ describe('extractLinkedIds · lo que se materializa como relacion al guardar', (
 describe('unescapeMarkdown · lo que impide que guardar corrompa la nota', () => {
   // Los dos casos MEDIDOS el 22/08/2026 en notas reales, con el editor devolviendo texto escapado.
   it('devuelve un wikilink escapado a su forma viva', () => {
-    const escapado = String.raw`Es el fallo de la familia de \[\[Metodo · algo\]\] y punto`
-    const limpio = 'Es el fallo de la familia de [[Metodo · algo]] y punto'
-    expect(unescapeMarkdown(escapado)).toBe(limpio)
+    const escaped = String.raw`Es el fallo de la familia de \[\[Metodo · algo\]\] y punto`
+    const clean = 'Es el fallo de la familia de [[Metodo · algo]] y punto'
+    expect(unescapeMarkdown(escaped)).toBe(clean)
   })
 
   it('el wikilink recuperado VUELVE a resolver, que es de lo que se trata', () => {
-    const escapado = String.raw`ver \[\[naeth · preferencia de calidad\]\]`
-    expect(extractLinkedIds(escapado, IX)).toEqual([])                       // escapado: muerto
-    expect(extractLinkedIds(unescapeMarkdown(escapado), IX)).toEqual([NAETH.id])  // recuperado
+    const escaped = String.raw`ver \[\[naeth · preferencia de calidad\]\]`
+    expect(extractLinkedIds(escaped, IX)).toEqual([])                       // escapado: muerto
+    expect(extractLinkedIds(unescapeMarkdown(escaped), IX)).toEqual([NAETH.id])  // recuperado
   })
 
   it('devuelve un guion bajo escapado a su forma original', () => {

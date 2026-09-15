@@ -20,12 +20,12 @@
   // Baja la voz SOLO en el grafo y SOLO mientras el raton esta en el arbol. Fuera del grafo no
   // hay nada que senalar en dos sitios a la vez, asi que apagar la aplicacion no significaria
   // nada; y por zona en vez de por fila, para que no de un parpadeo en cada salto de fila.
-  const bajandoLaVoz = $derived(route.view === 'graph' && highlight.inTree)
+  const loweringVoice = $derived(route.view === 'graph' && highlight.inTree)
 
   onMount(() => startPolling())
 </script>
 
-<div class="app" class:senalando={bajandoLaVoz}>
+<div class="app" class:pointing={loweringVoice}>
   <Header />
   <div class="body" style="--side-w: {prefs.side}px">
     <Sidebar />
@@ -71,10 +71,10 @@
   .app > :global(footer),
   .app :global(.railbar),
   .app :global(.crumbs) { transition: opacity var(--t-fast); }
-  .app.senalando > :global(header),
-  .app.senalando > :global(footer),
-  .app.senalando :global(.railbar),
-  .app.senalando :global(.crumbs) { opacity: .42; }
+  .app.pointing > :global(header),
+  .app.pointing > :global(footer),
+  .app.pointing :global(.railbar),
+  .app.pointing :global(.crumbs) { opacity: .42; }
   .body { flex: 1 1 auto; display: grid; grid-template-columns: var(--side-w) 1fr 48px; min-height: 0; position: relative; }
   .center { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   .detail { background: var(--bg); overflow: auto; min-width: 0; flex: 1 1 auto; }

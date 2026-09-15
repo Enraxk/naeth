@@ -24,7 +24,7 @@
   // de milisegundo y el bucle se detiene solo en cuanto la simulación se calma, así que una ficha
   // en pantalla no consume nada en reposo.
 
-  let { model, centro }: { model: GraphModel; centro: string } = $props()
+  let { model, center }: { model: GraphModel; center: string } = $props()
 
   // El mapa global es lo que hace que este vecindario se vea COMO SE VE en el grafo entero. Se pide
   // aqui y no en la vista: es esta pieza la que lo necesita, y asi la ficha no paga nada si el
@@ -42,25 +42,25 @@
     requestMap()
   })
 
-  const ETIQUETA: Record<EdgeLayer, string> = {
+  const LABEL: Record<EdgeLayer, string> = {
     relation: 'relación',
     wikilink: 'wikilink',
     semantic: 'vecino semántico',
   }
 
   /** Las capas que de verdad aparecen en este vecindario, para no explicar lo que no se ve. */
-  const capas = $derived([...new Set(model.edges.map((e) => e.layer))])
+  const layers = $derived([...new Set(model.edges.map((e) => e.layer))])
 </script>
 
 {#if model.nodes.length > 1}
   <div class="mini">
     <Canvas
       {model}
-      seleccion={centro}
-      foco={highlight.id}
-      compacto
-      posiciones={layoutMap.ready ? layoutMap.pos : null}
-      onSelect={(id) => highlightNode(id ?? centro, 'tree')}
+      selection={center}
+      focus={highlight.id}
+      compact
+      positions={layoutMap.ready ? layoutMap.pos : null}
+      onSelect={(id) => highlightNode(id ?? center, 'tree')}
       onOpen={(id) => navigate('memory', id)}
     />
   </div>
@@ -69,17 +69,17 @@
     <!-- La primera ficha de la sesion espera a que el mapa se calcule, cosa de un segundo. Las
          demas lo encuentran hecho. Se dice, en vez de enseñar una forma provisional que luego
          cambia sola delante de los ojos. -->
-    <div class="esperando">computing la forma del grafo…</div>
+    <div class="esperando">calculando la forma del grafo…</div>
   {/if}
 
   <div class="leyenda">
-    {#each capas as l (l)}
+    {#each layers as l (l)}
       <span class="lg">
         <svg width="16" height="6" aria-hidden="true">
           <line x1="0" y1="3" x2="16" y2="3" stroke="var(--dim)"
                 stroke-dasharray={DASH[l].join(' ')} />
         </svg>
-        {ETIQUETA[l]}
+        {LABEL[l]}
       </span>
     {/each}
   </div>

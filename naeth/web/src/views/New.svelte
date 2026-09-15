@@ -54,7 +54,7 @@
   let saving = $state(false)
   let dirty = $state(false)
   let error = $state('')
-  let yaExistia = $state('')
+  let existingId = $state('')
 
   let mdRef = $state<EditorApi | null>(null)
   let mdValue = $state('')
@@ -107,7 +107,7 @@
     }
   }
 
-  function retomarDraft() {
+  function resumeDraft() {
     const d = readDraft(); if (!d) return
     dTitle = d.title ?? ''
     dType = d.memory_type ?? TYPE_DEFAULT
@@ -120,7 +120,7 @@
     dirty = true
     draftAvail = false
   }
-  function descartarDraft() { clearDraft(); draftAvail = false }
+  function discardDraft() { clearDraft(); draftAvail = false }
 
   // Al entrar: si quedó algo a medias de otra sesión, se ofrece en vez de pisarlo en silencio.
   onMount(() => { draftAvail = !!readDraft() })
@@ -166,7 +166,7 @@
   }
 
   // ---- guardar --------------------------------------------------------------------------------
-  const puedeGuardar = $derived(!!mdRef && dirty && !saving)
+  const canSave = $derived(!!mdRef && dirty && !saving)
 
   /**
    * Materializa como relaciones `links_to` los enlaces del texto. En una nota recien creada no hay
@@ -191,7 +191,7 @@
       return
     }
 
-    saving = true; error = ''; yaExistia = ''
+    saving = true; error = ''; existingId = ''
     try {
       const r = await addMemory({
         content,
@@ -201,8 +201,8 @@
         path: dPath.trim() || null,
         digest: dDigest.trim() || null,
       })
-      const nuevo = r.memory?.id
-      if (!nuevo) { error = 'El servidor no devolvió la memoria creada.'; saving = false; return }
+      const createdId = r.memory?.id
+      if (!createdId) { error = 'El servidor no devolvió la memoria creada.'; saving = false; return }
 
       clearDraft()
       dirty = false
@@ -211,21 +211,21 @@
       if (r.created === false) {
         // Idempotencia por content_hash: ya existía una memoria con este mismo texto. No es un
         // error, pero tampoco es un alta, y callarlo dejaría creer que se guardó algo nuevo.
-        yaExistia = nuevo
+        existingId = createdId
         return
       }
-      await syncRelations(nuevo, content)
-      navigate('memory', nuevo)
+      await syncRelations(createdId, content)
+      navigate('memory', createdId)
     } catch {
       error = 'No se pudo guardar. ¿Sigue viva la pila?'
       saving = false
     }
   }
 
-  function limpiar() {
+  function clear() {
     dTitle = ''; dType = TYPE_DEFAULT; dPath = ''; dTags = []; tagInput = ''; dDigest = ''
     mdValue = ''; mdKey++
-    baseReady = false; dirty = false; error = ''; yaExistia = ''
+    baseReady = false; dirty = false; error = ''; existingId = ''
     clearDraft()
   }
 
@@ -254,17 +254,17 @@
     {#if draftAvail}
       <div class="draft-banner">
         <Icon name="square-pen" size={13} />
-        <span>Tienes una memoria a medio write.</span>
-        <button class="lnk" onclick={retomarDraft}>Retomar</button>
-        <button class="lnk dim" onclick={descartarDraft}>Descartar</button>
+        <span>Tienes una memoria a medio escribir.</span>
+        <button class="lnk" onclick={resumeDraft}>Retomar</button>
+        <button class="lnk dim" onclick={discardDraft}>Descartar</button>
       </div>
     {/if}
 
-    {#if yaExistia}
+    {#if existingId}
       <div class="aviso">
         <Icon name="eye" size={13} />
-        <span>Ya existía una memoria con este mismo text. No se ha duplicado.</span>
-        <button class="lnk" onclick={() => navigate('memory', yaExistia)}>Abrir la que hay</button>
+        <span>Ya existía una memoria con este mismo texto. No se ha duplicado.</span>
+        <button class="lnk" onclick={() => navigate('memory', existingId)}>Abrir la que hay</button>
       </div>
     {/if}
 
@@ -275,7 +275,7 @@
     <input class="e-title" bind:value={dTitle} oninput={() => (dirty = true)} placeholder="Título" />
 
     <div class="e-row">
-      <label>kind
+      <label>tipo
         <select bind:value={dType} onchange={() => (dirty = true)}>
           {#each TYPES as t}<option value={t}>{t}</option>{/each}
         </select>
@@ -342,8 +342,8 @@
     {/if}
 
     <div class="e-actions">
-      <button class="btn-primary" onclick={doSave} disabled={!puedeGuardar}>{saving ? 'Guardando…' : 'Guardar'}</button>
-      <button class="btn" onclick={limpiar}>Descartar</button>
+      <button class="btn-primary" onclick={doSave} disabled={!canSave}>{saving ? 'Guardando…' : 'Guardar'}</button>
+      <button class="btn" onclick={clear}>Descartar</button>
       {#if dirty}<span class="modif">● sin guardar</span>{/if}
       <span class="hint">Ctrl+S guarda · crea una memoria nueva</span>
     </div>

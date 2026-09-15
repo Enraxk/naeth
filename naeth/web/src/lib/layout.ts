@@ -25,15 +25,15 @@ export interface Point {
 export interface Placement {
   pos: Map<string, Point>
   /** Tamaño total del lienzo que hace falta para dibujarlo entero. */
-  ancho: number
-  alto: number
+  width: number
+  height: number
   /** Una caja por componente, en orden. Sirve para etiquetarlas o enmarcarlas. */
-  cajas: { comp: number; x: number; y: number; w: number; h: number; n: number }[]
+  boxes: { comp: number; x: number; y: number; w: number; h: number; n: number }[]
 }
 
 /** PRNG de 32 bits sembrado. Lo unico que se le pide es ser estable entre recargas. */
-export function seededRandom(semilla: number): () => number {
-  let a = semilla >>> 0
+export function seededRandom(seed: number): () => number {
+  let a = seed >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0
     let t = Math.imul(a ^ (a >>> 15), 1 | a)
@@ -60,7 +60,7 @@ export function seedOf(id: string): number {
  * seria complejidad sin problema que resolver. Si algun dia la componente mayor pasa de unos
  * 1.500 nodos, esta es la linea que hay que cambiar.
  */
-function forceLocal(ids: string[], edges: GraphEdge[], iteraciones: number): Map<string, Point> {
+function forceLocal(ids: string[], edges: GraphEdge[], iterations: number): Map<string, Point> {
   const n = ids.length
   const pos = new Map<string, Point>()
   if (n === 0) return pos
@@ -71,24 +71,24 @@ function forceLocal(ids: string[], edges: GraphEdge[], iteraciones: number): Map
   // veia como polvo; con 2.000 cabe legible y sigue sin amontonarse.
   const area = Math.max(n, 2) * 2000
   const k = Math.sqrt(area / Math.max(n, 2))
-  const radio = Math.sqrt(area) / 2
+  const radius = Math.sqrt(area) / 2
 
   for (const id of ids) {
     const r = seededRandom(seedOf(id))
-    const ang = r() * Math.PI * 2
-    const d = Math.sqrt(r()) * radio
-    pos.set(id, { x: Math.cos(ang) * d, y: Math.sin(ang) * d })
+    const angle = r() * Math.PI * 2
+    const d = Math.sqrt(r()) * radius
+    pos.set(id, { x: Math.cos(angle) * d, y: Math.sin(angle) * d })
   }
   if (n <= 2) {
     ids.forEach((id, i) => pos.set(id, { x: i === 0 ? -k / 2 : k / 2, y: 0 }))
     return pos
   }
 
-  const dentro = new Set(ids)
-  const eds = edges.filter((e) => dentro.has(e.source) && dentro.has(e.target))
-  let t = radio / 4
+  const inside = new Set(ids)
+  const eds = edges.filter((e) => inside.has(e.source) && inside.has(e.target))
+  let t = radius / 4
 
-  for (let it = 0; it < iteraciones; it++) {
+  for (let it = 0; it < iterations; it++) {
     const dsp = new Map<string, Point>(ids.map((id) => [id, { x: 0, y: 0 }]))
 
     for (let i = 0; i < n; i++) {
@@ -149,9 +149,9 @@ function forceLocal(ids: string[], edges: GraphEdge[], iteraciones: number): Map
 }
 
 /** Caja que ocupa un conjunto de puntos, con margen. */
-function bounds(puntos: Point[], margen: number) {
-  const xs = puntos.map((p) => p.x)
-  const ys = puntos.map((p) => p.y)
+function bounds(points: Point[], margen: number) {
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
   const x0 = Math.min(...xs) - margen
   const y0 = Math.min(...ys) - margen
   return { x0, y0, w: Math.max(...xs) - x0 + margen, h: Math.max(...ys) - y0 + margen }
@@ -168,46 +168,46 @@ function bounds(puntos: Point[], margen: number) {
  */
 export function place(
   model: GraphModel,
-  opts: { ancho?: number; iteraciones?: number } = {},
+  opts: { width?: number; iterations?: number } = {},
 ): Placement {
-  const anchoMax = opts.ancho ?? 1600
-  const iteraciones = opts.iteraciones ?? 160
+  const maxWidth = opts.width ?? 1600
+  const iterations = opts.iterations ?? 160
 
-  const porComp = new Map<number, string[]>()
+  const byComponent = new Map<number, string[]>()
   for (const nd of model.nodes) {
-    if (!porComp.has(nd.component)) porComp.set(nd.component, [])
-    porComp.get(nd.component)!.push(nd.id)
+    if (!byComponent.has(nd.component)) byComponent.set(nd.component, [])
+    byComponent.get(nd.component)!.push(nd.id)
   }
 
-  const grupos = [...porComp.entries()].sort((a, b) => b[1].length - a[1].length)
+  const groups = [...byComponent.entries()].sort((a, b) => b[1].length - a[1].length)
   const pos = new Map<string, Point>()
-  const cajas: Placement['cajas'] = []
+  const boxes: Placement['boxes'] = []
 
-  let filaX = 0
-  let filaY = 0
-  let altoFila = 0
+  let rowX = 0
+  let rowY = 0
+  let rowHeight = 0
 
-  for (const [comp, ids] of grupos) {
-    const local = forceLocal(ids, model.edges, iteraciones)
+  for (const [comp, ids] of groups) {
+    const local = forceLocal(ids, model.edges, iterations)
     const c = bounds([...local.values()], 40)
 
     // Salto de estanteria: si no cabe a lo ancho, se baja. La primera de cada fila entra siempre,
     // aunque sea mas ancha que el lienzo, porque el lienzo crece con ella.
-    if (filaX > 0 && filaX + c.w > anchoMax) {
-      filaY += altoFila
-      filaX = 0
-      altoFila = 0
+    if (rowX > 0 && rowX + c.w > maxWidth) {
+      rowY += rowHeight
+      rowX = 0
+      rowHeight = 0
     }
     for (const id of ids) {
       const p = local.get(id)!
-      pos.set(id, { x: filaX + (p.x - c.x0), y: filaY + (p.y - c.y0) })
+      pos.set(id, { x: rowX + (p.x - c.x0), y: rowY + (p.y - c.y0) })
     }
-    cajas.push({ comp, x: filaX, y: filaY, w: c.w, h: c.h, n: ids.length })
-    filaX += c.w
-    altoFila = Math.max(altoFila, c.h)
+    boxes.push({ comp, x: rowX, y: rowY, w: c.w, h: c.h, n: ids.length })
+    rowX += c.w
+    rowHeight = Math.max(rowHeight, c.h)
   }
 
-  const ancho = Math.max(...cajas.map((b) => b.x + b.w), 1)
-  const alto = Math.max(...cajas.map((b) => b.y + b.h), 1)
-  return { pos, ancho, alto, cajas }
+  const width = Math.max(...boxes.map((b) => b.x + b.w), 1)
+  const height = Math.max(...boxes.map((b) => b.y + b.h), 1)
+  return { pos, width, height, boxes }
 }

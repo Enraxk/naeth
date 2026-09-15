@@ -25,13 +25,13 @@ import { createSimulator } from '../src/lib/sim'
 import { forceLink, forceManyBody, forceSimulation } from 'd3-force'
 import type { GraphResponse, TreeRow } from '../src/lib/types'
 
-const salida = document.getElementById('salida') as HTMLPreElement
-const estado = document.getElementById('estado') as HTMLElement
+const output = document.getElementById('salida') as HTMLPreElement
+const state = document.getElementById('estado') as HTMLElement
 
 const UMBRAL_CONTINUO = 16
 
-function linea(t = '') {
-  salida.textContent += t + '\n'
+function line(t = '') {
+  output.textContent += t + '\n'
 }
 
 function mediana(v: number[]) {
@@ -40,7 +40,7 @@ function mediana(v: number[]) {
 }
 
 /** Mide `fn` n veces y devuelve mediana, p90 y peor. Descarta la primera, que paga el calentamiento. */
-function mide(n: number, fn: () => void) {
+function measure(n: number, fn: () => void) {
   const t: number[] = []
   fn()
   for (let i = 0; i < n; i++) {
@@ -55,7 +55,7 @@ function mide(n: number, fn: () => void) {
 const f3 = (n: number) => n.toFixed(3).padStart(8) + ' ms'
 
 async function main() {
-  estado.textContent = 'cargando el grafo real...'
+  state.textContent = 'cargando el grafo real...'
   const [tree, graph] = await Promise.all([
     fetch('/api/tree').then((r) => r.json() as Promise<TreeRow[]>),
     fetch('/api/graph').then((r) => r.json() as Promise<GraphResponse>),
@@ -65,10 +65,10 @@ async function main() {
     hideIsolated: false,
   })
 
-  estado.textContent = `asentando ${model.nodes.length} nodos...`
+  state.textContent = `asentando ${model.nodes.length} nodos...`
   const sim = createSimulator(model)
-  let pasos = 0
-  while (pasos < 600 && sim.step()) pasos++
+  let steps = 0
+  while (steps < 600 && sim.step()) steps++
 
   // ── La simulacion d3 "desnuda", con la misma fisica y los nodos ya asentados ───────────────
   //
@@ -76,24 +76,24 @@ async function main() {
   // justamente lo que la fase 2 tendria que anadir. Se replica aqui la misma configuracion sobre
   // los nodos ya colocados, que es donde vivira el ajuste.
   const nodes = sim.nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, vx: 0, vy: 0 }))
-  const porId = new Map(nodes.map((n) => [n.id, n]))
+  const byId = new Map(nodes.map((n) => [n.id, n]))
   const edges = model.edges
-    .filter((e) => porId.has(e.source) && porId.has(e.target))
+    .filter((e) => byId.has(e.source) && byId.has(e.target))
     .map((e) => ({ source: e.source, target: e.target }))
 
   const link = forceLink(edges as never[]).id((d: never) => (d as { id: string }).id).distance(34).strength(0.6)
   const carga = forceManyBody().strength(-38).distanceMax(600)
   const s = forceSimulation(nodes as never[]).force('link', link).force('charge', carga).stop()
 
-  salida.textContent = ''
-  linea(`CORPUS   ${model.nodes.length} nodos · ${edges.length} aristas · ${pasos} pasos hasta asentarse`)
-  linea(`CRITERIO declarado antes de medir: por debajo de ${UMBRAL_CONTINUO} ms, deslizador en continuo`)
-  linea()
-  linea('                                                mediana      p90      peor')
-  linea('  ' + '-'.repeat(74))
+  output.textContent = ''
+  line(`CORPUS   ${model.nodes.length} nodos · ${edges.length} aristas · ${steps} pasos hasta asentarse`)
+  line(`CRITERIO declarado antes de medir: por debajo de ${UMBRAL_CONTINUO} ms, deslizador en continuo`)
+  line()
+  line('                                                mediana      p90      peor')
+  line('  ' + '-'.repeat(74))
 
   let d = 34
-  const distance = mide(60, () => {
+  const distance = measure(60, () => {
     d = d === 34 ? 44 : 34
     link.distance(d)
     // Reinicializar es lo que hace que el cambio SURTA EFECTO. Sin esto la medicion seria mentira:
@@ -101,49 +101,49 @@ async function main() {
     ;(link as unknown as { initialize: (n: unknown[], r: () => number) => void })
       .initialize(nodes as never[], Math.random)
   })
-  linea('  cambiar la distancia de arista (viva)    ' + f3(distance.med) + f3(distance.p90) + f3(distance.max))
+  line('  cambiar la distancia de arista (viva)    ' + f3(distance.med) + f3(distance.p90) + f3(distance.max))
 
   let r = -38
-  const repulsion = mide(60, () => {
+  const repulsion = measure(60, () => {
     r = r === -38 ? -60 : -38
     carga.strength(r)
     ;(carga as unknown as { initialize: (n: unknown[], rnd: () => number) => void })
       .initialize(nodes as never[], Math.random)
   })
-  linea('  cambiar la repulsion (viva)               ' + f3(repulsion.med) + f3(repulsion.p90) + f3(repulsion.max))
+  line('  cambiar la repulsion (viva)               ' + f3(repulsion.med) + f3(repulsion.p90) + f3(repulsion.max))
 
-  const tick = mide(60, () => s.tick(1))
-  linea('  un tick de la simulacion                  ' + f3(tick.med) + f3(tick.p90) + f3(tick.max))
+  const tick = measure(60, () => s.tick(1))
+  line('  un tick de la simulacion                  ' + f3(tick.med) + f3(tick.p90) + f3(tick.max))
 
-  const recon = mide(6, () => {
+  const recon = measure(6, () => {
     const s2 = createSimulator(model)
     s2.step()
   })
-  linea('  RECONSTRUIR el simulador (la referencia)  ' + f3(recon.med) + f3(recon.p90) + f3(recon.max))
+  line('  RECONSTRUIR el simulador (la referencia)  ' + f3(recon.med) + f3(recon.p90) + f3(recon.max))
 
-  linea()
+  line()
   // ⚠ EL CRITERIO ESTABA MAL PLANTEADO, y se corrige aqui en vez de maquillarse. La primera version
   // sumaba "reconfigurar + un tick" y daba 15,6 de 16 ms: un aprobado raspado que asustaba sin
   // motivo. El tick NO lo anade el deslizador: lo paga el grafo vivo en cada frame, se toque o no se
   // toque nada. La pregunta correcta es cuanto ANADE mover el deslizador, y eso es solo reconfigurar.
   const anade = Math.max(distance.p90, repulsion.p90)
-  linea('LO QUE ANADE MOVER EL DESLIZADOR (solo reconfigurar; el tick ya se paga sin tocar nada)')
-  linea(`  p90: ${anade.toFixed(3)} ms de ${UMBRAL_CONTINUO} ms de presupuesto (${((anade / UMBRAL_CONTINUO) * 100).toFixed(1)}% del frame)`)
-  linea()
-  linea(anade < UMBRAL_CONTINUO
+  line('LO QUE ANADE MOVER EL DESLIZADOR (solo reconfigurar; el tick ya se paga sin tocar nada)')
+  line(`  p90: ${anade.toFixed(3)} ms de ${UMBRAL_CONTINUO} ms de presupuesto (${((anade / UMBRAL_CONTINUO) * 100).toFixed(1)}% del frame)`)
+  line()
+  line(anade < UMBRAL_CONTINUO
     ? `VEREDICTO: EN CONTINUO, y sin discusion: cuesta el ${((anade / UMBRAL_CONTINUO) * 100).toFixed(1)}% de un frame.`
     : `VEREDICTO: AL SOLTAR. No cabe en un frame, y el panel tiene que decirlo.`)
-  linea(`  Reconstruir cuesta ${(recon.med / Math.max(distance.med, 0.001)).toFixed(0)}x mas que reconfigurar.`)
-  linea()
-  linea('⚠ HALLAZGO APARTE, Y NO ES DEL PANEL: el tick ya va justo de frame con este corpus.')
-  linea(`  mediana ${tick.med.toFixed(1)} ms · p90 ${tick.p90.toFixed(1)} ms · peor ${tick.max.toFixed(1)} ms, sobre 16 ms.`)
-  linea('  Importa aqui porque mover la fisica obliga a REASENTAR, o sea a encadenar ticks. Por eso')
-  linea('  el deslizador debe despertar la simulacion con alpha bajo mientras se arrastra, y subirlo')
-  linea('  solo al soltar. Con 532 nodos ya se nota; con 3.000 sera otra conversacion.')
+  line(`  Reconstruir cuesta ${(recon.med / Math.max(distance.med, 0.001)).toFixed(0)}x mas que reconfigurar.`)
+  line()
+  line('⚠ HALLAZGO APARTE, Y NO ES DEL PANEL: el tick ya va justo de frame con este corpus.')
+  line(`  mediana ${tick.med.toFixed(1)} ms · p90 ${tick.p90.toFixed(1)} ms · peor ${tick.max.toFixed(1)} ms, sobre 16 ms.`)
+  line('  Importa aqui porque mover la fisica obliga a REASENTAR, o sea a encadenar ticks. Por eso')
+  line('  el deslizador debe despertar la simulacion con alpha bajo mientras se arrastra, y subirlo')
+  line('  solo al soltar. Con 532 nodos ya se nota; con 3.000 sera otra conversacion.')
 
-  estado.textContent = 'listo'
+  state.textContent = 'listo'
 }
 
 main().catch((e) => {
-  estado.textContent = 'fallo: ' + (e instanceof Error ? e.message : String(e))
+  state.textContent = 'fallo: ' + (e instanceof Error ? e.message : String(e))
 })

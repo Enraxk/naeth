@@ -28,22 +28,22 @@ import { buildGraph, defaultFilters, neighborhood, type GraphModel } from '../sr
 import { createSimulator, type Simulator } from '../src/lib/sim'
 import type { GraphResponse, TreeRow } from '../src/lib/types'
 
-const salida = document.getElementById('salida') as HTMLPreElement
-const estado = document.getElementById('estado') as HTMLElement
+const output = document.getElementById('salida') as HTMLPreElement
+const state = document.getElementById('estado') as HTMLElement
 const lienzos = document.getElementById('lienzos') as HTMLElement
 
 type Point = { x: number; y: number }
 
 /** Asienta una simulacion hasta que se calla, con tope por si acaso. */
-function asentar(s: Simulator, tope = 400) {
+function asentar(s: Simulator, cap = 400) {
   let n = 0
-  while (n < tope && s.step()) n++
+  while (n < cap && s.step()) n++
   return n
 }
 
 /** Posiciones de un conjunto de ids relativas a su centro. */
-function relativas(pos: Map<string, Point>, ids: string[], centro: string): Map<string, Point> {
-  const c = pos.get(centro) ?? { x: 0, y: 0 }
+function relativas(pos: Map<string, Point>, ids: string[], center: string): Map<string, Point> {
+  const c = pos.get(center) ?? { x: 0, y: 0 }
   const out = new Map<string, Point>()
   for (const id of ids) {
     const p = pos.get(id)
@@ -106,25 +106,25 @@ function ordenCircular(a: Map<string, Point>, b: Map<string, Point>, ids: string
   return ok / oa.length
 }
 
-interface Fila {
+interface Row {
   opcion: string
-  notas: number
+  notes: number
   errorGrados: number
   ordenPct: number
   msPorFicha: number
-  arquitectura: string
+  architecture: string
 }
 
 async function arranca() {
-  estado.textContent = 'cargando el corpus real...'
+  state.textContent = 'cargando el corpus real...'
   const [tree, graph] = await Promise.all([
     fetch('/api/tree').then((r) => r.json() as Promise<TreeRow[]>),
     fetch('/api/graph').then((r) => r.json() as Promise<GraphResponse>),
   ])
 
-  const filtros = defaultFilters()
-  const model = buildGraph(tree, graph, new Map(), filtros)
-  estado.textContent = `${model.nodes.length} nodos y ${model.edges.length} aristas. Asentando el grafo global...`
+  const filters = defaultFilters()
+  const model = buildGraph(tree, graph, new Map(), filters)
+  state.textContent = `${model.nodes.length} nodos y ${model.edges.length} aristas. Asentando el grafo global...`
 
   // 1) El grafo global, asentado. Es la referencia contra la que se compara todo.
   const t0 = performance.now()
@@ -134,10 +134,10 @@ async function arranca() {
   const posGlobal = new Map<string, Point>(global.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
 
   // 2) Las notas de muestra: las de mas grado, que son donde la forma tiene algo que decir.
-  const porGrado = [...model.nodes].sort((a, b) => b.degree - a.degree)
-  const muestra = porGrado.filter((n) => n.degree >= 3).slice(0, 40)
+  const byDegree = [...model.nodes].sort((a, b) => b.degree - a.degree)
+  const sample = byDegree.filter((n) => n.degree >= 3).slice(0, 40)
 
-  estado.textContent = `global asentado en ${Math.round(msGlobal)} ms (${ticksGlobal} ticks). Midiendo ${muestra.length} vecindarios...`
+  state.textContent = `global asentado en ${Math.round(msGlobal)} ms (${ticksGlobal} ticks). Midiendo ${sample.length} vecindarios...`
   await new Promise((r) => setTimeout(r, 10))
 
   const acc: Record<string, { err: number[]; ord: number[]; ms: number[] }> = {
@@ -147,23 +147,23 @@ async function arranca() {
   }
 
   /** El primer vecindario medido se guarda para dibujarlo. */
-  let ejemplo: { centro: string; ids: string[]; disp: Record<string, Map<string, Point>> } | null = null
+  let ejemplo: { center: string; ids: string[]; disp: Record<string, Map<string, Point>> } | null = null
 
-  for (const nd of muestra) {
+  for (const nd of sample) {
     const vec = neighborhood(model, nd.id)
     const ids = vec.nodes.map((n) => n.id)
     const ref = relativas(posGlobal, ids, nd.id)
 
     // C · ACTUAL: simulacion propia desde cero, que es lo que hace hoy la ficha.
     const tc = performance.now()
-    const simC = createSimulator(vec, { distance: 96, repulsion: -140, ancho: 420 })
+    const simC = createSimulator(vec, { distance: 96, repulsion: -140, width: 420 })
     asentar(simC)
     const msC = performance.now() - tc
     const posC = relativas(new Map(simC.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }])), ids, nd.id)
 
     // B · SEMBRADO: lo mismo, pero arrancando de donde estan en el global.
     const tb = performance.now()
-    const simB = createSimulator(vec, { distance: 96, repulsion: -140, ancho: 420 })
+    const simB = createSimulator(vec, { distance: 96, repulsion: -140, width: 420 })
     for (const n of simB.nodes) {
       const p = posGlobal.get(n.id)
       if (p) {
@@ -193,65 +193,65 @@ async function arranca() {
     acc['D · congelado'].ms.push(msD)
 
     if (!ejemplo && ids.length >= 8) {
-      ejemplo = { centro: nd.id, ids, disp: { global: ref, 'B · sembrado': posB, 'C · actual': posC } }
+      ejemplo = { center: nd.id, ids, disp: { global: ref, 'B · sembrado': posB, 'C · actual': posC } }
     }
     simB.stop()
     simC.stop()
   }
 
   const media = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(xs.length, 1)
-  const filas: Fila[] = [
+  const rows: Row[] = [
     {
       opcion: 'A · recorte del global',
-      notas: muestra.length,
+      notes: sample.length,
       errorGrados: 0,
       ordenPct: 100,
       msPorFicha: 0,
-      arquitectura: 'simulador unico vivo; los filtros dejan de mover el grafo',
+      architecture: 'simulador unico vivo; los filtros dejan de mover el grafo',
     },
     {
       opcion: 'D · congelado',
-      notas: muestra.length,
+      notes: sample.length,
       errorGrados: media(acc['D · congelado'].err),
       ordenPct: media(acc['D · congelado'].ord) * 100,
       msPorFicha: media(acc['D · congelado'].ms),
-      arquitectura: 'solo un mapa de posiciones guardado; nada mas cambia',
+      architecture: 'solo un mapa de posiciones guardado; nada mas cambia',
     },
     {
       opcion: 'B · sembrado',
-      notas: muestra.length,
+      notes: sample.length,
       errorGrados: media(acc['B · sembrado'].err),
       ordenPct: media(acc['B · sembrado'].ord) * 100,
       msPorFicha: media(acc['B · sembrado'].ms),
-      arquitectura: 'un mapa de posiciones guardado; la ficha sigue viva',
+      architecture: 'un mapa de posiciones guardado; la ficha sigue viva',
     },
     {
       opcion: 'C · actual',
-      notas: muestra.length,
+      notes: sample.length,
       errorGrados: media(acc['C · actual'].err),
       ordenPct: media(acc['C · actual'].ord) * 100,
       msPorFicha: media(acc['C · actual'].ms),
-      arquitectura: 'lo que hay hoy; nada que cambiar',
+      architecture: 'lo que hay hoy; nada que cambiar',
     },
   ]
 
   const cab = ['opcion', 'error', 'orden', 'ms/ficha', 'que exige']
-  const cuerpo = filas.map((f) => [
+  const cuerpo = rows.map((f) => [
     f.opcion,
     f.errorGrados.toFixed(1) + ' grados',
     f.ordenPct.toFixed(0) + '%',
     f.msPorFicha.toFixed(1),
-    f.arquitectura,
+    f.architecture,
   ])
   const anchos = cab.map((c, i) => Math.max(c.length, ...cuerpo.map((r) => r[i].length)))
-  const linea = (r: string[]) => r.map((v, i) => v.padEnd(anchos[i])).join('  ')
-  salida.textContent = [
+  const line = (r: string[]) => r.map((v, i) => v.padEnd(anchos[i])).join('  ')
+  output.textContent = [
     `grafo global: ${model.nodes.length} nodos, ${model.edges.length} aristas, asentado en ${Math.round(msGlobal)} ms (${ticksGlobal} ticks)`,
-    `muestra: ${muestra.length} notas de grado 3 o mas`,
+    `muestra: ${sample.length} notas de grado 3 o mas`,
     '',
-    linea(cab),
+    line(cab),
     anchos.map((a) => '-'.repeat(a)).join('  '),
-    ...cuerpo.map(linea),
+    ...cuerpo.map(line),
     '',
     'error = desviacion angular media de cada vecino respecto al global, tras el mejor giro',
     'orden = fraccion de vecinos que conservan a su vecino de al lado en el circulo',
@@ -268,11 +268,11 @@ async function arranca() {
   // que no ha cambiado se queda donde estaba y solo se mueve lo que tiene motivo.
   //
   // Se compara mantener el mapa (`update`, que conserva posiciones) contra rehacerlo desde cero.
-  estado.textContent = 'midiendo como envejece el mapa...'
+  state.textContent = 'midiendo como envejece el mapa...'
   await new Promise((r) => setTimeout(r, 10))
-  await creceElCorpus(tree, graph, model, posGlobal, muestra.map((n) => n.id))
+  await creceElCorpus(tree, graph, model, posGlobal, sample.map((n) => n.id))
 
-  estado.textContent = 'terminado.'
+  state.textContent = 'terminado.'
 }
 
 /**
@@ -288,21 +288,21 @@ async function creceElCorpus(
   posAntes: Map<string, Point>,
   muestraIds: string[],
 ) {
-  const filas: string[][] = []
+  const rows: string[][] = []
   const ids = model.nodes.map((n) => n.id)
-  let semilla = 7
+  let seed = 7
   const rnd = () => {
-    semilla = (semilla * 1664525 + 1013904223) >>> 0
-    return semilla / 4294967296
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 4294967296
   }
 
   for (const [label, cuantas] of [['un dia', 8], ['un mes', 230], ['tres meses', 690]] as const) {
     // Notas nuevas con su path y una o dos relaciones a notas ya existentes.
-    const nuevas: TreeRow[] = []
+    const newOnes: TreeRow[] = []
     const edges = [...graph.edges]
     for (let i = 0; i < cuantas; i++) {
       const id = `nueva-${label}-${i}`
-      nuevas.push({
+      newOnes.push({
         id,
         title: `nota nueva ${i}`,
         memory_type: 'fact',
@@ -310,8 +310,8 @@ async function creceElCorpus(
         tags: [],
         created_at: '2026-10-01T10:00:00Z',
       })
-      const cuantos = rnd() < 0.35 ? 2 : 1
-      for (let j = 0; j < cuantos; j++) {
+      const howMany = rnd() < 0.35 ? 2 : 1
+      for (let j = 0; j < howMany; j++) {
         edges.push({
           source_id: id,
           target_id: ids[Math.floor(rnd() * ids.length)],
@@ -320,7 +320,7 @@ async function creceElCorpus(
         })
       }
     }
-    const crecido = buildGraph([...tree, ...nuevas], { ...graph, edges: edges }, new Map(), defaultFilters())
+    const grown = buildGraph([...tree, ...newOnes], { ...graph, edges: edges }, new Map(), defaultFilters())
 
     // MANTENIDO: el simulador que ya estaba, al que se le cuenta lo nuevo. Se prueban dos maneras
     // de acomodarlo, porque la diferencia entre ellas es justo lo que decide si la forma de una
@@ -329,7 +329,7 @@ async function creceElCorpus(
       const s = createSimulator(model)
       asentar(s)
       const t = performance.now()
-      s.update(crecido, alpha)
+      s.update(grown, alpha)
       const ticks = asentar(s, 400)
       const ms = performance.now() - t
       const pos = new Map<string, Point>(s.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
@@ -347,16 +347,16 @@ async function creceElCorpus(
      * nodos con la misma lista de vecinos se clavan mientras lo nuevo se acomoda. Los que ganaron o
      * perdieron vecinos quedan libres, que es justo lo que se quiere que se mueva.
      */
-    const anclado = (() => {
+    const anchored = (() => {
       const s = createSimulator(model)
       asentar(s)
-      const antes = new Map<string, string>()
-      for (const n of s.nodes) antes.set(n.id, [...s.neighbors(n.id)].sort().join(','))
+      const before = new Map<string, string>()
+      for (const n of s.nodes) before.set(n.id, [...s.neighbors(n.id)].sort().join(','))
       const t = performance.now()
-      s.update(crecido, 0.3)
+      s.update(grown, 0.3)
       let clavados = 0
       for (const n of s.nodes) {
-        const a = antes.get(n.id)
+        const a = before.get(n.id)
         if (a !== undefined && a === [...s.neighbors(n.id)].sort().join(',')) {
           s.pin(n.id, n.x!, n.y!)
           clavados++
@@ -374,7 +374,7 @@ async function creceElCorpus(
 
     // REHECHO: se tira el mapa y se calcula otra vez desde cero.
     const tr = performance.now()
-    const rehecho = createSimulator(crecido)
+    const rehecho = createSimulator(grown)
     asentar(rehecho)
     const msR = performance.now() - tr
     const posR = new Map<string, Point>(rehecho.nodes.map((n) => [n.id, { x: n.x!, y: n.y! }]))
@@ -389,24 +389,24 @@ async function creceElCorpus(
     }
     const err = (pos: Map<string, Point>) => {
       const es: number[] = []
-      for (const [centro, vs] of vecinosDe) {
+      for (const [center, vs] of vecinosDe) {
         const sigueIgual = vs.every((x) => pos.has(x))
         if (!sigueIgual) continue
-        es.push(errorAngular(relativas(posAntes, vs, centro), relativas(pos, vs, centro), vs))
+        es.push(errorAngular(relativas(posAntes, vs, center), relativas(pos, vs, center), vs))
       }
       return es.reduce((a, b) => a + b, 0) / Math.max(es.length, 1)
     }
 
-    filas.push([
+    rows.push([
       label + ' (+' + cuantas + ')',
       Math.round(msM) + ' ms',
       ticksM + ' ticks',
       err(posM).toFixed(1) + ' grados',
       Math.round(suave.ms) + ' ms',
       err(suave.pos).toFixed(1) + ' grados',
-      Math.round(anclado.ms) + ' ms',
-      err(anclado.pos).toFixed(1) + ' grados',
-      anclado.clavados + '',
+      Math.round(anchored.ms) + ' ms',
+      err(anchored.pos).toFixed(1) + ' grados',
+      anchored.clavados + '',
       Math.round(msR) + ' ms',
       err(posR).toFixed(1) + ' grados',
     ])
@@ -415,25 +415,25 @@ async function creceElCorpus(
   }
 
   const cab = ['crecimiento', 'normal', 'ticks', 'deriva', 'suave', 'deriva', 'anclado', 'deriva', 'clavados', 'rehacer', 'deriva']
-  const anchos = cab.map((c, i) => Math.max(c.length, ...filas.map((r) => r[i].length)))
-  const linea = (r: string[]) => r.map((v, i) => v.padEnd(anchos[i])).join('  ')
+  const anchos = cab.map((c, i) => Math.max(c.length, ...rows.map((r) => r[i].length)))
+  const line = (r: string[]) => r.map((v, i) => v.padEnd(anchos[i])).join('  ')
   const bloque = [
     'COMO ENVEJECE EL MAPA (notas nuevas enganchadas a notas existentes, como crece de verdad)',
     '',
-    linea(cab),
+    line(cab),
     anchos.map((a) => '-'.repeat(a)).join('  '),
-    ...filas.map(linea),
+    ...rows.map(line),
     '',
     'deriva = cuanto se mueve la forma de los vecindarios que NO han cambiado. Cuanto mas baja,',
     'mas se puede confiar en que la forma de una nota significa algo y no es el sorteo de hoy.',
   ]
-  salida.textContent += String.fromCharCode(10, 10) + bloque.join(String.fromCharCode(10))
+  output.textContent += String.fromCharCode(10, 10) + bloque.join(String.fromCharCode(10))
 }
 
 /** El mismo vecindario dibujado con cada opcion, para poder mirarlo y no solo leerlo. */
-function dibuja(e: { centro: string; ids: string[]; disp: Record<string, Map<string, Point>> }) {
+function dibuja(e: { center: string; ids: string[]; disp: Record<string, Map<string, Point>> }) {
   lienzos.innerHTML = ''
-  for (const [nombre, pos] of Object.entries(e.disp)) {
+  for (const [name, pos] of Object.entries(e.disp)) {
     const bounds = document.createElement('figure')
     const cv = document.createElement('canvas')
     cv.width = 260
@@ -446,7 +446,7 @@ function dibuja(e: { centro: string; ids: string[]; disp: Record<string, Map<str
     ctx.lineWidth = 1
     for (const id of e.ids) {
       const p = pos.get(id)
-      if (!p || id === e.centro) continue
+      if (!p || id === e.center) continue
       ctx.beginPath()
       ctx.moveTo(130, 130)
       ctx.lineTo(130 + p.x * k, 130 + p.y * k)
@@ -455,13 +455,13 @@ function dibuja(e: { centro: string; ids: string[]; disp: Record<string, Map<str
     for (const id of e.ids) {
       const p = pos.get(id)
       if (!p) continue
-      ctx.fillStyle = id === e.centro ? '#5db0ff' : '#d88a6a'
+      ctx.fillStyle = id === e.center ? '#5db0ff' : '#d88a6a'
       ctx.beginPath()
-      ctx.arc(130 + p.x * k, 130 + p.y * k, id === e.centro ? 7 : 5, 0, Math.PI * 2)
+      ctx.arc(130 + p.x * k, 130 + p.y * k, id === e.center ? 7 : 5, 0, Math.PI * 2)
       ctx.fill()
     }
     const cap = document.createElement('figcaption')
-    cap.textContent = nombre
+    cap.textContent = name
     bounds.appendChild(cv)
     bounds.appendChild(cap)
     lienzos.appendChild(bounds)

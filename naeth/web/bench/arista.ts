@@ -31,19 +31,19 @@ import { buildGraph, defaultFilters, type GraphModel } from '../src/lib/graph'
 import { createSimulator } from '../src/lib/sim'
 import type { GraphResponse, TreeRow } from '../src/lib/types'
 
-const salida = document.getElementById('salida') as HTMLPreElement
-const estado = document.getElementById('estado') as HTMLElement
+const output = document.getElementById('salida') as HTMLPreElement
+const state = document.getElementById('estado') as HTMLElement
 const muestras = document.getElementById('muestras') as HTMLElement
 
 const UMBRAL_FLECHA = 10
 const UMBRAL_PATRON = 18
-const UMBRAL_DEGRADADO = 30
+const DEGRADED_THRESHOLD = 30
 
 /** Los tamanos que existen de verdad, no los que serian comodos. */
 const LIENZOS = [
-  { nombre: 'escritorio', w: 1400, h: 900, compacto: false },
-  { nombre: 'portatil', w: 1100, h: 700, compacto: false },
-  { nombre: 'movil', w: 375, h: 520, compacto: false },
+  { name: 'escritorio', w: 1400, h: 900, compact: false },
+  { name: 'portatil', w: 1100, h: 700, compact: false },
+  { name: 'movil', w: 375, h: 520, compact: false },
 ]
 
 // ⚠ EL MINI DE LA FICHA NO ES UN LIENZO PEQUENO CON EL GRAFO ENTERO, y meterlo en la tabla de
@@ -62,22 +62,22 @@ function percentil(v: number[], p: number) {
 }
 
 /** Asienta hasta que la simulacion se calla, con tope. */
-function asentar(s: ReturnType<typeof createSimulator>, tope = 600) {
+function asentar(s: ReturnType<typeof createSimulator>, cap = 600) {
   let n = 0
-  while (n < tope && s.step()) n++
+  while (n < cap && s.step()) n++
   return n
 }
 
 /** El mismo calculo que `encuadraTodo` en Lienzo.svelte, sin copiar mas de lo necesario. */
 function escalaEncuadre(bounds: { x0: number; y0: number; x1: number; y1: number },
-                        w: number, h: number, compacto: boolean) {
+                        w: number, h: number, compact: boolean) {
   const k = Math.min(w / Math.max(bounds.x1 - bounds.x0, 1), h / Math.max(bounds.y1 - bounds.y0, 1)) *
-    (compacto ? 0.72 : 0.9)
+    (compact ? 0.72 : 0.9)
   return Math.min(k, 4)
 }
 
-function linea(txt = '') {
-  salida.textContent += txt + '\n'
+function line(txt = '') {
+  output.textContent += txt + '\n'
 }
 
 // ── Las candidatas ────────────────────────────────────────────────────────────────────────
@@ -85,139 +85,139 @@ function linea(txt = '') {
 // Cada una recibe un contexto ya trasladado y girado: la arista va de (0,0) a (largo,0). Asi la
 // candidata solo se ocupa de decir la direccion, y no de la trigonometria.
 
-type Candidata = { nombre: string; note: string; pinta: (c: CanvasRenderingContext2D, largo: number) => void }
+type Candidata = { name: string; note: string; paint: (c: CanvasRenderingContext2D, length: number) => void }
 
 const TINTA = '#c8c9d4'
 
-const DIRECCION: Candidata[] = [
+const DIRECTION: Candidata[] = [
   {
-    nombre: 'punta de flecha',
+    name: 'punta de flecha',
     note: 'lo que hace Obsidian',
-    pinta(c, largo) {
+    paint(c, length) {
       c.strokeStyle = TINTA
       c.lineWidth = 1.2
       c.beginPath()
       c.moveTo(0, 0)
-      c.lineTo(largo, 0)
+      c.lineTo(length, 0)
       c.stroke()
-      const a = Math.min(5, largo * 0.35)
+      const a = Math.min(5, length * 0.35)
       c.beginPath()
-      c.moveTo(largo, 0)
-      c.lineTo(largo - a, -a * 0.55)
-      c.moveTo(largo, 0)
-      c.lineTo(largo - a, a * 0.55)
+      c.moveTo(length, 0)
+      c.lineTo(length - a, -a * 0.55)
+      c.moveTo(length, 0)
+      c.lineTo(length - a, a * 0.55)
       c.stroke()
     },
   },
   {
-    nombre: 'degradado',
+    name: 'degradado',
     note: 'transparente en el origen, opaco en el destino',
-    pinta(c, largo) {
-      const g = c.createLinearGradient(0, 0, largo, 0)
+    paint(c, length) {
+      const g = c.createLinearGradient(0, 0, length, 0)
       g.addColorStop(0, 'rgba(200,201,212,0.12)')
       g.addColorStop(1, 'rgba(200,201,212,0.95)')
       c.strokeStyle = g
       c.lineWidth = 1.2
       c.beginPath()
       c.moveTo(0, 0)
-      c.lineTo(largo, 0)
+      c.lineTo(length, 0)
       c.stroke()
     },
   },
   {
-    nombre: 'trazo que engorda',
+    name: 'trazo que engorda',
     note: 'fino en el origen, grueso en el destino',
-    pinta(c, largo) {
+    paint(c, length) {
       c.fillStyle = TINTA
       c.beginPath()
       c.moveTo(0, -0.35)
-      c.lineTo(largo, -1.5)
-      c.lineTo(largo, 1.5)
+      c.lineTo(length, -1.5)
+      c.lineTo(length, 1.5)
       c.lineTo(0, 0.35)
       c.closePath()
       c.fill()
     },
   },
   {
-    nombre: 'punto en el destino',
+    name: 'punto en el destino',
     note: 'no ocupa largo, ocupa ancho',
-    pinta(c, largo) {
+    paint(c, length) {
       c.strokeStyle = TINTA
       c.lineWidth = 1.2
       c.beginPath()
       c.moveTo(0, 0)
-      c.lineTo(largo, 0)
+      c.lineTo(length, 0)
       c.stroke()
       c.fillStyle = TINTA
       c.beginPath()
-      c.arc(largo, 0, 1.9, 0, Math.PI * 2)
+      c.arc(length, 0, 1.9, 0, Math.PI * 2)
       c.fill()
     },
   },
   {
-    nombre: 'curva asimetrica',
+    name: 'curva asimetrica',
     note: 'se lee en el conjunto, no en una arista',
-    pinta(c, largo) {
+    paint(c, length) {
       c.strokeStyle = TINTA
       c.lineWidth = 1.2
       c.beginPath()
       c.moveTo(0, 0)
-      c.quadraticCurveTo(largo * 0.5, -largo * 0.16, largo, 0)
+      c.quadraticCurveTo(length * 0.5, -length * 0.16, length, 0)
       c.stroke()
     },
   },
 ]
 
-const TIPO: Candidata[] = [
+const TYPE: Candidata[] = [
   {
-    nombre: 'color',
+    name: 'color',
     note: 'tres tintes. El patron NO esta libre: lo usan las capas',
-    pinta(c, largo) {
+    paint(c, length) {
       const tintes = ['#6ba6e8', '#b394e3', '#4dbba7']
       for (let i = 0; i < 3; i++) {
         c.strokeStyle = tintes[i]
         c.lineWidth = 1.2
         c.beginPath()
         c.moveTo(0, i * 5 - 5)
-        c.lineTo(largo, i * 5 - 5)
+        c.lineTo(length, i * 5 - 5)
         c.stroke()
       }
     },
   },
   {
-    nombre: 'grosor',
+    name: 'grosor',
     note: 'tres grosores, que compiten con el peso de la arista',
-    pinta(c, largo) {
+    paint(c, length) {
       const grosores = [0.7, 1.4, 2.4]
       for (let i = 0; i < 3; i++) {
         c.strokeStyle = TINTA
         c.lineWidth = grosores[i]
         c.beginPath()
         c.moveTo(0, i * 5 - 5)
-        c.lineTo(largo, i * 5 - 5)
+        c.lineTo(length, i * 5 - 5)
         c.stroke()
       }
     },
   },
 ]
 
-function pintaMuestra(cand: Candidata, largo: number, alto = 26) {
+function pintaMuestra(cand: Candidata, length: number, height = 26) {
   const dpr = window.devicePixelRatio || 1
-  const w = Math.max(largo + 16, 40)
+  const w = Math.max(length + 16, 40)
   const cv = document.createElement('canvas')
   cv.width = w * dpr
-  cv.height = alto * dpr
+  cv.height = height * dpr
   cv.style.width = w + 'px'
-  cv.style.height = alto + 'px'
+  cv.style.height = height + 'px'
   const c = cv.getContext('2d')!
   c.scale(dpr, dpr)
-  c.translate(8, alto / 2)
-  cand.pinta(c, largo)
+  c.translate(8, height / 2)
+  cand.paint(c, length)
   return cv
 }
 
 async function main() {
-  estado.textContent = 'cargando el grafo real...'
+  state.textContent = 'cargando el grafo real...'
   const [tree, graph] = await Promise.all([
     fetch('/api/tree').then((r) => r.json() as Promise<TreeRow[]>),
     fetch('/api/graph').then((r) => r.json() as Promise<GraphResponse>),
@@ -229,9 +229,9 @@ async function main() {
     hideIsolated: false,
   })
 
-  estado.textContent = `asentando ${model.nodes.length} nodos y ${model.edges.length} aristas...`
+  state.textContent = `asentando ${model.nodes.length} nodos y ${model.edges.length} aristas...`
   const sim = createSimulator(model)
-  const pasos = asentar(sim)
+  const steps = asentar(sim)
 
   const pos = new Map(sim.nodes.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]))
   const largos: number[] = []
@@ -243,35 +243,35 @@ async function main() {
   largos.sort((x, y) => x - y)
 
   const bounds = sim.bounds()
-  estado.textContent = `listo: ${model.nodes.length} nodos, ${largos.length} aristas, ${pasos} pasos`
+  state.textContent = `listo: ${model.nodes.length} nodos, ${largos.length} aristas, ${steps} pasos`
 
-  salida.textContent = ''
-  linea(`GRAFO REAL   ${model.nodes.length} nodos · ${largos.length} aristas · ${pasos} pasos hasta asentarse`)
-  linea(`CAJA         ${Math.round(bounds.x1 - bounds.x0)} x ${Math.round(bounds.y1 - bounds.y0)} unidades de mundo`)
-  linea(`ARISTA       en unidades: p10 ${percentil(largos, 0.1).toFixed(1)} · mediana ${percentil(largos, 0.5).toFixed(1)} · p90 ${percentil(largos, 0.9).toFixed(1)}`)
-  linea()
-  linea('A ENCUADRE COMPLETO, que es como se abre el grafo:')
-  linea()
-  linea('  lienzo             k       p10      mediana      p90    >=10px   >=18px   >=30px')
-  linea('  ' + '-'.repeat(78))
+  output.textContent = ''
+  line(`GRAFO REAL   ${model.nodes.length} nodos · ${largos.length} aristas · ${steps} pasos hasta asentarse`)
+  line(`CAJA         ${Math.round(bounds.x1 - bounds.x0)} x ${Math.round(bounds.y1 - bounds.y0)} unidades de mundo`)
+  line(`ARISTA       en unidades: p10 ${percentil(largos, 0.1).toFixed(1)} · mediana ${percentil(largos, 0.5).toFixed(1)} · p90 ${percentil(largos, 0.9).toFixed(1)}`)
+  line()
+  line('A ENCUADRE COMPLETO, que es como se abre el grafo:')
+  line()
+  line('  lienzo             k       p10      mediana      p90    >=10px   >=18px   >=30px')
+  line('  ' + '-'.repeat(78))
 
-  const filas: { nombre: string; k: number; mediana: number }[] = []
+  const rows: { name: string; k: number; mediana: number }[] = []
   for (const L of LIENZOS) {
-    const k = escalaEncuadre(bounds, L.w, L.h, L.compacto)
+    const k = escalaEncuadre(bounds, L.w, L.h, L.compact)
     const px = (u: number) => u * k
-    const cuenta = (t: number) => largos.filter((l) => px(l) >= t).length
+    const count = (t: number) => largos.filter((l) => px(l) >= t).length
     const pc = (n: number) => ((n / largos.length) * 100).toFixed(0) + '%'
-    linea(
-      '  ' + L.nombre.padEnd(18) +
+    line(
+      '  ' + L.name.padEnd(18) +
       k.toFixed(3).padStart(5) +
       (px(percentil(largos, 0.1)).toFixed(1) + ' px').padStart(10) +
       (px(percentil(largos, 0.5)).toFixed(1) + ' px').padStart(12) +
       (px(percentil(largos, 0.9)).toFixed(1) + ' px').padStart(10) +
-      pc(cuenta(UMBRAL_FLECHA)).padStart(9) +
-      pc(cuenta(UMBRAL_PATRON)).padStart(9) +
-      pc(cuenta(UMBRAL_DEGRADADO)).padStart(9),
+      pc(count(UMBRAL_FLECHA)).padStart(9) +
+      pc(count(UMBRAL_PATRON)).padStart(9) +
+      pc(count(DEGRADED_THRESHOLD)).padStart(9),
     )
-    filas.push({ nombre: L.nombre, k, mediana: px(percentil(largos, 0.5)) })
+    rows.push({ name: L.name, k, mediana: px(percentil(largos, 0.5)) })
   }
 
   // ── El mini de la ficha, medido como es y no como seria comodo ────────────────────────────
@@ -312,34 +312,34 @@ async function main() {
   const pcMini = (t: number) =>
     ((largosMini.filter((l) => l >= t).length / largosMini.length) * 100).toFixed(0) + '%'
 
-  linea()
-  linea(`EL MINI DE LA FICHA, medido vecindario a vecindario (${kMini.length} fichas con vecinos):`)
-  linea(`  vecindario mediano ${percentil(tamVec, 0.5).toFixed(0)} nodes · aumento mediano k=${percentil(kMini, 0.5).toFixed(2)} (tope 4)`)
-  linea(`  arista:  p10 ${percentil(largosMini, 0.1).toFixed(1)} px · mediana ${percentil(largosMini, 0.5).toFixed(1)} px · p90 ${percentil(largosMini, 0.9).toFixed(1)} px`)
-  linea(`  supera:  >=10px ${pcMini(UMBRAL_FLECHA)} · >=18px ${pcMini(UMBRAL_PATRON)} · >=30px ${pcMini(UMBRAL_DEGRADADO)}`)
+  line()
+  line(`EL MINI DE LA FICHA, medido vecindario a vecindario (${kMini.length} fichas con vecinos):`)
+  line(`  vecindario mediano ${percentil(tamVec, 0.5).toFixed(0)} nodes · aumento mediano k=${percentil(kMini, 0.5).toFixed(2)} (tope 4)`)
+  line(`  arista:  p10 ${percentil(largosMini, 0.1).toFixed(1)} px · mediana ${percentil(largosMini, 0.5).toFixed(1)} px · p90 ${percentil(largosMini, 0.9).toFixed(1)} px`)
+  line(`  supera:  >=10px ${pcMini(UMBRAL_FLECHA)} · >=18px ${pcMini(UMBRAL_PATRON)} · >=30px ${pcMini(DEGRADED_THRESHOLD)}`)
 
-  linea()
-  linea('A QUE AUMENTO la arista MEDIANA cruza cada umbral (el encuadre de escritorio es la base):')
+  line()
+  line('A QUE AUMENTO la arista MEDIANA cruza cada umbral (el encuadre de escritorio es la base):')
   const kBase = escalaEncuadre(bounds, 1400, 900, false)
   const medianaU = percentil(largos, 0.5)
-  for (const [nombre, t] of [['flecha', UMBRAL_FLECHA], ['patron', UMBRAL_PATRON], ['degradado', UMBRAL_DEGRADADO]] as const) {
+  for (const [name, t] of [['flecha', UMBRAL_FLECHA], ['patron', UMBRAL_PATRON], ['degradado', DEGRADED_THRESHOLD]] as const) {
     const kNec = t / medianaU
-    linea(`  ${String(nombre).padEnd(11)} k >= ${kNec.toFixed(2)}  ·  ${(kNec / kBase).toFixed(1)}x el encuadre completo`)
+    line(`  ${String(name).padEnd(11)} k >= ${kNec.toFixed(2)}  ·  ${(kNec / kBase).toFixed(1)}x el encuadre completo`)
   }
 
   // ── La mitad perceptiva ────────────────────────────────────────────────────────────────
   muestras.innerHTML = ''
   const tamanos = [
-    { et: 'p10 a encuadre', px: filas[0].k * percentil(largos, 0.1) },
-    { et: 'mediana a encuadre', px: filas[0].mediana },
-    { et: 'p90 a encuadre', px: filas[0].k * percentil(largos, 0.9) },
-    { et: 'mediana a 2x', px: filas[0].mediana * 2 },
-    { et: 'mediana a 4x', px: filas[0].mediana * 4 },
+    { et: 'p10 a encuadre', px: rows[0].k * percentil(largos, 0.1) },
+    { et: 'mediana a encuadre', px: rows[0].mediana },
+    { et: 'p90 a encuadre', px: rows[0].k * percentil(largos, 0.9) },
+    { et: 'mediana a 2x', px: rows[0].mediana * 2 },
+    { et: 'mediana a 4x', px: rows[0].mediana * 4 },
   ]
 
-  for (const [titulo, lista] of [['DIRECCION (G-A)', DIRECCION], ['TIPO (G-B)', TIPO]] as const) {
+  for (const [title, list] of [['DIRECCION (G-A)', DIRECTION], ['TIPO (G-B)', TYPE]] as const) {
     const h = document.createElement('h2')
-    h.textContent = titulo
+    h.textContent = title
     muestras.appendChild(h)
     const tabla = document.createElement('table')
     const thead = document.createElement('tr')
@@ -350,11 +350,11 @@ async function main() {
       thead.appendChild(th)
     }
     tabla.appendChild(thead)
-    for (const cand of lista) {
+    for (const cand of list) {
       const tr = document.createElement('tr')
       const td0 = document.createElement('td')
       td0.className = 'nom'
-      td0.innerHTML = `${cand.nombre}<br><small>${cand.note}</small>`
+      td0.innerHTML = `${cand.name}<br><small>${cand.note}</small>`
       tr.appendChild(td0)
       for (const t of tamanos) {
         const td = document.createElement('td')
@@ -368,5 +368,5 @@ async function main() {
 }
 
 main().catch((e) => {
-  estado.textContent = 'fallo: ' + (e instanceof Error ? e.message : String(e))
+  state.textContent = 'fallo: ' + (e instanceof Error ? e.message : String(e))
 })

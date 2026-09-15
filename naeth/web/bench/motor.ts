@@ -32,25 +32,25 @@ import type { GraphResponse, TreeRow } from '../src/lib/types'
 
 // --- tipos del banco -------------------------------------------------------------------------
 
-interface Nodo extends SimulationNodeDatum {
+interface Node extends SimulationNodeDatum {
   id: string
-  proyecto: string
-  grado: number
+  project: string
+  degree: number
   /** Ancla: el centro de su componente, de donde no debe alejarse. */
   ax: number
   ay: number
 }
 
-interface Arista {
-  source: string | Nodo
-  target: string | Nodo
+interface Edge {
+  source: string | Node
+  target: string | Node
 }
 
-type NombrePintor = 'svg' | 'canvas'
+type PainterName = 'svg' | 'canvas'
 type NombreFisica = 'd3' | 'propia'
 
 interface Painter {
-  draw(nodes: Nodo[], edges: Arista[]): void
+  draw(nodes: Node[], edges: Edge[]): void
   destroy(): void
 }
 
@@ -67,23 +67,23 @@ const H = 620
  * componentes que no se tocan). Por eso un 8% de las aristas replicadas se reengancha a OTRA
  * replica, que es ademas lo que pasa de verdad: las notas nuevas enlazan a las viejas.
  */
-function escalar(model: GraphModel, k: number, centros: Map<number, { x: number; y: number }>) {
-  const nodes: Nodo[] = []
-  const edges: Arista[] = []
-  let semilla = 1
+function escalar(model: GraphModel, k: number, centers: Map<number, { x: number; y: number }>) {
+  const nodes: Node[] = []
+  const edges: Edge[] = []
+  let seed = 1
   const rnd = () => {
-    semilla = (semilla * 1664525 + 1013904223) >>> 0
-    return semilla / 4294967296
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 4294967296
   }
 
   for (let r = 0; r < k; r++) {
     const desvio = { x: (r % 4) * 2600, y: Math.floor(r / 4) * 2600 }
     for (const n of model.nodes) {
-      const c = centros.get(n.component) ?? { x: 0, y: 0 }
+      const c = centers.get(n.component) ?? { x: 0, y: 0 }
       nodes.push({
         id: r === 0 ? n.id : `${n.id}#${r}`,
-        proyecto: n.project,
-        grado: n.degree,
+        project: n.project,
+        degree: n.degree,
         ax: c.x + desvio.x,
         ay: c.y + desvio.y,
         x: c.x + desvio.x + (rnd() - 0.5) * 400,
@@ -93,8 +93,8 @@ function escalar(model: GraphModel, k: number, centros: Map<number, { x: number;
     const suf = (id: string) => (r === 0 ? id : `${id}#${r}`)
     for (const e of model.edges) {
       if (k > 1 && rnd() < 0.08) {
-        const otra = Math.floor(rnd() * k)
-        const s = otra === 0 ? e.source : `${e.source}#${otra}`
+        const other = Math.floor(rnd() * k)
+        const s = other === 0 ? e.source : `${e.source}#${other}`
         edges.push({ source: suf(e.target), target: s })
       } else {
         edges.push({ source: suf(e.source), target: suf(e.target) })
@@ -107,17 +107,17 @@ function escalar(model: GraphModel, k: number, centros: Map<number, { x: number;
 // --- fisica ----------------------------------------------------------------------------------
 
 /** El radio del nodo, que es tambien el radio de colision. Mismo criterio que la app de hoy. */
-const radio = (n: Nodo) => 3.5 + Math.min(n.grado, 10) * 0.45
+const radius = (n: Node) => 3.5 + Math.min(n.degree, 10) * 0.45
 
-function fisicaD3(nodes: Nodo[], edges: Arista[]): Simulation<Nodo, undefined> {
+function fisicaD3(nodes: Node[], edges: Edge[]): Simulation<Node, undefined> {
   return forceSimulation(nodes)
-    .force('link', forceLink<Nodo, Arista>(edges).id((d) => d.id).distance(34).strength(0.6))
-    .force('charge', forceManyBody<Nodo>().strength(-38).distanceMax(600))
-    .force('collide', forceCollide<Nodo>((d) => radio(d) + 2))
+    .force('link', forceLink<Node, Edge>(edges).id((d) => d.id).distance(34).strength(0.6))
+    .force('charge', forceManyBody<Node>().strength(-38).distanceMax(600))
+    .force('collide', forceCollide<Node>((d) => radius(d) + 2))
     // Las anclas por componente: es lo que evita que las islas salgan despedidas, que era la razon
     // de colocar cada componente por separado en `layout.ts`.
-    .force('x', forceX<Nodo>((d) => d.ax).strength(0.05))
-    .force('y', forceY<Nodo>((d) => d.ay).strength(0.05))
+    .force('x', forceX<Node>((d) => d.ax).strength(0.05))
+    .force('y', forceY<Node>((d) => d.ay).strength(0.05))
     .alphaDecay(0)
     .velocityDecay(0.35)
     .stop()
@@ -130,7 +130,7 @@ function fisicaD3(nodes: Nodo[], edges: Arista[]): Simulation<Nodo, undefined> {
  * es la comparacion contra el quadtree de Barnes-Hut, y esa es la pregunta que interesa: a partir
  * de cuantos nodos el O(n^2) deja de caber en un frame.
  */
-function pasoPropio(nodes: Nodo[], edges: Arista[], k: number, t: number) {
+function pasoPropio(nodes: Node[], edges: Edge[], k: number, t: number) {
   const n = nodes.length
   const dspx = new Float64Array(n)
   const dspy = new Float64Array(n)
@@ -186,7 +186,7 @@ function pasoPropio(nodes: Nodo[], edges: Arista[], k: number, t: number) {
 // --- pintores --------------------------------------------------------------------------------
 
 /** Encuadre comun a los dos pintores, para que dibujen lo mismo y la comparacion valga. */
-function encuadre(nodes: Nodo[]) {
+function frameOf(nodes: Node[]) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   for (const n of nodes) {
     if (n.x! < x0) x0 = n.x!
@@ -210,7 +210,7 @@ function canvasPainter(host: HTMLElement): Painter {
 
   return {
     draw(nodes, edges) {
-      const { x0, y0, k } = encuadre(nodes)
+      const { x0, y0, k } = frameOf(nodes)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, W, H)
       const X = (v: number) => (v - x0) * k + 8
@@ -221,26 +221,26 @@ function canvasPainter(host: HTMLElement): Painter {
       ctx.lineWidth = 1
       ctx.beginPath()
       for (const e of edges) {
-        const a = e.source as Nodo
-        const b = e.target as Nodo
+        const a = e.source as Node
+        const b = e.target as Node
         ctx.moveTo(X(a.x!), Y(a.y!))
         ctx.lineTo(X(b.x!), Y(b.y!))
       }
       ctx.stroke()
 
       // Los nodos AGRUPADOS POR COLOR: un `fillStyle` por proyecto en vez de uno por nodo.
-      const porColor = new Map<string, Nodo[]>()
+      const byColor = new Map<string, Node[]>()
       for (const n of nodes) {
-        const c = projColor(n.proyecto)
-        let l = porColor.get(c)
-        if (!l) porColor.set(c, (l = []))
+        const c = projColor(n.project)
+        let l = byColor.get(c)
+        if (!l) byColor.set(c, (l = []))
         l.push(n)
       }
-      for (const [color, lista] of porColor) {
+      for (const [color, list] of byColor) {
         ctx.fillStyle = color
         ctx.beginPath()
-        for (const n of lista) {
-          const r = radio(n) * 0.9
+        for (const n of list) {
+          const r = radius(n) * 0.9
           ctx.moveTo(X(n.x!) + r, Y(n.y!))
           ctx.arc(X(n.x!), Y(n.y!), r, 0, Math.PI * 2)
         }
@@ -253,7 +253,7 @@ function canvasPainter(host: HTMLElement): Painter {
   }
 }
 
-function pintorSvg(host: HTMLElement, nodes: Nodo[], edges: Arista[]): Painter {
+function pintorSvg(host: HTMLElement, nodes: Node[], edges: Edge[]): Painter {
   const NS = 'http://www.w3.org/2000/svg'
   const svg = document.createElementNS(NS, 'svg')
   svg.setAttribute('width', String(W))
@@ -269,28 +269,28 @@ function pintorSvg(host: HTMLElement, nodes: Nodo[], edges: Arista[]): Painter {
 
   // Los elementos se crean UNA VEZ. En cada frame solo se actualizan atributos, que es lo mas
   // rapido que se puede hacer en SVG.
-  const lineas = edges.map(() => {
+  const lines = edges.map(() => {
     const l = document.createElementNS(NS, 'line')
     gA.appendChild(l)
     return l
   })
   const circulos = nodes.map((n) => {
     const c = document.createElementNS(NS, 'circle')
-    c.setAttribute('r', String(radio(n) * 0.9))
-    c.setAttribute('fill', projColor(n.proyecto))
+    c.setAttribute('r', String(radius(n) * 0.9))
+    c.setAttribute('fill', projColor(n.project))
     gN.appendChild(c)
     return c
   })
 
   return {
     draw(ns, es) {
-      const { x0, y0, k } = encuadre(ns)
+      const { x0, y0, k } = frameOf(ns)
       const X = (v: number) => (v - x0) * k + 8
       const Y = (v: number) => (v - y0) * k + 8
       for (let i = 0; i < es.length; i++) {
-        const a = es[i].source as Nodo
-        const b = es[i].target as Nodo
-        const l = lineas[i]
+        const a = es[i].source as Node
+        const b = es[i].target as Node
+        const l = lines[i]
         l.setAttribute('x1', X(a.x!).toFixed(1))
         l.setAttribute('y1', Y(a.y!).toFixed(1))
         l.setAttribute('x2', X(b.x!).toFixed(1))
@@ -309,11 +309,11 @@ function pintorSvg(host: HTMLElement, nodes: Nodo[], edges: Arista[]): Painter {
 
 // --- medicion --------------------------------------------------------------------------------
 
-interface Medida {
-  escala: number
+interface Measure {
+  scale: number
   nodes: number
   edges: number
-  pintor: NombrePintor
+  painter: PainterName
   physics: NombreFisica
   fps: number
   fisicaMs: number
@@ -329,18 +329,18 @@ const p = (xs: number[], q: number) => {
 
 async function resize(
   model: GraphModel,
-  centros: Map<number, { x: number; y: number }>,
-  escala: number,
-  pintor: NombrePintor,
+  centers: Map<number, { x: number; y: number }>,
+  scale: number,
+  painter: PainterName,
   physics: NombreFisica,
   segundos = 4,
-): Promise<Medida> {
+): Promise<Measure> {
   const host = document.getElementById('lienzo')!
   host.innerHTML = ''
   const t0 = performance.now()
-  const { nodes, edges } = escalar(model, escala, centros)
+  const { nodes, edges } = escalar(model, scale, centers)
 
-  let sim: Simulation<Nodo, undefined> | null = null
+  let sim: Simulation<Node, undefined> | null = null
   if (physics === 'd3') {
     sim = fisicaD3(nodes, edges)
   } else {
@@ -353,7 +353,7 @@ async function resize(
     }
   }
 
-  const pt = pintor === 'canvas' ? canvasPainter(host) : pintorSvg(host, nodes, edges)
+  const pt = painter === 'canvas' ? canvasPainter(host) : pintorSvg(host, nodes, edges)
   const arranqueMs = performance.now() - t0
 
   const kFR = Math.sqrt((Math.max(nodes.length, 2) * 2000) / Math.max(nodes.length, 2))
@@ -362,7 +362,7 @@ async function resize(
   const tot: number[] = []
 
   await new Promise<void>((ready) => {
-    const fin = performance.now() + segundos * 1000
+    const end = performance.now() + segundos * 1000
     let frames = 0
     const step = () => {
       const a = performance.now()
@@ -375,7 +375,7 @@ async function resize(
       pin.push(c - b)
       tot.push(c - a)
       frames++
-      if (performance.now() < fin) requestAnimationFrame(step)
+      if (performance.now() < end) requestAnimationFrame(step)
       else ready()
     }
     requestAnimationFrame(step)
@@ -390,10 +390,10 @@ async function resize(
   void pt
 
   return {
-    escala,
+    scale,
     nodes: nodes.length,
     edges: edges.length,
-    pintor,
+    painter,
     physics,
     fps: Math.round(fps),
     fisicaMs: +p(fis, 0.5).toFixed(2),
@@ -405,61 +405,61 @@ async function resize(
 
 // --- arranque --------------------------------------------------------------------------------
 
-const salida = document.getElementById('salida') as HTMLPreElement
-const estado = document.getElementById('estado') as HTMLElement
-const filas: Medida[] = []
+const output = document.getElementById('salida') as HTMLPreElement
+const state = document.getElementById('estado') as HTMLElement
+const rows: Measure[] = []
 
-function pinta() {
+function paint() {
   const cab = ['escala', 'nodes', 'edges', 'pintor', 'physics', 'fps', 'fis ms', 'sujetar ms', 'p95 ms', 'arranque']
   const anchos = cab.map((c) => c.length)
-  const cuerpo = filas.map((f) => [
-    'x' + f.escala, String(f.nodes), String(f.edges), f.pintor, f.physics,
+  const cuerpo = rows.map((f) => [
+    'x' + f.scale, String(f.nodes), String(f.edges), f.painter, f.physics,
     String(f.fps), String(f.fisicaMs), String(f.pintadoMs), String(f.p95Ms), f.arranqueMs + ' ms',
   ])
   for (const r of cuerpo) r.forEach((v, i) => (anchos[i] = Math.max(anchos[i], v.length)))
-  const linea = (r: string[]) => r.map((v, i) => v.padEnd(anchos[i])).join('  ')
-  salida.textContent = [linea(cab), anchos.map((a) => '-'.repeat(a)).join('  '), ...cuerpo.map(linea)].join('\n')
+  const line = (r: string[]) => r.map((v, i) => v.padEnd(anchos[i])).join('  ')
+  output.textContent = [line(cab), anchos.map((a) => '-'.repeat(a)).join('  '), ...cuerpo.map(line)].join('\n')
 }
 
 async function arranca() {
-  estado.textContent = 'cargando el corpus real...'
+  state.textContent = 'cargando el corpus real...'
   const [tree, graph] = await Promise.all([
     fetch('/api/tree').then((r) => r.json() as Promise<TreeRow[]>),
     fetch('/api/graph').then((r) => r.json() as Promise<GraphResponse>),
   ])
 
   // Las tres capas menos la semantica, que se pide por nodo y no forma parte del grafo de partida.
-  const filtros = defaultFilters()
-  filtros.layers.wikilink = true
-  const model = buildGraph(tree, graph, new Map(), filtros)
+  const filters = defaultFilters()
+  filters.layers.wikilink = true
+  const model = buildGraph(tree, graph, new Map(), filters)
 
   // Las anclas salen del empaquetado por componentes que ya tenemos, que es justo el papel que le
   // da el plan: dejar de decidir la posicion final y pasar a decidir de donde se parte.
-  const col = place(model, { ancho: 1600, iteraciones: 40 })
-  const centros = new Map<number, { x: number; y: number }>()
-  for (const c of col.cajas) centros.set(c.comp, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
+  const col = place(model, { width: 1600, iterations: 40 })
+  const centers = new Map<number, { x: number; y: number }>()
+  for (const c of col.boxes) centers.set(c.comp, { x: c.x + c.w / 2, y: c.y + c.h / 2 })
 
-  estado.textContent = `${model.nodes.length} nodos y ${model.edges.length} aristas reales. Listo.`
+  state.textContent = `${model.nodes.length} nodos y ${model.edges.length} aristas reales. Listo.`
 
-  const boton = document.getElementById('correr') as HTMLButtonElement
-  boton.disabled = false
-  boton.onclick = async () => {
-    boton.disabled = true
-    filas.length = 0
+  const button = document.getElementById('correr') as HTMLButtonElement
+  button.disabled = false
+  button.onclick = async () => {
+    button.disabled = true
+    rows.length = 0
     const escalas = [1, 5, 10]
     for (const e of escalas) {
       for (const f of ['d3', 'propia'] as NombreFisica[]) {
-        for (const pn of ['canvas', 'svg'] as NombrePintor[]) {
+        for (const pn of ['canvas', 'svg'] as PainterName[]) {
           // El O(n^2) propio a x10 son 28 millones de pares por frame: no se mide, se declara.
           if (f === 'propia' && e >= 10) continue
-          estado.textContent = `midiendo x${e} ${pn} ${f}...`
-          filas.push(await resize(model, centros, e, pn, f))
-          pinta()
+          state.textContent = `midiendo x${e} ${pn} ${f}...`
+          rows.push(await resize(model, centers, e, pn, f))
+          paint()
         }
       }
     }
-    estado.textContent = 'terminado.'
-    boton.disabled = false
+    state.textContent = 'terminado.'
+    button.disabled = false
   }
 }
 

@@ -58,10 +58,10 @@
   // que `crepe` estuviera asignado: no destruía nada, Svelte se llevaba el `.md-host`, y el
   // `create()` terminaba después contra un host ya fuera del documento, dejando su `.milkdown`
   // colgando del `<body>`. Eso era el texto fantasma de notas viejas al final de la página.
-  let destruido = false
+  let destroyed = false
 
   /** Red de seguridad: un editor vivo SIEMPRE cuelga de `.md-host`, nunca del body. */
-  function barrerHuerfanos() {
+  function sweepOrphans() {
     for (const el of document.querySelectorAll('body > .milkdown')) el.remove()
   }
 
@@ -77,7 +77,7 @@
     // visor: los temas de Crepe traen los suyos y, al cargarse con import() condicional, se
     // quedaban pegados al documento; cambiar de tema no los retiraba.
     await import('@milkdown/crepe/theme/common/style.css')
-    if (destruido) return   // murió mientras cargaban los chunks: no llegar a crear nada
+    if (destroyed) return   // murió mientras cargaban los chunks: no llegar a crear nada
 
     // --- `[[` -> selector de memoria -------------------------------------------------------
     // El plugin NO pinta el menú: solo detecta que hay un `[[consulta` abierto ante el cursor y
@@ -135,10 +135,10 @@
     await crepe.create()
     // Aquí está la carrera: si murió durante el create(), lo recién creado no tiene contenedor
     // al que volver. Se destruye a mano y se barre lo que Crepe haya soltado en el body.
-    if (destruido) {
+    if (destroyed) {
       try { crepe.destroy() } catch { /* noop */ }
       crepe = null
-      barrerHuerfanos()
+      sweepOrphans()
       return
     }
     crepe.setReadonly(readonly)
@@ -184,10 +184,10 @@
   })
 
   onDestroy(() => {
-    destruido = true                                    // primero: corta el montaje en curso
+    destroyed = true                                    // primero: corta el montaje en curso
     try { crepe?.destroy() } catch { /* noop */ }
     crepe = null
-    barrerHuerfanos()
+    sweepOrphans()
   })
 
   $effect(() => {

@@ -106,8 +106,8 @@ describe('rankPaths', () => {
 
   it('no muta el array que recibe', () => {
     const t = [row('b/dos'), row('a/uno')]
-    const antes = t.map((r) => r.path)
+    const before = t.map((r) => r.path)
     rankPaths('', t)
-    expect(t.map((r) => r.path)).toEqual(antes)
+    expect(t.map((r) => r.path)).toEqual(before)
   })
 })

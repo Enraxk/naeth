@@ -32,13 +32,13 @@ export interface Viewport {
 
 export interface PaintState {
   /** El nodo que lleva el anillo: el del raton, el seleccionado o el senalado en el arbol. */
-  foco: string | null
+  focus: string | null
   /**
    * Lo que se queda a plena luz: un nodo con sus vecinos, o una carpeta entera del arbol con los
    * suyos. Los vecinos entran a proposito, porque son lo que ensena hacia donde sale de su
    * proyecto lo que estas mirando, y eso es lo unico que el grafo cuenta y el arbol no.
    */
-  encendidos: ReadonlySet<string> | null
+  lit: ReadonlySet<string> | null
   /**
    * Cuanto se ha apagado el resto, de 0 a 1. Lo anima quien llama, no el pintor.
    *
@@ -46,9 +46,9 @@ export interface PaintState {
    * corte brusco se lee como que ha cambiado algo en los datos en vez de como que has movido el
    * raton.
    */
-  atenuacion: number
+  dimming: number
   /** El que se esta arrastrando, que se pinta agarrado. */
-  arrastrando: string | null
+  dragging: string | null
   /** Colorear por proyecto o dejarlo en tono neutro. */
   color: boolean
   /**
@@ -117,7 +117,7 @@ export interface PaintState {
 }
 
 export interface Painter {
-  draw(sim: Simulator, vista: Viewport, estado: PaintState): void
+  draw(sim: Simulator, view: Viewport, state: PaintState): void
   /** Nuevo tamaño en pixeles CSS. */
   resize(w: number, h: number): void
   /**
@@ -285,22 +285,22 @@ export function shapePath(kind: MemType, x: number, y: number, r: number): strin
  */
 export function wrapLines(
   text: string,
-  anchoMax: number,
+  maxWidth: number,
   resize: (s: string) => number,
 ): string[] {
   const palabras = text.split(/\s+/).filter(Boolean)
   if (!palabras.length) return []
   const out: string[] = []
-  let linea = palabras[0]
+  let line = palabras[0]
   for (let i = 1; i < palabras.length; i++) {
-    const prueba = linea + ' ' + palabras[i]
-    if (resize(prueba) <= anchoMax) linea = prueba
+    const prueba = line + ' ' + palabras[i]
+    if (resize(prueba) <= maxWidth) line = prueba
     else {
-      out.push(linea)
-      linea = palabras[i]
+      out.push(line)
+      line = palabras[i]
     }
   }
-  out.push(linea)
+  out.push(line)
   return out
 }
 
@@ -316,12 +316,12 @@ export function wrapLines(
  */
 export function clipToLine(
   text: string,
-  anchoMax: number,
+  maxWidth: number,
   resize: (s: string) => number,
 ): string {
-  if (resize(text) <= anchoMax) return text
+  if (resize(text) <= maxWidth) return text
   let corte = text.length
-  while (corte > 1 && resize(text.slice(0, corte) + '…') > anchoMax) corte--
+  while (corte > 1 && resize(text.slice(0, corte) + '…') > maxWidth) corte--
   return text.slice(0, corte).trimEnd() + '…'
 }
 

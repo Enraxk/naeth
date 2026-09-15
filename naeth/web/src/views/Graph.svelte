@@ -14,17 +14,17 @@
   import { buildGraph, defaultFilters, projectOf, type EdgeLayer } from '../lib/graph'
     import type { GraphResponse, KnnNeighbor } from '../lib/types'
 
-  let grafo = $state<GraphResponse | null>(null)
+  let graph = $state<GraphResponse | null>(null)
   let error = $state('')
-  let filtros = $state(defaultFilters())
-  let seleccion = $state<string | null>(null)
+  let filters = $state(defaultFilters())
+  let selection = $state<string | null>(null)
   let knn = $state(new Map<string, KnnNeighbor[]>())
-  let motor = $state<Canvas | null>(null)
+  let engine = $state<Canvas | null>(null)
 
   // Si el panel de ajustes queda abierto o cerrado, recordado entre visitas. No va al catalogo de
   // `prefs-graph` a proposito: aquello es lo que gobierna el DIBUJO, y esto es estado de la vista.
   // Mezclarlos obligaria a validar y restaurar a fabrica algo que no pinta nada.
-  let ajustes = $state(((): boolean => {
+  let settingsOpen = $state(((): boolean => {
     try {
       return (localStorage.getItem(PANEL_LS) ?? localStorage.getItem(PANEL_LS_LEGACY)) === '1'
     } catch {
@@ -33,7 +33,7 @@
   })())
   $effect(() => {
     try {
-      localStorage.setItem(PANEL_LS, ajustes ? '1' : '0')
+      localStorage.setItem(PANEL_LS, settingsOpen ? '1' : '0')
     } catch {
       // En modo privado no se recuerda, y no pasa nada: el panel abre cerrado.
     }
@@ -41,7 +41,7 @@
 
   onMount(async () => {
     try {
-      grafo = await getGraph()
+      graph = await getGraph()
     } catch {
       error = 'No se ha podido leer el grafo del nodo.'
     }
@@ -49,7 +49,7 @@
 
   // El foco llega por la ruta `#/graph/<id>`, que es a donde lleva el boton del mini grafo, o por
   // el resalte compartido, que es el raton pasando por una fila del arbol.
-  const foco = $derived(highlight.id ?? route.id)
+  const focus = $derived(highlight.id ?? route.id)
 
   // El exento entra en los filtros para que una nota senalada en el arbol no pueda quedar
   // escondida por "ocultar sueltas". Pedir ver algo y que el grafo se quede callado porque un
@@ -69,33 +69,33 @@
   })
 
   const model = $derived(
-    buildGraph(data.tree ?? [], grafo, knn, { ...filtros, exempt: highlight.id, hidden }),
+    buildGraph(data.tree ?? [], graph, knn, { ...filters, exempt: highlight.id, hidden }),
   )
 
   // Lo que cuenta la franja de abajo: lo resaltado si hay algo, y si no lo seleccionado.
-  const idFranja = $derived(highlight.id ?? seleccion)
-  const nodoSel = $derived(model.nodes.find((n) => n.id === idFranja) ?? null)
+  const stripId = $derived(highlight.id ?? selection)
+  const selNode = $derived(model.nodes.find((n) => n.id === stripId) ?? null)
   /**
    * La nota resaltada desde el arbol puede NO estar en el grafo: sin vinculos, o filtrada. En vez
    * de dejar la franja en blanco, se dice, que ademas responde a la pregunta que uno se hace en
    * ese momento (por que no la veo).
    */
   /** Cuantas de la carpeta senalada estan de verdad en el grafo. Las que no, no tienen vinculos. */
-  const encendidas = $derived(
+  const lit = $derived(
     highlight.group ? model.nodes.filter((n) => highlight.group!.includes(n.id)).length : 0,
   )
-  const filaSuelta = $derived(
-    !nodoSel && idFranja ? ((data.tree ?? []).find((r) => r.id === idFranja) ?? null) : null,
+  const looseRow = $derived(
+    !selNode && stripId ? ((data.tree ?? []).find((r) => r.id === stripId) ?? null) : null,
   )
 
-  const CAPAS: { k: EdgeLayer; label: string; trazo: string }[] = [
-    { k: 'relation', label: 'relaciones', trazo: '' },
-    { k: 'wikilink', label: 'wikilinks', trazo: '2 3' },
-    { k: 'semantic', label: 'semánticos', trazo: '5 3' },
+  const LAYERS: { k: EdgeLayer; label: string; dash: string }[] = [
+    { k: 'relation', label: 'relaciones', dash: '' },
+    { k: 'wikilink', label: 'wikilinks', dash: '2 3' },
+    { k: 'semantic', label: 'semánticos', dash: '5 3' },
   ]
 
-  function toggleCapa(k: EdgeLayer) {
-    filtros = { ...filtros, layers: { ...filtros.layers, [k]: !filtros.layers[k] } }
+  function toggleLayer(k: EdgeLayer) {
+    filters = { ...filters, layers: { ...filters.layers, [k]: !filters.layers[k] } }
   }
 
   /**
@@ -103,15 +103,15 @@
    * 2,7 s y el de una nota 16 ms. Asi que el vecindario semantico se despliega alrededor de lo
    * que miras, que ademas es como se explora un grafo.
    */
-  async function seleccionar(id: string | null) {
-    seleccion = id
+  async function select(id: string | null) {
+    selection = id
     // El otro extremo del hilo: lo que toca el raton aqui se enciende en el arbol.
     highlightNode(id)
-    if (!id || !filtros.layers.semantic || knn.has(id)) return
+    if (!id || !filters.layers.semantic || knn.has(id)) return
     try {
       const r = await getKnn(id, 6)
       knn = new Map(knn).set(id, r.neighbors)
-    } catch { /* sin neighbors semanticos se sigue viendo el resto */ }
+    } catch { /* sin vecinos semanticos se sigue viendo el resto */ }
   }
 
   /**
@@ -122,13 +122,13 @@
    */
   $effect(() => {
     const id = highlight.from === 'tree' ? highlight.id : null
-    if (!motor) return
-    motor.mirar(id && model.nodes.some((n) => n.id === id) ? id : null, true)
+    if (!engine) return
+    engine.lookAt(id && model.nodes.some((n) => n.id === id) ? id : null, true)
   })
 
   /** Y si lo senalado es una carpeta entera, la camara va a donde vive esa carpeta. */
   $effect(() => {
-    motor?.mirarGrupo(highlight.group)
+    engine?.lookAtGroup(highlight.group)
   })
 
   // Al llegar por `#/graph/<id>` se enfoca una vez que hay algo que enfocar.
@@ -136,13 +136,13 @@
   // ⚠ DEPENDE DE `route.id` Y NO DE `foco`, y la diferencia importa: `foco` incluye ahora el
   // resalte del arbol, asi que con `foco` el primer roce del raton sobre una fila movia la camara
   // y seleccionaba. Pasar el raton por una lista no puede tener consecuencias.
-  let enfocado = false
+  let focused = false
   $effect(() => {
     const id = route.id
-    if (!enfocado && id && motor && model.nodes.some((n) => n.id === id)) {
-      enfocado = true
-      motor.encuadrar(id)
-      seleccionar(id)
+    if (!focused && id && engine && model.nodes.some((n) => n.id === id)) {
+      focused = true
+      engine.frameOn(id)
+      select(id)
     }
   })
 </script>
@@ -150,10 +150,10 @@
 <div class="grafo">
   <div class="barra">
     <div class="group">
-      {#each CAPAS as c (c.k)}
-        <button class="chip" class:on={filtros.layers[c.k]} onclick={() => toggleCapa(c.k)}>
+      {#each LAYERS as c (c.k)}
+        <button class="chip" class:on={filters.layers[c.k]} onclick={() => toggleLayer(c.k)}>
           <svg width="14" height="6" aria-hidden="true">
-            <line x1="0" y1="3" x2="14" y2="3" stroke="currentColor" stroke-dasharray={c.trazo} />
+            <line x1="0" y1="3" x2="14" y2="3" stroke="currentColor" stroke-dasharray={c.dash} />
           </svg>
           {c.label}
         </button>
@@ -161,20 +161,20 @@
     </div>
 
     <div class="group">
-      <button class="chip" class:on={filtros.crossOnly}
+      <button class="chip" class:on={filters.crossOnly}
               title="Solo los vínculos que cruzan de un proyecto a otro, que son los que el árbol no puede enseñar"
-              onclick={() => (filtros = { ...filtros, crossOnly: !filtros.crossOnly })}>
+              onclick={() => (filters = { ...filters, crossOnly: !filters.crossOnly })}>
         transversales
       </button>
-      <button class="chip" class:on={filtros.hideIsolated}
-              onclick={() => (filtros = { ...filtros, hideIsolated: !filtros.hideIsolated })}>
+      <button class="chip" class:on={filters.hideIsolated}
+              onclick={() => (filters = { ...filters, hideIsolated: !filters.hideIsolated })}>
         ocultar sueltas
       </button>
-      <button class="chip" title="Volver al encuadre completo" onclick={() => motor?.reencuadrar()}>
+      <button class="chip" title="Volver al encuadre completo" onclick={() => engine?.reframe()}>
         <Icon name="refresh" size={12} color="currentColor" />encuadre
       </button>
-      <button class="chip" class:on={ajustes} title="Ajustes del grafo"
-              aria-expanded={ajustes} onclick={() => (ajustes = !ajustes)}>
+      <button class="chip" class:on={settingsOpen} title="Ajustes del grafo"
+              aria-expanded={settingsOpen} onclick={() => (settingsOpen = !settingsOpen)}>
         <Icon name="sliders-horizontal" size={12} color="currentColor" />ajustes
       </button>
     </div>
@@ -183,46 +183,46 @@
   <div class="lienzo-wrap">
     {#if error}
       <div class="msg"><Icon name="triangle-alert" size={15} color="var(--warn)" /> {error}</div>
-    {:else if !grafo || !(data.tree ?? []).length}
+    {:else if !graph || !(data.tree ?? []).length}
       <div class="msg">Cargando el grafo…</div>
     {:else if !model.nodes.length}
       <div class="msg">Ningún vínculo con estos filtros.</div>
     {:else}
-      <Canvas bind:this={motor} {model} {foco} {seleccion} group={highlight.group}
-              onSelect={seleccionar} onOpen={(id) => navigate('memory', id)} />
+      <Canvas bind:this={engine} {model} {focus} {selection} group={highlight.group}
+              onSelect={select} onOpen={(id) => navigate('memory', id)} />
     {/if}
     <!-- Dentro del `lienzo-wrap` a proposito: se posiciona contra el lienzo, no contra la vista, y
          asi el cajon del movil se apoya en el borde de abajo del grafo y no tapa la franja. -->
-    <Panel bind:abierto={ajustes} />
+    <Panel bind:open={settingsOpen} />
   </div>
 
   <!-- LA FRANJA, que antes era un panel flotante sobre la esquina del lienzo y tapaba justo la
        parte del grafo a la que uno acababa de llegar. Aqui no tapa nada: ocupa su propia banda,
        y cuando no hay nada que mirar se gana el sitio contando el grafo entero. -->
-  <div class="franja" class:vacia={!nodoSel && !filaSuelta && !highlight.group}>
+  <div class="franja" class:vacia={!selNode && !looseRow && !highlight.group}>
     {#if highlight.group}
       <!-- Al senalar una carpeta el lienzo no escribe los nombres, porque ochenta titulos
            superpuestos no se leen. Quien dice que estas mirando es esta linea. -->
       <Icon name="folder" size={14} color="var(--dim)" />
       <span class="f-tit">{highlight.label ?? 'carpeta'}</span>
       <span class="f-vin">
-        {encendidas} de {highlight.group.length}
+        {lit} de {highlight.group.length}
         {highlight.group.length === 1 ? 'memoria' : 'memorias'} en el grafo
       </span>
-    {:else if nodoSel}
-      <Icon name={typeMeta(nodoSel.memory_type).icon} size={14} color={typeColor(nodoSel.memory_type)} />
-      <span class="f-tit" title={nodoSel.title ?? ''}>{nodoSel.title ?? '(sin título)'}</span>
-      <span class="f-meta">{nodoSel.path ?? ''}</span>
-      <span class="f-vin">{nodoSel.degree} {nodoSel.degree === 1 ? 'vínculo' : 'vínculos'}</span>
-    {:else if filaSuelta}
-      <Icon name={typeMeta(filaSuelta.memory_type).icon} size={14} color={typeColor(filaSuelta.memory_type)} />
-      <span class="f-tit" title={filaSuelta.title ?? ''}>{filaSuelta.title ?? '(sin título)'}</span>
-      <span class="f-meta">{filaSuelta.path ?? ''}</span>
+    {:else if selNode}
+      <Icon name={typeMeta(selNode.memory_type).icon} size={14} color={typeColor(selNode.memory_type)} />
+      <span class="f-tit" title={selNode.title ?? ''}>{selNode.title ?? '(sin título)'}</span>
+      <span class="f-meta">{selNode.path ?? ''}</span>
+      <span class="f-vin">{selNode.degree} {selNode.degree === 1 ? 'vínculo' : 'vínculos'}</span>
+    {:else if looseRow}
+      <Icon name={typeMeta(looseRow.memory_type).icon} size={14} color={typeColor(looseRow.memory_type)} />
+      <span class="f-tit" title={looseRow.title ?? ''}>{looseRow.title ?? '(sin título)'}</span>
+      <span class="f-meta">{looseRow.path ?? ''}</span>
       <span class="f-vin fuera">fuera del grafo con estos filtros</span>
     {:else}
       <span class="f-cuentas">
         <b>{model.nodes.length}</b> memorias · <b>{model.edges.length}</b> vínculos ·
-        <b>{model.components}</b> grupos{#if filtros.hideIsolated && model.isolated}
+        <b>{model.components}</b> groups{#if filters.hideIsolated && model.isolated}
           · {model.isolated} sueltas fuera{/if}{#if model.hiddenEdges}
           · <b>{model.hiddenEdges}</b> en carpetas cerradas{/if}
       </span>

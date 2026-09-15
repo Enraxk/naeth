@@ -58,10 +58,10 @@ export function highlightGroup(ids: string[] | null, label: string | null = null
   }
 }
 
-export function enterTree(dentro: boolean) {
-  if (highlight.inTree === dentro) return
-  highlight.inTree = dentro
-  if (!dentro) {
+export function enterTree(inside: boolean) {
+  if (highlight.inTree === inside) return
+  highlight.inTree = inside
+  if (!inside) {
     highlight.group = null
     highlight.label = null
     if (highlight.from === 'tree') {

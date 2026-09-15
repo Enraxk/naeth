@@ -19,7 +19,7 @@ vi.mock('./api', () => ({ getGraph: () => getGraph() }))
 const arbol = vi.hoisted(() => ({ tree: null as TreeRow[] | null }))
 vi.mock('./data.svelte', () => ({ data: arbol }))
 
-const fila = (id: string): TreeRow => ({
+const row = (id: string): TreeRow => ({
   id,
   title: id,
   memory_type: 'fact',
@@ -28,13 +28,13 @@ const fila = (id: string): TreeRow => ({
   created_at: '2026-09-01T10:00:00Z',
 })
 
-const respuesta = (edges: GraphResponse['edges'] = []): GraphResponse => ({
+const response = (edges: GraphResponse['edges'] = []): GraphResponse => ({
   nodes: 2,
   edges,
   links: {},
 })
 
-const arista = (a: string, b: string) => ({ source_id: a, target_id: b, predicate: 'links_to', n: 1 })
+const edge = (a: string, b: string) => ({ source_id: a, target_id: b, predicate: 'links_to', n: 1 })
 
 /**
  * El calculo se reparte en frames con `requestAnimationFrame`, que en Node no existe. Se sustituye
@@ -47,7 +47,7 @@ beforeEach(async () => {
     return 0
   })
   getGraph.mockReset()
-  arbol.tree = [fila('a'), fila('b')]
+  arbol.tree = [row('a'), row('b')]
   const { forgetMap } = await import('./layout-map.svelte')
   forgetMap()
 })
@@ -56,7 +56,7 @@ describe('requestMap · una sola peticion', () => {
   it('DOS llamadas seguidas piden el grafo UNA vez', async () => {
     // El test de regresion de las quince peticiones. Si la guarda vuelve a quedar por detras de la
     // llamada de red, esto cae.
-    getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
+    getGraph.mockResolvedValue(response([edge('a', 'b')]))
     const { requestMap } = await import('./layout-map.svelte')
     await requestMap()
     await requestMap()
@@ -65,7 +65,7 @@ describe('requestMap · una sola peticion', () => {
   })
 
   it('deja el mapa listo y con una posicion por memoria', async () => {
-    getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
+    getGraph.mockResolvedValue(response([edge('a', 'b')]))
     const { requestMap, layoutMap } = await import('./layout-map.svelte')
     await requestMap()
     expect(layoutMap.ready).toBe(true)
@@ -80,12 +80,12 @@ describe('requestMap · una sola peticion', () => {
 describe('requestMap · cuando el corpus cambia', () => {
   it('con memorias nuevas SI se recalcula, sin volver a pedir el grafo', async () => {
     // El grafo solo se pide una vez por sesion; lo que cambia el mapa es la firma del corpus.
-    getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
+    getGraph.mockResolvedValue(response([edge('a', 'b')]))
     const { requestMap, layoutMap } = await import('./layout-map.svelte')
     await requestMap()
     const v = layoutMap.version
 
-    arbol.tree = [fila('a'), fila('b'), fila('c')]
+    arbol.tree = [row('a'), row('b'), row('c')]
     await requestMap()
     expect(getGraph).toHaveBeenCalledTimes(1)
     expect(layoutMap.version).toBeGreaterThan(v)
@@ -95,16 +95,16 @@ describe('requestMap · cuando el corpus cambia', () => {
   it('las memorias que siguen estando CONSERVAN su posicion', async () => {
     // Es la conclusion del banco: mantener el mapa mueve la forma de lo que no ha cambiado tres
     // grados por jornada, y rehacerlo doce. Si esto cae, se esta rehaciendo.
-    getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
+    getGraph.mockResolvedValue(response([edge('a', 'b')]))
     const { requestMap, layoutMap } = await import('./layout-map.svelte')
     await requestMap()
-    const antes = new Map([...layoutMap.pos].map(([k, v]) => [k, { ...v }]))
+    const before = new Map([...layoutMap.pos].map(([k, v]) => [k, { ...v }]))
 
-    arbol.tree = [fila('a'), fila('b'), fila('c')]
+    arbol.tree = [row('a'), row('b'), row('c')]
     await requestMap()
     // No tienen por que quedarse clavadas (lo nuevo las empuja un poco), pero si cerca: rehacer
     // desde cero las mandaria a cualquier sitio.
-    for (const [id, p] of antes) {
+    for (const [id, p] of before) {
       const d = Math.hypot(layoutMap.pos.get(id)!.x - p.x, layoutMap.pos.get(id)!.y - p.y)
       expect(d).toBeLessThan(200)
     }
@@ -132,7 +132,7 @@ describe('requestMap · lo que degrada sin romper', () => {
 
   it('tras un fallo, una llamada posterior vuelve a intentarlo', async () => {
     getGraph.mockRejectedValueOnce(new Error('sin red'))
-    getGraph.mockResolvedValue(respuesta([arista('a', 'b')]))
+    getGraph.mockResolvedValue(response([edge('a', 'b')]))
     const { requestMap, layoutMap } = await import('./layout-map.svelte')
     await requestMap()
     await requestMap()

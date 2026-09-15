@@ -6,9 +6,9 @@
   // 04/09/2026 al entregarse su panel; los dos seguian aqui como codigo muerto, describiendo una
   // pantalla que ya existia. El dia que el Grafo aterrice, este componente entero sobra.
   const STUB: Record<string, { icon: string; title: string; text: string }> = {
-    grafo: { icon: 'share-2', title: 'Grafo del conocimiento', text: 'Relaciones explícitas y vecinos semánticos entre memorias. Llegará en el Paso 5.4.' },
+    graph: { icon: 'share-2', title: 'Grafo del conocimiento', text: 'Relaciones explícitas y vecinos semánticos entre memorias. Llegará en el Paso 5.4.' },
   }
-  const s = $derived(STUB[view] ?? STUB.grafo)
+  const s = $derived(STUB[view] ?? STUB.graph)
 </script>
 
 <div class="stub">

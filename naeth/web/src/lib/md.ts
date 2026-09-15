@@ -115,8 +115,8 @@ function one(n: Nodes, ctx: Ctx): string {
       if (!href) return children(n, ctx)
       // `rel` y `target` solo en enlaces que salen fuera: un `#/m/<id>` es navegacion interna y
       // abrirlo en otra pestana romperia el gesto de seguir un wikilink.
-      const fuera = /^https?:/i.test(href)
-      const extra = fuera ? ' target="_blank" rel="noopener noreferrer"' : ''
+      const outside = /^https?:/i.test(href)
+      const extra = outside ? ' target="_blank" rel="noopener noreferrer"' : ''
       return `<a href="${escAttr(href)}"${title}${extra}>${children(n, ctx)}</a>`
     }
     case 'image': {

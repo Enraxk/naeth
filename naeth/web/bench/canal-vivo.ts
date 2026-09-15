@@ -30,12 +30,12 @@ import { screenRadius, DASH } from '../src/lib/painter'
 import { projColor } from '../src/lib/colors'
 import type { GraphResponse, TreeRow } from '../src/lib/types'
 
-const estado = document.getElementById('estado') as HTMLElement
-const rejilla = document.getElementById('rejilla') as HTMLElement
+const state = document.getElementById('estado') as HTMLElement
+const grid = document.getElementById('rejilla') as HTMLElement
 const info = document.getElementById('info') as HTMLElement
 
 /** Los tres predicados reales, con su cuenta medida el 06/09. El tinte es lo que se juzga aqui. */
-const TINTE: Record<string, [string, string]> = {
+const TINT: Record<string, [string, string]> = {
   // [oscuro, claro]
   links_to: ['#6ba6e8', '#2f6fb8'],
   derived_from: ['#b394e3', '#7a4fb5'],
@@ -43,14 +43,14 @@ const TINTE: Record<string, [string, string]> = {
 }
 const TINTE_OTRO: [string, string] = ['#8a929e', '#646d79']
 
-const TEMA = {
+const THEME = {
   dark: { bg: '#1e2022', ink: '#e6e8eb', dim: '#8a929e', accent: '#5db0ff' },
   light: { bg: '#f7f7f5', ink: '#1f2329', dim: '#646d79', accent: '#2563eb' },
 }
 
-let modo: 'dark' | 'light' = 'dark'
+let mode: 'dark' | 'light' = 'dark'
 let highlight = false
-let aumento = 1 // multiplicador sobre el encuadre completo
+let zoom = 1 // multiplicador sobre el encuadre completo
 
 // ⚠ ESTAS DOS SON VARIABLES DEL BANCO, NO CONCLUSIONES. La primera version pintaba la punta a 5 px
 // fijos y pegada al nodo destino, y en el conjunto no se leia. Antes de concluir que la direccion
@@ -67,26 +67,26 @@ let arrowMid = true
 // gris del tema y se puede recorrer: 1 es el color puro, 0 seria el gris de hoy. Los tres valores
 // se ven, se compara, y se elige.
 const FUERZAS = [1, 0.55, 0.3]
-let fuerza = 0.55
+let force = 0.55
 
 let sim: Simulator | null = null
 let model: GraphModel | null = null
-let foco: string | null = null
-let encendidos = new Set<string>()
+let focus: string | null = null
+let lit = new Set<string>()
 
 const VARIANTES = [
-  { id: 'A', nombre: 'HOY', note: 'la referencia', arrows: false, tintes: false },
-  { id: 'B', nombre: 'FLECHAS', note: 'direccion en el extremo', arrows: true, tintes: false },
-  { id: 'C', nombre: 'TINTES', note: 'tipo en el color del trazo', arrows: false, tintes: true },
-  { id: 'D', nombre: 'LAS DOS', note: 'arrows y tintes a la vez', arrows: true, tintes: true },
+  { id: 'A', name: 'HOY', note: 'la referencia', arrows: false, tintes: false },
+  { id: 'B', name: 'FLECHAS', note: 'direccion en el extremo', arrows: true, tintes: false },
+  { id: 'C', name: 'TINTES', note: 'tipo en el color del trazo', arrows: false, tintes: true },
+  { id: 'D', name: 'LAS DOS', note: 'arrows y tintes a la vez', arrows: true, tintes: true },
 ]
 
 const W = 560
 const H = 380
 
-function asentar(s: Simulator, tope = 600) {
+function asentar(s: Simulator, cap = 600) {
   let n = 0
-  while (n < tope && s.step()) n++
+  while (n < cap && s.step()) n++
   return n
 }
 
@@ -96,12 +96,12 @@ function vistaDe(s: Simulator) {
   const k = Math.min(
     Math.min(W / Math.max(c.x1 - c.x0, 1), H / Math.max(c.y1 - c.y0, 1)) * 0.9,
     4,
-  ) * aumento
+  ) * zoom
   let cx = (c.x0 + c.x1) / 2
   let cy = (c.y0 + c.y1) / 2
   // Al acercarse, la camara va al nodo del resalte: si no, se acerca a un trozo vacio.
-  if (aumento > 1 && foco) {
-    const nd = s.nodes.find((n) => n.id === foco)
+  if (zoom > 1 && focus) {
+    const nd = s.nodes.find((n) => n.id === focus)
     if (nd) {
       cx = nd.x ?? cx
       cy = nd.y ?? cy
@@ -116,7 +116,7 @@ const hex = (c: string) => [
 const aHex = (v: number[]) => '#' + v.map((n) => Math.round(n).toString(16).padStart(2, '0')).join('')
 
 /** Mezcla el tinte con el gris del tema. `f`=1 es el color puro, `f`=0 el gris de hoy. */
-function apaga(color: string, gris: string, f: number) {
+function dim(color: string, gris: string, f: number) {
   const a = hex(color)
   const b = hex(gris)
   return aHex(a.map((v, i) => v * f + b[i] * (1 - f)))
@@ -136,16 +136,16 @@ function contraste(c1: string, c2: string) {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
 }
 
-function colorArista(e: GraphEdge, tintes: boolean, t: typeof TEMA.dark) {
+function edgeColor(e: GraphEdge, tintes: boolean, t: typeof THEME.dark) {
   if (!tintes) return t.dim
-  const par = e.layer === 'relation' ? (TINTE[e.predicate ?? ''] ?? TINTE_OTRO) : TINTE_OTRO
-  return apaga(par[modo === 'dark' ? 0 : 1], t.dim, fuerza)
+  const pair = e.layer === 'relation' ? (TINT[e.predicate ?? ''] ?? TINTE_OTRO) : TINTE_OTRO
+  return dim(pair[mode === 'dark' ? 0 : 1], t.dim, force)
 }
 
-function pinta(cv: HTMLCanvasElement, v: { arrows: boolean; tintes: boolean }) {
+function paint(cv: HTMLCanvasElement, v: { arrows: boolean; tintes: boolean }) {
   if (!sim) return
-  const t = TEMA[modo]
-  const vista = vistaDe(sim)
+  const t = THEME[mode]
+  const view = vistaDe(sim)
   const dpr = window.devicePixelRatio || 1
   cv.width = W * dpr
   cv.height = H * dpr
@@ -155,28 +155,28 @@ function pinta(cv: HTMLCanvasElement, v: { arrows: boolean; tintes: boolean }) {
   ctx.fillRect(0, 0, W, H)
 
   const P = (n: { x?: number; y?: number }) => ({
-    x: ((n.x ?? 0) - vista.cx) * vista.k + W / 2,
-    y: ((n.y ?? 0) - vista.cy) * vista.k + H / 2,
+    x: ((n.x ?? 0) - view.cx) * view.k + W / 2,
+    y: ((n.y ?? 0) - view.cy) * view.k + H / 2,
   })
-  const dentro = (p: { x: number; y: number }) => p.x > -48 && p.x < W + 48 && p.y > -48 && p.y < H + 48
+  const inside = (p: { x: number; y: number }) => p.x > -48 && p.x < W + 48 && p.y > -48 && p.y < H + 48
 
-  const enFoco = (id: string) => !highlight || encendidos.has(id)
+  const inFocus = (id: string) => !highlight || lit.has(id)
 
   // ── Aristas ────────────────────────────────────────────────────────────────────────────
   // Dos pasadas, apagadas primero, para que lo encendido quede por encima. Es lo que hace el
   // pintor de verdad, y aqui importa mas: con tintes, el orden decide que color se ve.
-  for (const pasada of [0, 1]) {
+  for (const pass of [0, 1]) {
     for (const nd of sim.edges) {
       const a = nd.source as unknown as { id: string; x?: number; y?: number }
       const b = nd.target as unknown as { id: string; x?: number; y?: number }
-      const alive = enFoco(a.id) && enFoco(b.id)
-      if ((pasada === 0) === alive) continue
+      const alive = inFocus(a.id) && inFocus(b.id)
+      if ((pass === 0) === alive) continue
       const p = P(a)
       const q = P(b)
-      if (!dentro(p) && !dentro(q)) continue
+      if (!inside(p) && !inside(q)) continue
 
       ctx.globalAlpha = alive ? 1 : 0.3
-      ctx.strokeStyle = colorArista(nd.e, v.tintes, t)
+      ctx.strokeStyle = edgeColor(nd.e, v.tintes, t)
       ctx.lineWidth = 1.2
       ctx.setLineDash(DASH[nd.e.layer] ?? [])
       ctx.beginPath()
@@ -191,19 +191,19 @@ function pinta(cv: HTMLCanvasElement, v: { arrows: boolean; tintes: boolean }) {
         const dx = q.x - p.x
         const dy = q.y - p.y
         const d = Math.hypot(dx, dy) || 1
-        const rDest = screenRadius(radioNodoDe(b.id), vista.k)
+        const rDest = screenRadius(radioNodoDe(b.id), view.k)
         // En el extremo, justo antes del nodo. O a media arista, que es zona limpia: en el extremo
         // la punta compite con el propio nodo y con todo lo que se cruce ahi.
-        const retro = arrowMid ? d * 0.5 : rDest + 1
-        const ex = q.x - (dx / d) * retro
-        const ey = q.y - (dy / d) * retro
+        const setback = arrowMid ? d * 0.5 : rDest + 1
+        const ex = q.x - (dx / d) * setback
+        const ey = q.y - (dy / d) * setback
         const a1 = Math.atan2(dy, dx)
-        const largo = Math.min(arrowPx, d * 0.35)
+        const length = Math.min(arrowPx, d * 0.35)
         ctx.beginPath()
         ctx.moveTo(ex, ey)
-        ctx.lineTo(ex - largo * Math.cos(a1 - 0.42), ey - largo * Math.sin(a1 - 0.42))
+        ctx.lineTo(ex - length * Math.cos(a1 - 0.42), ey - length * Math.sin(a1 - 0.42))
         ctx.moveTo(ex, ey)
-        ctx.lineTo(ex - largo * Math.cos(a1 + 0.42), ey - largo * Math.sin(a1 + 0.42))
+        ctx.lineTo(ex - length * Math.cos(a1 + 0.42), ey - length * Math.sin(a1 + 0.42))
         ctx.stroke()
       }
     }
@@ -215,11 +215,11 @@ function pinta(cv: HTMLCanvasElement, v: { arrows: boolean; tintes: boolean }) {
   // que puede pelearse con los tintes de arista.
   for (const nd of sim.nodes) {
     const p = P(nd)
-    if (!dentro(p)) continue
-    ctx.globalAlpha = enFoco(nd.id) ? 1 : 0.3
+    if (!inside(p)) continue
+    ctx.globalAlpha = inFocus(nd.id) ? 1 : 0.3
     ctx.fillStyle = projColor(nd.n.project)
     ctx.beginPath()
-    ctx.arc(p.x, p.y, screenRadius(nodeRadius(nd.n), vista.k), 0, Math.PI * 2)
+    ctx.arc(p.x, p.y, screenRadius(nodeRadius(nd.n), view.k), 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.globalAlpha = 1
@@ -233,55 +233,55 @@ function radioNodoDe(id: string) {
 function pintaTodo() {
   for (const v of VARIANTES) {
     const cv = document.getElementById('cv-' + v.id) as HTMLCanvasElement
-    if (cv) pinta(cv, v)
+    if (cv) paint(cv, v)
   }
-  const t = TEMA[modo]
+  const t = THEME[mode]
   const cs = ['links_to', 'derived_from', 'depends_on'].map((k) => {
-    const c = apaga(TINTE[k][modo === 'dark' ? 0 : 1], t.dim, fuerza)
+    const c = dim(TINT[k][mode === 'dark' ? 0 : 1], t.dim, force)
     return `${k} ${c} (${contraste(c, t.bg).toFixed(1)}:1)`
   })
   info.innerHTML =
-    `tema ${modo} · resalte ${highlight ? 'ON (' + encendidos.size + ' encendidos)' : 'off'} · ` +
-    `aumento ${aumento}x · punta ${arrowPx} px ${arrowMid ? 'a media arista' : 'en el extremo'} · ` +
-    `<b>tinte al ${Math.round(fuerza * 100)}%</b><br><small>contraste contra el fondo: ` +
+    `tema ${mode} · resalte ${highlight ? 'ON (' + lit.size + ' encendidos)' : 'off'} · ` +
+    `aumento ${zoom}x · punta ${arrowPx} px ${arrowMid ? 'a media arista' : 'en el extremo'} · ` +
+    `<b>tinte al ${Math.round(force * 100)}%</b><br><small>contraste contra el fondo: ` +
     `${cs.join(' · ')} · el gris de hoy da ${contraste(t.dim, t.bg).toFixed(1)}:1</small>`
 }
 
 function monta() {
-  rejilla.innerHTML = ''
+  grid.innerHTML = ''
   for (const v of VARIANTES) {
     const fig = document.createElement('figure')
     const cap = document.createElement('figcaption')
-    cap.innerHTML = `<b>${v.id} · ${v.nombre}</b> <small>${v.note}</small>`
+    cap.innerHTML = `<b>${v.id} · ${v.name}</b> <small>${v.note}</small>`
     const cv = document.createElement('canvas')
     cv.id = 'cv-' + v.id
     cv.style.width = W + 'px'
     cv.style.height = H + 'px'
     fig.appendChild(cap)
     fig.appendChild(cv)
-    rejilla.appendChild(fig)
+    grid.appendChild(fig)
   }
 }
 
 async function main() {
-  estado.textContent = 'cargando el grafo real...'
+  state.textContent = 'cargando el grafo real...'
   const [tree, graph] = await Promise.all([
     fetch('/api/tree').then((r) => r.json() as Promise<TreeRow[]>),
     fetch('/api/graph').then((r) => r.json() as Promise<GraphResponse>),
   ])
 
   model = buildGraph(tree, graph, new Map(), { ...defaultFilters(), hideIsolated: false })
-  estado.textContent = `asentando ${model.nodes.length} nodos...`
+  state.textContent = `asentando ${model.nodes.length} nodos...`
   sim = createSimulator(model)
-  const pasos = asentar(sim)
+  const steps = asentar(sim)
   for (const n of sim.nodes) radios.set(n.id, nodeRadius(n.n))
 
   // El foco del resalte: el nodo de MAYOR grado, que es donde el choque entre tinte y estado se
   // ve mejor. Con un nodo de grado 1 no se juzga nada.
-  let mejor = sim.nodes[0]
-  for (const n of sim.nodes) if (n.n.degree > (mejor?.n.degree ?? 0)) mejor = n
-  foco = mejor?.id ?? null
-  encendidos = new Set([foco!, ...(sim.neighbors(foco!) ?? [])])
+  let best = sim.nodes[0]
+  for (const n of sim.nodes) if (n.n.degree > (best?.n.degree ?? 0)) best = n
+  focus = best?.id ?? null
+  lit = new Set([focus!, ...(sim.neighbors(focus!) ?? [])])
 
   const porTipo = new Map<string, number>()
   for (const e of model.edges) {
@@ -289,17 +289,17 @@ async function main() {
     porTipo.set(e.predicate ?? '(sin)', (porTipo.get(e.predicate ?? '(sin)') ?? 0) + 1)
   }
 
-  estado.textContent =
-    `${model.nodes.length} nodos · ${model.edges.length} aristas · ${pasos} pasos · ` +
+  state.textContent =
+    `${model.nodes.length} nodos · ${model.edges.length} aristas · ${steps} pasos · ` +
     `relaciones por tipo: ${[...porTipo].map(([k, n]) => `${k} ${n}`).join(' · ')} · ` +
-    `foco en la de mayor grado (${mejor?.n.degree} vecinos)`
+    `foco en la de mayor grado (${best?.n.degree} vecinos)`
 
   monta()
   pintaTodo()
 
   document.getElementById('theme')!.addEventListener('click', () => {
-    modo = modo === 'dark' ? 'light' : 'dark'
-    document.documentElement.dataset.theme = modo
+    mode = mode === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = mode
     pintaTodo()
   })
   document.getElementById('highlight')!.addEventListener('click', () => {
@@ -308,7 +308,7 @@ async function main() {
   })
   for (const z of [1, 2, 4]) {
     document.getElementById('z' + z)!.addEventListener('click', () => {
-      aumento = z
+      zoom = z
       pintaTodo()
     })
   }
@@ -321,11 +321,11 @@ async function main() {
     pintaTodo()
   })
   document.getElementById('fuerza')!.addEventListener('click', () => {
-    fuerza = FUERZAS[(FUERZAS.indexOf(fuerza) + 1) % FUERZAS.length]
+    force = FUERZAS[(FUERZAS.indexOf(force) + 1) % FUERZAS.length]
     pintaTodo()
   })
 }
 
 main().catch((e) => {
-  estado.textContent = 'fallo: ' + (e instanceof Error ? e.message : String(e))
+  state.textContent = 'fallo: ' + (e instanceof Error ? e.message : String(e))
 })

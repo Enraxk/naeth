@@ -229,11 +229,11 @@ export const localStore: Store = {
     try {
       const s = localStorage.getItem(LS_KEY)
       if (s) return JSON.parse(s)
-      const viejo = localStorage.getItem(LS_KEY_LEGACY)
-      if (!viejo) return null
-      const migrado = migrateKeys(JSON.parse(viejo))
-      localStorage.setItem(LS_KEY, JSON.stringify(migrado))
-      return migrado
+      const old = localStorage.getItem(LS_KEY_LEGACY)
+      if (!old) return null
+      const migrated = migrateKeys(JSON.parse(old))
+      localStorage.setItem(LS_KEY, JSON.stringify(migrated))
+      return migrated
     } catch {
       return null
     }
@@ -247,7 +247,7 @@ export const localStore: Store = {
   },
 }
 
-let almacen: Store = localStore
+let store: Store = localStore
 
 /**
  * LA SALIDA DE EMERGENCIA: `#/graph?reset` borra los ajustes ANTES de que se lea nada.
@@ -260,7 +260,7 @@ let almacen: Store = localStore
  * Se ejecuta al IMPORTAR el modulo, antes del `$state` de abajo, que es el unico momento en el que
  * llega a tiempo. Va en try/catch porque en el entorno `node` de los tests no hay `location`.
  */
-function reseteoPorURL(): boolean {
+function resetFromURL(): boolean {
   try {
     if (typeof location === 'undefined') return false
     const h = location.hash || ''
@@ -275,15 +275,15 @@ function reseteoPorURL(): boolean {
     // defecto de 300x150 y sin pintar nada. O sea que la salida de emergencia dejaba el grafo tan
     // roto como lo habia encontrado, solo que por otro motivo. `replaceState` cambia la barra en
     // silencio, sin navegar.
-    const limpio = h.replace(/[?&]reset\b/, '').replace(/[?&]$/, '')
-    history.replaceState(null, '', location.pathname + location.search + limpio)
+    const clean = h.replace(/[?&]reset\b/, '').replace(/[?&]$/, '')
+    history.replaceState(null, '', location.pathname + location.search + clean)
     return true
   } catch {
     return false
   }
 }
 
-export const wasReset = reseteoPorURL()
+export const wasReset = resetFromURL()
 
 /**
  * Valida UN valor contra su mando. Devuelve el de fabrica si no cuadra.
@@ -324,16 +324,16 @@ export function sanitize(bruto: unknown): Values {
 }
 
 /** El estado vivo. Lo leen el Lienzo en cada frame y el panel para pintar sus mandos. */
-export const graphPrefs = $state<Values>(sanitize(almacen.read()))
+export const graphPrefs = $state<Values>(sanitize(store.read()))
 
-function guarda() {
-  almacen.write({ ...graphPrefs })
+function save() {
+  store.write({ ...graphPrefs })
 }
 
 /** Cambia un mando. Valida siempre: al panel se le puede colar un valor por el camino. */
 export function set<K extends Key>(k: K, v: Values[K]) {
   graphPrefs[k] = validate(k, v) as never
-  guarda()
+  save()
 }
 
 /** Vuelve a fabrica, un grupo o entero. Es la salida de emergencia de mano. */
@@ -343,7 +343,7 @@ export function restore(group?: Group) {
     if (group && CATALOG[k].group !== group) continue
     graphPrefs[k] = f[k] as never
   }
-  guarda()
+  save()
 }
 
 /** Borra lo guardado y vuelve a fabrica. La usa `?reset`, y los tests entre casos. */
@@ -360,7 +360,7 @@ export function forgetPrefs() {
 
 /** Cambia el almacen. Para los tests hoy, y para F3 el dia que las preferencias viajen. */
 export function useStore(a: Store) {
-  almacen = a
+  store = a
   const v = sanitize(a.read())
   for (const k of KEYS) graphPrefs[k] = v[k] as never
 }
@@ -377,6 +377,6 @@ export function changed(): Key[] {
 }
 
 /** Los mandos de un grupo, en el orden del catalogo. Lo usa el panel. */
-export function controlsOf(group: Group): { clave: Key; mando: Control }[] {
-  return KEYS.filter((k) => CATALOG[k].group === group).map((k) => ({ clave: k, mando: CATALOG[k] }))
+export function controlsOf(group: Group): { key: Key; mando: Control }[] {
+  return KEYS.filter((k) => CATALOG[k].group === group).map((k) => ({ key: k, mando: CATALOG[k] }))
 }
