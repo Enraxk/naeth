@@ -107,3 +107,30 @@ para `naeth.dev`. A 15/09 `finally` ya es VPS y tiene los endpoints públicos; l
 quién manda y quién replica, que es lo que CENIT resuelve con el failover.
 
 Queda: la biblioteca (entrada a CDA, libro = repo).
+
+## Anexo D · La biblioteca, primera ronda (15/09/2026, 23:10)
+
+Tres propuestas nuevas tras descartar G y H: `B-I-indice.png` (índice tipográfico, la línea mide
+las páginas), `B-III-lomos-reales.png` (lomos con las reglas de imprenta: pegados, grosor = páginas,
+título en vertical, marca de editorial al pie, cinta en el que lees) y `B-II-pila.png` (libros
+tumbados en una pila, el gordo abajo, el que lees asoma, detalle a la derecha). Lo que no cuadraba
+en G, comprobado contra las guías de imprenta: lomos de igual ancho y distinta altura (al revés),
+separados en vez de pegados, y el título en horizontal.
+
+Eneko elige **II, la pila**, y añade:
+
+1. **Los logos en los lomos.** Cada libro lleva el logo de su proyecto en el lomo.
+2. **Un libro por proyecto, no por repo**: Yogin no tiene sentido como dos libros. Pendiente de
+   decidir cómo se representa un proyecto con dos repos (¿un libro con dos partes o tomos?), porque
+   el plan dice libro = repo y `code_block.repo` es el repo.
+3. **Imágenes de stock para los lomos**, para que no se vean planos. ⚠ Pendiente medir qué pesa
+   eso en el visor y dónde viven las imágenes.
+4. **Estanterías** cuando haya más de N repos: no una megapila. Las pilas se agrupan en baldas.
+5. Idea aparte, apuntada: la metáfora de libros podría valer también para Naeth, sus notas y nodos.
+
+Solo Naeth tiene páginas reales (131); las demás son ≈ por líneas de código, marcadas con ≈.
+
+**Orden propuesto para iterar, una pieza cada vez**: primero **el libro** (un solo objeto: lomo con
+logo, textura, grosor, cinta, estados leyendo / sin empezar / por llegar), porque la pila y la
+estantería se construyen con él; después la pila (asomar, levantar al pasar el ratón, detalle);
+después la estantería (cuántas pilas por balda, cómo se agrupan); el detalle al final.
