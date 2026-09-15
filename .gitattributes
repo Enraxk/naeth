@@ -3,3 +3,7 @@
 # que pesan 660 KB, el 91% de todo el HTML, escondiendo que el codigo real es
 # Python (77 KB), Svelte (64 KB) y TypeScript (26 KB).
 pasos/*.html linguist-generated=true
+
+# Los .pen de Pencil son JSON que la app escribe con LF; sin esto, autocrlf los
+# reescribe en CRLF en cada checkout y el diff se ensucia entero (visto el 15/09/2026).
+*.pen text eol=lf
