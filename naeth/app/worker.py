@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """Worker de embeddings (Paso 6 §7, Paso 7 §2). Drena la cola `job` (kind=embed),
 genera el embedding en CPU y hace UPDATE memory SET embedding (mutacion LOCAL, no
 sincronizada). El bus async esconde el coste real (~100 notas/s, Paso 3).

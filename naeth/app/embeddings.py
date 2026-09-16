@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """Embeddings por-nodo (Paso 6 §7, Paso 7 §8).
 
 Modelo y dimension configurables por env var. Fase 1 local: multilingual-e5-small

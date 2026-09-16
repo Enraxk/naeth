@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // Fase 0 del panel de ajustes: cuanto cuesta mover un deslizador de fisica.
 //
 // LA PREGUNTA. El panel va a tener deslizadores para la distancia de arista y la repulsion. Un

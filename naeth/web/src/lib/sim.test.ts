@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 import { describe, expect, it } from 'vitest'
 import { createSimulator, litFrom, nodeRadius } from './sim'
 import type { GraphEdge, GraphModel, GraphNode } from './graph'

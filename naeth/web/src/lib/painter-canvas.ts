@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // Pintor de canvas 2D. La implementacion elegida en la fase 0 del plan del 05/09/2026.
 //
 // La eleccion no fue por lo que cuesta hoy, que hoy da igual: los cuatro motores medidos pasan de

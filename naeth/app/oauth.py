@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """OAuth 2.1 Authorization Server de Naeth respaldado en Postgres (Paso 7 §5, Fase 3b).
 
 Subclasa `OAuthProvider` de FastMCP: FastMCP aporta discovery (RFC 8414/9728), PKCE S256,

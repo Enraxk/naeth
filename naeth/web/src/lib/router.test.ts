@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Contrato del router: las rutas en ingles desde la 2.2026.09.3 (15/09/2026), y las viejas en

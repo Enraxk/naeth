@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """Tests del worker de embeddings.
 
 El foco está en lo que falló de verdad: los jobs que se quedan colgados. El caso feliz (hay un

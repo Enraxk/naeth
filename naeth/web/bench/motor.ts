@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // Banco de pruebas del motor del grafo. Fase 0 del plan del 05/09/2026.
 //
 // Responde UNA pregunta y nada mas: con la simulacion viva y el corpus real, mas su proyeccion a

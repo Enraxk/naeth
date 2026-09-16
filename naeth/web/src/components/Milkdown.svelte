@@ -1,3 +1,5 @@
+<!-- Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+     No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE -->
 <script module lang="ts">
   // API que el wrapper expone hacia el toolbar (todo corre dentro del chunk lazy).
   export interface EditorApi {

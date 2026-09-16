@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """Reintentos del discovery del IdP (`mcp_server._retry_discovery`).
 
 Existen por el incidente del 30/07/2026: `_build_auth()` corre al importar el modulo, asi

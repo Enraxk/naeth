@@ -1,0 +1,7 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0.
+# No AI training. Text and data mining rights expressly reserved
+# (Directive (EU) 2019/790 art. 4(3); Spain, RDL 24/2021 art. 67.3).
+# https://github.com/Enraxk/naeth/blob/main/LICENSE
+User-Agent: *
+Disallow: /
+Disallow: *

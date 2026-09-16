@@ -1,21 +1,139 @@
-MIT License
+Naeth License 1.0
 
 Copyright (c) 2026 Eneko Lapuente Bascuñana
+https://naeth.dev
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This license lets you use, study, change and share this software for any
+noncommercial purpose, as long as you credit it, keep these terms, and do not
+use it to train or feed artificial intelligence systems. Any other use needs a
+separate written license from the licensor.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Definitions
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  "Software" means the source code, binaries, documentation, designs, data
+  schemas and any other material in this repository, and any part of it.
+
+  "Licensor" means Eneko Lapuente Bascuñana, the copyright holder.
+
+  "You" means the individual or entity exercising rights under these terms.
+
+  "Commercial purpose" means any purpose intended for or directed toward
+  commercial advantage or monetary compensation, including but not limited
+  to: selling the Software or access to it; offering it, or a service built
+  on it, for a fee; using it to operate a business; and using it inside a
+  product or service that is sold, licensed or monetised in any way.
+
+  "Noncommercial purpose" means any purpose that is not a commercial
+  purpose, including personal use, study, research, teaching and evaluation.
+  Use by nonprofit organisations, public educational institutions and public
+  research bodies is noncommercial unless it falls within a commercial
+  purpose as defined above.
+
+  "AI system" means any machine learning model, large language model, neural
+  network, or other automated system that learns from or is improved by data,
+  and any dataset, corpus or index prepared for that purpose.
+
+2. Grant
+
+  Subject to these terms, the Licensor grants you a worldwide, non-exclusive,
+  royalty-free, non-transferable license to use, copy, modify and distribute
+  the Software, in source or object form, with or without changes, for any
+  noncommercial purpose.
+
+3. No commercial use
+
+  You may not use the Software, any part of it, or any work derived from it,
+  for a commercial purpose. Commercial use requires a separate written
+  license from the Licensor. The Licensor is not bound by these terms and may
+  use and license the Software commercially at their sole discretion.
+
+4. Attribution
+
+  Any work that uses, includes, adapts or is derived from the Software or
+  any part of it must give explicit credit, in its documentation and wherever
+  it credits third-party components, in this form or an equivalent one:
+
+      Contains <component or part used> from Naeth (https://naeth.dev),
+      by Eneko Lapuente Bascuñana, under the Naeth License 1.0.
+
+  The credit must name the part or parts actually used (for example a
+  module, a schema, a design, an algorithm or a document), not only the
+  project. Where the work has a user interface, the credit must also be
+  reachable from it (an "about" or "credits" screen is enough).
+
+5. Notices
+
+  Any copy or distribution of the Software, in whole or in part, with or
+  without changes, must include a copy of these terms or the URL
+  https://github.com/Enraxk/naeth/blob/main/LICENSE, keep all copyright and license notices in the
+  files, and clearly mark any change you made and the date of the change.
+
+6. Artificial intelligence
+
+  6.1 You may not use the Software, any part of it, or any work derived from
+      it, to train, fine-tune, evaluate, improve or otherwise develop an AI
+      system, and you may not include it in any dataset, corpus or index used
+      for that purpose. This applies whether the AI system is public or
+      private, commercial or not.
+
+  6.2 Text and data mining reservation. Pursuant to Article 4(3) of Directive
+      (EU) 2019/790 and its national transpositions (in Spain, article 67.3
+      of Real Decreto-ley 24/2021), the Licensor expressly reserves all rights to text and
+      data mining of the Software. This reservation is made in this file, in
+      the machine-readable notices published at https://naeth.dev and in the
+      repository, and in the license header of each file.
+
+  6.3 Any output of an AI system that reproduces the Software or a
+      substantial part of it, literally or in a recognisably derived form, is
+      a derivative work of the Software and is subject to these terms in
+      full, including sections 3, 4 and 5.
+
+7. Patents
+
+  The Licensor grants you a license under any patent claims they can license
+  that would be infringed by the Software as provided, for the uses allowed
+  by these terms. If you or your company make any written claim that the
+  Software infringes a patent, your patent license ends immediately.
+
+8. Termination
+
+  If you break any of these terms, your license ends automatically. You may
+  cure a first violation of sections 4 or 5 within 30 days of learning of it,
+  in which case your license is reinstated; violations of sections 3 or 6
+  are not curable. Termination does not end the obligations of sections 4,
+  5 and 6 for copies already made.
+
+9. No sublicensing
+
+  These terms do not allow you to sublicense or transfer any of your rights
+  to anyone else. Anyone who receives the Software from you receives their
+  own license directly from the Licensor under these terms.
+
+10. Disclaimer and liability
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+11. Law and forum
+
+  These terms are governed by the laws of Spain. Any dispute will be brought
+  before the courts of the Licensor's domicile, without prejudice to any
+  mandatory consumer or jurisdictional rule that applies to you.
+
+12. Earlier versions
+
+  Versions of the Software published before 16 September 2026 (up to and
+  including the tag 2.2026.09.3) were released under the MIT License, and
+  those copies remain under that license. Everything published from this
+  date on is under the Naeth License 1.0.
+
+Commercial licensing and questions: enekolapuentebas@gmail.com
+
+
+Required Notice: Naeth (c) 2026 Eneko Lapuente Bascuñana. Noncommercial use
+only, with attribution. No AI training; text and data mining rights reserved.
+https://github.com/Enraxk/naeth/blob/main/LICENSE

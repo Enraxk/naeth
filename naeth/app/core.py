@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """Nucleo de acceso a Postgres (Paso 6). Unica capa que escribe/lee la BD; impone
 ADD-only. La API (visor) y, mas adelante, MCP y OAuth son fachadas sobre esto.
 

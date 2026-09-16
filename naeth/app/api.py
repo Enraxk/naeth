@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """Punto de entrada del proceso FastAPI/uvicorn (compose: `uvicorn app.api:app`).
 
 La app principal es el http_app de FastMCP (app/mcp_server.py): un solo proceso sirve el

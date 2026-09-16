@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // Las preferencias del grafo: lo que antes eran constantes del codigo y ahora son mandos de Eneko.
 //
 // POR QUE EXISTE. Cada valor del grafo (el umbral del texto, el radio de un nodo, la distancia de

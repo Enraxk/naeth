@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // Iconos lucide como paths inline (zero-build), igual que en v1.
 export const P: Record<string, string> = {
   'chevron-down': '<path d="M6 9l6 6 6-6"/>',

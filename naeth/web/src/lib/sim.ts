@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // La fisica del grafo. Logica pura: sin DOM, sin Svelte, sin canvas.
 //
 // POR QUE EXISTE ESTE FICHERO. El prototipo del 04/09 calculaba el grafo entero y lo pintaba ya

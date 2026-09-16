@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // Router por location.hash (sobrevive a recargas): #/home, #/m/<id>, #/graph…
 export type View = 'home' | 'graph' | 'new' | 'status' | 'settings' | 'memory'
 const VIEWS = ['home', 'graph', 'new', 'status', 'settings']

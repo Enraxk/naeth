@@ -169,3 +169,19 @@ wrong, which is usually the useful part. Those documents are in Spanish.
 
 Running on a single node. Multi-node sync is the next step: `embedding` and `is_current` are
 per-node and deliberately do not replicate.
+
+## License
+
+Naeth is source-available under the [Naeth License 1.0](LICENSE): free for any
+noncommercial use, with explicit credit naming the part you used, and no use for
+training or feeding AI systems (text and data mining rights are expressly reserved
+under Directive (EU) 2019/790 art. 4(3) and RDL 24/2021 art. 67.3; see
+[`ai.txt`](naeth/web/public/ai.txt) and
+[`.well-known/tdmrep.json`](naeth/web/public/.well-known/tdmrep.json)). Commercial
+use needs a written license from the author: enekolapuentebas@gmail.com. Versions
+up to tag `2.2026.09.3` were published under MIT and stay MIT.
+
+En castellano: puedes usar, estudiar, cambiar y compartir Naeth para cualquier fin
+no comercial, dando crédito explícito de la parte que uses y sin entrenar ni
+alimentar sistemas de IA con él. Ganar dinero con Naeth, o con una parte, requiere
+una licencia escrita del autor.

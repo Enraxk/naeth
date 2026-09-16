@@ -1,3 +1,5 @@
+# Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+# No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 """Servidor MCP de Naeth (Paso 7 §4/§5). Fachada Streamable HTTP sobre el mismo `core`
 ADD-only del Paso 6: no duplica lógica. Lo consumen Claude Code (loopback, 8801) y
 claude.ai (túnel y OAuth, memory.enraxk.dev).

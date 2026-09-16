@@ -1,3 +1,5 @@
+// Naeth (c) 2026 Eneko Lapuente Bascuñana. Naeth License 1.0: noncommercial use only, with attribution.
+// No AI training; text and data mining rights reserved. https://github.com/Enraxk/naeth/blob/main/LICENSE
 // El contrato del pintado del grafo, y lo que comparten todos los pintores.
 //
 // POR QUE HAY UN CONTRATO Y NO UN PINTOR A SECAS. Medido el 05/09/2026
