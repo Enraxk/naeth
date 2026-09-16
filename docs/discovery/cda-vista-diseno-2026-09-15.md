@@ -134,3 +134,37 @@ Solo Naeth tiene páginas reales (131); las demás son ≈ por líneas de códig
 logo, textura, grosor, cinta, estados leyendo / sin empezar / por llegar), porque la pila y la
 estantería se construyen con él; después la pila (asomar, levantar al pasar el ratón, detalle);
 después la estantería (cuántas pilas por balda, cómo se agrupan); el detalle al final.
+
+## Anexo E · El libro, decidido (16/09/2026, 18:20)
+
+Ocho vueltas en el `.pen` (frames "9 · El libro" v1 a v8, exportaciones `L-libro*.png`), con tres
+moodboards de Unsplash en el lienzo (lomos, colecciones, pilas). Lo que queda:
+
+- **Un libro es un repo** (`code_block.repo`). Yogin son dos libros con el mismo lomo, como una
+  colección de libros de texto (idea de Tania): mismo logo, tela y color de familia; cambia la parte
+  (API, Website) y una banda de color. El modelo no cambia.
+- **Forma: libro tumbado visto de canto, con la tapa de arriba en oblicuo** (A3 de la v8: 34 × 16),
+  el lomo de frente y el canto de páginas saliendo por la derecha en oblicuo. Proporción 6:1: 380 px
+  de largo; el grosor son las páginas, 0,36 px por página más 15 (Naeth 131 → 62; 45 → 31).
+  Tapa con degradado de luz y pliegue donde dobla, tapa de 3 px de gruesa en el canto, ceja de 2 px
+  en el lomo, curva del lomo con sombra y brillo fino. **Sin sombra** (B1): la tapa de abajo oscura
+  es el apoyo. La sombra suave queda solo para el libro que se levanta al pasar el ratón.
+- **Lomo**: el lockup del proyecto como título (Naeth, `docs/img/naeth-lockup-dark.svg`); los
+  proyectos sin lockup, símbolo más nombre. A la derecha, las cifras: leyendo, «24 capítulos · 131
+  páginas» y debajo «vas por la página 44 del capítulo 9»; sin empezar, solo la primera línea; por
+  llegar, la sub-fase.
+- **Canto**: hojas finas cada 3 px y la parte leída teñida (ámbar) proporcional a las páginas. Es
+  el único indicador de progreso en el objeto. Los pósits se descartaron (su información va al
+  detalle o a la portada); la cinta, la goma y los puntos por capítulo también.
+- **Tela por libro, del propio proyecto, teñida con su color**: Naeth un cielo de estrellas; CENIT
+  cables de red o fibra (es el Sistema Central de Interconexión, nota `0118a73a`); GridWatch alta
+  tensión; Yogin una sala de yoga. Imagen elegida por Eneko, un fichero por proyecto.
+- **Tres estados**: leyendo (tela de color, canto teñido), sin empezar (tela de color, canto crema),
+  por llegar (tela apagada, borde, sub-fase en vez de cifras).
+- **De un vistazo, antes de abrir**: qué libro es, cuánto tiene, cuánto llevas, si existe.
+
+Aparcado, en la lista: la portada al elegir un libro, con más información, y la animación de
+abrirlo hacia el índice; el color de familia debería salir del logo; los logos de los demás
+proyectos van a `docs/design/assets/logos/` cuando Eneko los copie.
+
+Siguiente: la pila con este libro.
