@@ -168,3 +168,30 @@ abrirlo hacia el índice; el color de familia debería salir del logo; los logos
 proyectos van a `docs/design/assets/logos/` cuando Eneko los copie.
 
 Siguiente: la pila con este libro.
+
+## Anexo F · La pila con el libro, la navegación y la página en móvil (17/09/2026, 16:00)
+
+- **La pila** (hojas 7): el que tiene el ratón encima se desliza 28 px tras 250 a 300 ms y vuelve
+  sin retardo al salir; gana la sombra suave solo mientras está fuera; **ningún libro se queda
+  sacado**; el detalle de la derecha anticipa el libro bajo el ratón. Arrastrar para ordenar,
+  aparcado (segunda vuelta, el orden lo guarda el usuario).
+- **Navegación D, elegida por Eneko** (hoja 8, tres secuencias dibujadas A, B y C): el libro es la
+  interfaz. Biblioteca → animación de sacar el libro → portada (vista nueva) → animación de abrir →
+  índice (seguir por donde ibas, resumen, cerrar) → páginas (página = bloque, capítulo = fichero) con
+  animación de pasar página. A (biblioteca portada, ficha a pantalla completa) queda de respaldo.
+  Reglas: animaciones cortas (< 400 ms), interrumpibles, `prefers-reduced-motion`; móvil primero
+  para la página.
+- **Lámina 0 · PLAN** en el `.pen`: checklist con hecho, siguiente en orden, reglas, aparcado y el
+  check «A Eneko se le ha vuelto a ocurrir otra cosa». Cada hoja lleva el número de su punto.
+- **Punto 1, la página en móvil, hecho** (hoja 9, `P1-movil-esencial.png`). Medido en el móvil de
+  Eneko (Nothing Phone 3a, Brave con la barra abajo): viewport útil ≈ 412 × 752. Decidido: **en
+  móvil solo lo esencial** (leer el bloque, moverse con botones, saber dónde estás, marcar
+  importante y anotar corto, salir al índice y a la biblioteca); **sin gestos** (Nothing OS y Brave
+  tienen los suyos); **sin el cromo del visor** (cabecera, rail, barra de estado se esconden al
+  leer); el código se parte, sin scroll horizontal; navegación como Olympus (lector de cómics):
+  cabecera fina arriba, contenido entero, y al final anterior y siguiente. Fuera en móvil: Code
+  Vision, tira, peek, lente, vecindario, copiar, GitHub, docstring en crudo; un símbolo del código
+  es un enlace a su página. **Nada del diseño móvil se reutiliza en escritorio** (dicho por Eneko).
+  El índice en móvil salió de rebote: lockup y cifras, «seguir leyendo», buscar, capítulos con
+  mini resumen (primera línea de la cabecera del fichero) y páginas leídas.
+- Siguiente: punto 2, la página doble en escritorio.
