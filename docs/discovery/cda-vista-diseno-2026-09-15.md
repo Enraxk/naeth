@@ -195,3 +195,49 @@ Siguiente: la pila con este libro.
   El índice en móvil salió de rebote: lockup y cifras, «seguir leyendo», buscar, capítulos con
   mini resumen (primera línea de la cabecera del fichero) y páginas leídas.
 - Siguiente: punto 2, la página doble en escritorio.
+
+## Anexo G · La página doble en escritorio, primera vuelta (17/09/2026, 23:20)
+
+- **Pantallas de Eneko**: 1920×1080 (secundaria) y 2560×1440 (principal). Se diseña a **1920×1000**
+  (Brave se come unos 80 px). El libro tiene tamaño: en 2560 **no se estira**, se centra en la mesa.
+- **Hoja 10 A** (`Pt2-doble-A-sin-carril.png`): libro abierto a todo el ancho, código a la izquierda
+  (1150 px) y vecindario + cuaderno a la derecha. Se dibujó también una B con el carril de la v4 como
+  atril (200 px); Eneko no vio diferencia, y si no se nota es que sobra: **B borrada**.
+- **Feedback de Eneko sobre A**: no se siente libro (sin marco, lomo plano, páginas asimétricas);
+  el minimapa tiene que ser como CodeGlance en IntelliJ, **translúcido y encima del código**, y hacer
+  de scrollbar; el índice es lo primero al abrir el libro, «volver al índice» hojea hacia atrás y la
+  página que dejas queda con **marcapáginas temporal** (uno por libro; lo permanente es «importante»);
+  las dos secciones de la derecha no arrancaban en la misma vertical (sangrado heredado de la pieza 3).
+- **Hoja 10 A2** (`Pt2-doble-A2-reposo.png`, `Pt2-doble-A2-minimapa-hover.png`): marco de tapa de
+  14 px alrededor (color provisional `#2b3340`, la tela de Naeth cuando la haya), dos páginas
+  simétricas de 876 px (816 de línea, unos 100 caracteres a 13 px, el ancho de ruff), lomo de 40 px
+  como curva de sombra en cinco pasos, minimapa fuera del flujo: en reposo barra de 8 px con pulgar
+  (qué parte de la página ves) y rayas ámbar de aviso; con el ratón encima, minimapa de 128 px al 86 %
+  encima del código con las líneas en miniatura coloreadas, la ventana visible enmarcada y los avisos.
+  El contador «4 notas · ⚠ 2 avisos» pasa a chip de la cabecera. **El minimapa es de la página (el
+  bloque), no del fichero**: el mapa del fichero vive en el vecindario («24 bloques · 9 leídos»).
+  Esto supera «la tira siempre 48 px» del anexo B (decidido por Eneko el 17/09).
+- **Feedback de Eneko sobre A2, con cinco fotos de un cuaderno real** (tapa azul, cinta, sobre una
+  tela): «no está mal pero no termina de parecer un libro». Lo que las fotos enseñan y a A2 le falta:
+  1. **El taco de páginas**: bajo la página de arriba se ven los cantos de las demás, color crema,
+     como líneas apiladas en el borde exterior y abajo. Es lo que más dice «libro».
+  2. **La tapa sobresale** unos milímetros por fuera del taco, con esquinas redondeadas, y se ve
+     distinta según el ángulo: no es un marco uniforme de 14 px.
+  3. **La página no está plana**: se curva hacia el lomo con una sombra suave y se levanta un poco
+     en el borde; hay un gradiente de luz de fuera hacia dentro. «Esto va a ser difícil pero
+     podemos hacerlo».
+  4. **El lomo** es donde las dos páginas se hunden, con la cinta saliendo por abajo.
+  5. Las páginas llevan **marcas de esquina** pequeñas (en el cuaderno son las marcas de escaneo;
+     en la nuestra podrían ser el sitio del número de página).
+- **Más feedback A2**: en la página derecha (nodo `w1Ojp6`) sobra espacio al lado de las llamadas
+  (las filas del vecindario usan 390 de 816 px) y al final del cuaderno; para el cuaderno basta con
+  **bajar «anotar» al pie de la página**. El CodeGlance de IntelliJ hay que verlo en el navegador
+  integrado antes de adaptarlo del todo (esta noche los dos navegadores no pintaban; pendiente).
+  «Aun así falta pulir en general».
+- Siguiente: hoja 10 A3 con el taco de páginas, la tapa que sobresale, la curvatura, el lomo con
+  la cinta como marcapáginas (⚠ propuesta mía, no decidida: la cinta la descartó Eneko para el
+  libro cerrado de la pila, pero como marcapáginas temporal del libro abierto tiene otro papel),
+  el vecindario aprovechando el ancho y «anotar» al pie.
+- **Referencia de Eneko (23:14)**: otra forma de entender el libro digital es mirar **los libros de
+  los videojuegos** (Minecraft y otros): cómo dibujan la doble página, el paso de página y el marco
+  con poco. Pendiente de mirar antes de A3.
