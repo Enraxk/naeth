@@ -344,3 +344,17 @@ papeles) y de secuencia. Lo que queda, hoja 11 del `.pen`, tres dobles páginas:
   se reconstruyen o se copian, no se mueven. Y el índice de `Insert` no es fiable: `Move` después.
 - Pendiente del punto 3: la página 1 del índice pulida, el índice al volver desde una página, y la
   guarda trasera y la contraportada (caras de atrás).
+- **El índice, decidido (19:35)**: «como en un libro», no como un árbol (Eneko: parecía un explorador,
+  demasiadas cosas, no se leía como índice, faltaba el porqué de cada capítulo). **Partes por carpeta
+  de primer nivel** (I · El backend `app/`, II · El visor `web/src/`, III · Operación `ops/`) con sus
+  cifras; **título humano** por capítulo (la primera línea de la cabecera del fichero; si no la hay,
+  queda la ruta y se nota) con la ruta en pequeño, **resumen de una línea** debajo, línea de guía y
+  número de página a la derecha; «leído» / «9 de 41» / «24 pp.» antes de la página. **Sin iconos**:
+  los estados van por color y peso del texto (sin leer gris, leída tinta, importante ámbar, anotada
+  con un filo azul, donde vas en negrita con el número azul y «seguir por aquí»), el marcapáginas es
+  un filo azul en el margen del capítulo, las marcas del capítulo son texto («2 importantes ·
+  2 anotadas»), y la leyenda al pie de la página 1. Solo el capítulo en curso enseña sus páginas
+  (11 y «las 30 restantes»). **Buscador y filtros fuera del índice**, en la cabecera corrida; al
+  usarlos el índice se reduce a lo que casa («filtrar: importantes» en ámbar, «buscar: search» en
+  azul con el trozo en negrita). Tres densidades dibujadas (D1 título y página, D2 + leído, D3 +
+  resumen): D3. Hojas `eNcE4` (p. 1), `Z9Ejo` (p. 2), `s2VaL`, `u75Gd`, `eKEZs` (la forma sola).
