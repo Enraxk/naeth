@@ -358,3 +358,27 @@ papeles) y de secuencia. Lo que queda, hoja 11 del `.pen`, tres dobles páginas:
   usarlos el índice se reduce a lo que casa («filtrar: importantes» en ámbar, «buscar: search» en
   azul con el trozo en negrita). Tres densidades dibujadas (D1 título y página, D2 + leído, D3 +
   resumen): D3. Hojas `eNcE4` (p. 1), `Z9Ejo` (p. 2), `s2VaL`, `u75Gd`, `eKEZs` (la forma sola).
+
+## Anexo K · La portadilla de capítulo (punto 3b), decidida (18/09/2026, 20:20)
+
+Hoja 12 del `.pen` (`EUJ5k`), export `Pt3b-portadilla-capitulo.png`. Una doble página por capítulo,
+como toda página del libro; cuenta en la numeración (mcp_server.py es la 6).
+
+- **Izquierda, la apertura**: insignia con la extensión y filo de 6 px en el margen, en el **color
+  del lenguaje** (los de GitHub: Python `#3572a5`, TypeScript `#3178c6`, Svelte `#ff3e00`, PowerShell
+  `#5391fe`); «CAPÍTULO 1 · PARTE I, EL BACKEND» a 14 px en ese color; el título humano grande, la
+  ruta con las cifras del fichero (líneas, bloques, vigente, commit, fecha); la frase del capítulo; la
+  **cabecera del fichero renderizada** entera (los `⚠` en ámbar) con «ver en crudo»; el **esquema**
+  del capítulo dibujado (el fichero en el centro en su color, IMPORTA a la izquierda, LO USAN a la
+  derecha, con curvas; sale de `code_edge`); y al pie tu lectura del capítulo con «seguir por
+  memory_search, página 21 →» como texto azul (Eneko no quiso botón), o «empezar por…» si no lo has
+  abierto. Cuando haya logos por proyecto, la insignia puede llevar el símbolo del repo; el color por
+  lenguaje se queda.
+- **Derecha, «Antes de leer»**, lo que no está en el índice ni en la ficha: **LO QUE MUERDE** (los
+  `⚠` de todos sus docstrings, cada uno con su página), **LO QUE NAETH SABE DE ÉL** (las notas
+  enlazadas a sus bloques, con tipo, path y fecha) y **TUS ANOTACIONES AQUÍ**. Rótulos en su color
+  (ámbar, morado, azul) y los títulos de cada entrada en el mismo tono apagado (`#c4a06a`, `#a89bc4`,
+  `#82a9cc`). La lista «Sus páginas» se quitó: ya está en el índice.
+- Con el orden real de las 41 funciones, `memory_search` es la página 21; las hojas del índice usan
+  una lista corta (13). Es mock: con datos reales cuadra solo.
+- Siguiente: punto 4, la portada, y con ella las caras de atrás.
