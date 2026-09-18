@@ -291,3 +291,56 @@ Sexta vuelta del punto 2 en una mañana (A3, A4, A5, B1, B2, y las hojas de lomo
   (`FW9M5`, `kW3I1`), 2560 (`EhpkY`, `T365io`), taco (`XFRb3`), lomos (`ocOBo`, `UX5Gl`, `BPIzm`).
   Exports `Pt2-B1-*`, `Pt2-B2-*`, `Pt2-taco-segun-pagina`, `Pt2-lomos-*`.
 - Siguiente: punto 3, el índice en escritorio.
+
+## Anexo I · El índice en escritorio, lo que Eneko tiene en mente (18/09/2026, 14:35, dos rondas de AskUser)
+
+- **Forma**: entre «doble página, lista y detalle» (izquierda capítulos, derecha el detalle del
+  capítulo bajo el ratón) y «izquierda índice, derecha la ficha del libro»; «una lista a dos
+  columnas» es la simple. Se dibujan la 1 y la 3 y elige.
+- **Unidad**: capítulos plegables con sus páginas (fichero → bloques con número y estado).
+- **Plegado**: todos plegados salvo el que estás leyendo. ⚠ **El índice puede ocupar varias
+  páginas**, como en un libro: si no cabe, sigue en la página siguiente y se hojea.
+- **Además de la lista**: seguir por donde ibas, buscar, progreso por capítulo, importantes y
+  anotadas. Los cuatro.
+- **Seguir por donde ibas**: dentro de la lista, marcado (la página donde ibas resaltada en su
+  capítulo, con el marcapáginas al lado); nada aparte.
+- **Buscar**: en el índice, arriba; filtra capítulos y páginas al escribir.
+- **Al pulsar un capítulo**: va a **la página del capítulo**, una vista nueva (portadilla: resumen
+  del fichero, sus páginas, desde ahí se entra). ⚠ **Es una página más, siempre**: cada capítulo
+  empieza con su portadilla y al hojear se pasa por ella. Consecuencia: la numeración cuenta las
+  portadillas (Naeth: 131 bloques + 24 capítulos = 155 páginas), y el taco y la cifra de la portada
+  van con ese total. Va al plan como punto nuevo, después del índice.
+
+## Anexo J · Las caras del libro al abrir, decididas (18/09/2026, 18:40)
+
+Tarde entera de guardas (G1 barra, G2 mapa, G3 simple, G4 pulida, G4a scrubber, G4b puntos, cuatro
+papeles) y de secuencia. Lo que queda, hoja 11 del `.pen`, tres dobles páginas:
+
+1. **Guarda con la portada | Anteportada con los créditos.** La guarda es papel del color de la tela
+   un tono más claro (`#333d4c`), con el símbolo centrado como marca de agua al 4 %, y encima la
+   portada interior: lockup, subtítulo, **el porqué** (cuatro líneas; lo escribe Eneko por libro o
+   sale de una nota de Naeth), autor y versión. La anteportada: símbolo, «CodeDoc Archive», la firma
+   del lector y la fecha de la primera lectura a mano (Caveat), y abajo los **créditos**: personas
+   (de git y de las notas `personal/people` enlazadas; Claude como agente con el campo `author`),
+   licencia, esta edición (versión, fecha y commit de generación, cifras). Ninguna de las dos
+   lleva número, pero la anteportada cuenta en el taco.
+2. **Tu ficha | Índice, página 1.** La ficha (vuelta de la anteportada): lockup, LEÍDO con la cifra y
+   **la posición como scrubber** (llena hasta donde vas, rayas y números de capítulo debajo, el 0 es
+   el prólogo, el marcapáginas encima sin número: «parecía un slider»), importantes (4 y «y 2 más») y
+   anotadas como listas alineadas. El índice a la derecha: «ÍNDICE», buscador que filtra, chips de
+   importantes, anotadas, leídas y sin leer, y los capítulos con el **prólogo como 0** (README.md).
+3. **Índice, página 2 | Prólogo, página 3.**
+
+- **Numeración**: números normales; el índice empieza en la 1; prólogo 3 a 5; cada capítulo suma su
+  portadilla. Naeth: 155 bloques + 3 de prólogo + 24 portadillas = **182 páginas**, el marcapáginas
+  en la 13. Las cifras cambian con cada regla nueva: el mock las recalcula, no se escriben a mano.
+- **Sin datos repetidos** (análisis del 18/09 a las 18:33): cada dato en una sola cara; fuera las dos
+  firmas, el resumen y los chips de la ficha, las cifras de la cabecera del índice y «última
+  actividad». Se queda el nombre de Eneko tres veces porque son tres papeles (autor, lector, autor
+  con commits).
+- **Escala**: cada cara tiene fuente (git, README, LICENSE, Naeth, estado de lectura); solo el porqué
+  y la dedicatoria son campos opcionales por libro. Es el contrato para el punto 9.
+- ⚠ Trampa del `.pen`: **mover nodos entre hojas raíz los pierde** (créditos e índice 2 el 18/09);
+  se reconstruyen o se copian, no se mueven. Y el índice de `Insert` no es fiable: `Move` después.
+- Pendiente del punto 3: la página 1 del índice pulida, el índice al volver desde una página, y la
+  guarda trasera y la contraportada (caras de atrás).
