@@ -241,3 +241,39 @@ Siguiente: la pila con este libro.
 - **Referencia de Eneko (23:14)**: otra forma de entender el libro digital es mirar **los libros de
   los videojuegos** (Minecraft y otros): cómo dibujan la doble página, el paso de página y el marco
   con poco. Pendiente de mirar antes de A3.
+
+## Anexo H · El libro abierto, decidido: taco, tapa, lomo y los dos modos (18/09/2026, 13:45)
+
+Sexta vuelta del punto 2 en una mañana (A3, A4, A5, B1, B2, y las hojas de lomos). Lo que queda:
+
+- **Referencias**: CodeGlance Pro a tamaño real (captura bajada al scratchpad con permiso): minimapa sin
+  caja, 2 px por línea con sangría, ventana visible como banda clara, avisos en columna aparte, y un
+  panel con el código al pasar el ratón. **Ese panel (la lente) Eneko lo descarta del todo**, y con
+  él cae la lente del anexo B. Minecraft (una página, cuero, taco de cuatro líneas, «Page 1 of 1»,
+  flecha en la esquina) y Skyrim (doble página, taco grueso, sombra suave en el centro, tapa como
+  filo): los dos venden «libro» con planos, sin luz real.
+- **Shaders descartados** (A4 los probó: papel con grano y tela por GLSL; Eneko: «descarta
+  completamente las shaders»). Todo lo que se dibuje tiene que salir con CSS: planos, degradados
+  cortos, sombras y capas de 1 px.
+- **Taco**: `T = 6 + 0,25 · N` px con tope en 80; izquierda `T·(p−1)/N`, derecha `T·(N−p)/N`. En la
+  44 de 131: 13 hojas y 26. La tapa se ensancha con `T` (lados `T + 8`, abajo `T + 10`, arriba 3 px
+  porque en perspectiva la tapa de arriba casi no se ve). Hoja `Pt2-taco-segun-pagina.png`.
+- **Cada hoja distinta**: semilla = número de página; tonos ±3 y fuerza de la caída de luz. Girar
+  el eje de la luz se probó y se quitó (cuña visible en la esquina con la sombra pegada al lomo).
+- **Modo oscuro y modo claro, los dos válidos** (B1 y B2): en claro todo es papel, código incluido
+  (paleta GitHub Light sobre `#faf7f0`); en oscuro el taco va en grises. La mesa, la cabecera
+  corrida, la biblioteca y la pila siguen oscuras en los dos: lo claro es el papel.
+- **Lomo, decidido D5** tras dos tandas (L1 a L5 con degradado de página; D1 a D6 con página plana,
+  porque «el problema en oscuro es el degradado»): **página plana y una sombra suave de 24 px de
+  desenfoque desplazada hacia el lomo**, línea de 2 px en medio. Pencil la pinta hacia fuera aunque
+  el nodo diga «inner»: en CSS es un `box-shadow` normal. La cinta por todo el lomo (B1b) se probó
+  como alternativa y se descartó: se come el pliegue.
+- Hojas vivas: `Q5P1Ym` (B1 oscuro D5), `Tz8Wo` (B2 claro D5), `XFRb3` (taco), `ocOBo`/`UX5Gl`/
+  `BPIzm` (lomos). Exports `Pt2-doble-B1-D5.png`, `Pt2-doble-B2-D5.png`.
+- Pendiente del punto 2: el hover del minimapa sobre B1/B2, el libro en 2560 centrado en la mesa,
+  y la cinta como marcapáginas (sin decidir).
+- **Cierre (13:44)**: la línea del centro pasa a ser **del color de la tela** (`#2b3340`), idea de
+  Eneko: en oscuro es lo único que no es negro en el pliegue y enlaza con la tapa; en claro el libro
+  queda de una pieza. **La cinta se quita de momento** (el marcapáginas del punto 4 queda sin forma
+  decidida). Eneko: «Esta parte le doy por válido totalmente». Hojas vivas: `Uzj1F` (B1) y `EWgib`
+  (B2). Lo que sigue del punto 2: el hover del minimapa sobre B1/B2 y el libro en 2560.
