@@ -277,3 +277,17 @@ Sexta vuelta del punto 2 en una mañana (A3, A4, A5, B1, B2, y las hojas de lomo
   queda de una pieza. **La cinta se quita de momento** (el marcapáginas del punto 4 queda sin forma
   decidida). Eneko: «Esta parte le doy por válido totalmente». Hojas vivas: `Uzj1F` (B1) y `EWgib`
   (B2). Lo que sigue del punto 2: el hover del minimapa sobre B1/B2 y el libro en 2560.
+- **Punto 2 cerrado (14:20)**. Lo último decidido: el minimapa **no va encima del código**: tiene una
+  **columna reservada de 64 px** a su derecha (el código nunca se mueve); en reposo solo la barra fina
+  con pulgar y avisos, y al pasar el ratón por la columna se llena con el minimapa **estirado a la
+  altura de la columna**, una línea por cada `alto / nº líneas` px con tope entre 3 y 12 (si la
+  página es muy corta se queda corto y no se estira más). Pantallas: **1920×1000** (secundaria) y
+  **2560×1360** (principal, Helium; no hace falta adaptarse a nada): el libro mide 1840 / 2000 px
+  de ancho y las páginas toman el alto del viewport (a 1440p el bloque entero cabe en la página).
+  En 1080p, con la columna, el código se queda en 704 px (unos 90 caracteres; 413 de 2.325 líneas de
+  `naeth/app` pasan de 90): **scroll lateral dentro del bloque**, decidido por Eneko. Queda
+  apuntado sin decidir: el hueco de la página derecha en 1440p (unos 400 px entre el cuaderno y
+  «anotar») y la forma del marcapáginas. Hojas vivas: B1 (`R17bz2` reposo, `a3kqHJ` hover), B2
+  (`FW9M5`, `kW3I1`), 2560 (`EhpkY`, `T365io`), taco (`XFRb3`), lomos (`ocOBo`, `UX5Gl`, `BPIzm`).
+  Exports `Pt2-B1-*`, `Pt2-B2-*`, `Pt2-taco-segun-pagina`, `Pt2-lomos-*`.
+- Siguiente: punto 3, el índice en escritorio.
