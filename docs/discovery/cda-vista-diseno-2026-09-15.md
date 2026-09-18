@@ -382,3 +382,38 @@ como toda página del libro; cuenta en la numeración (mcp_server.py es la 6).
 - Con el orden real de las 41 funciones, `memory_search` es la página 21; las hojas del índice usan
   una lista corta (13). Es mock: con datos reales cuadra solo.
 - Siguiente: punto 4, la portada, y con ella las caras de atrás.
+
+## Anexo L · La portada, la contraportada y las caras de atrás (punto 4), decididas (18/09/2026, 20:45)
+
+Hojas 13 del `.pen` (`yALKf` formas y telas, `jOr8K` portada, `TeQCg` contraportada, `JUIEX`
+colofón y guarda trasera), exports `Pt4-*`.
+
+- **La vista de portada**: el libro cerrado **de frente (P1)**, grande, con el taco asomando a la
+  derecha y abajo y sombra sobre la mesa; se dibujó también en tres cuartos (P2, con lomo y canto) y
+  Eneko eligió P1 («me encanta, está perfecto»). **La tapa solo lleva el lockup**. El canto teñido
+  del punto 6 se quitó de esta vista: no se entendía, y la solapa ya da la cifra.
+- **La tela**: para Naeth, **T1**, la misma foto de Unsplash con el tinte azul al 70 % que lleva el
+  libro en la pila. Para libros sin tela propia, **generar la tela es viable**: T2 lino liso del
+  color de familia, T3 trama fina con planos, T4 cuero con degradado de luz; las tres con CSS.
+- **La solapa** (interfaz, no impresa, a la derecha del libro): nombre, subtítulo, cifras, el botón
+  **abrir el libro** (al índice pasando por las caras de apertura), seguir por donde ibas (con la
+  página), anteportada y créditos (hojear despacio desde la guarda), dar la vuelta, volver a la
+  pila; al pie, última y primera lectura.
+- **La contraportada** (impresa en la tela, al dar la vuelta): el símbolo, el resumen largo (dos
+  párrafos: el porqué y qué contiene), la URL del repo, la licencia en una línea, un **QR** que lleva
+  a la web del proyecto o al repo si no tiene web (decisión de Eneko; sustituye al código de barras
+  del commit), y «versión · commit · fecha». **Abrir desde la contraportada abre el libro por
+  atrás** (colofón y guarda trasera) y se hojea hacia delante.
+- **La última doble página**: el **colofón** (página 182, centrado y en pequeño: cuándo y desde qué
+  commit se generó, con qué se compuso: Inter, JetBrains Mono, Shiki con GitHub Default, griffe,
+  bge-m3; las cifras y las páginas leídas) y la **guarda trasera** (papel del color de la tela con
+  la marca de agua, sin número; «Has llegado al final del libro», cuántas quedan sin leer y la
+  primera, y seguir por donde ibas / volver al índice / cerrar y volver a la pila). El taco ahí está
+  todo a la izquierda.
+- Con esto el libro tiene todas sus caras: tapa, guarda, anteportada, portada, créditos, ficha,
+  índice, prólogo, portadillas, páginas, colofón, guarda trasera, contraportada. Cada una con fuente.
+- Siguiente: las transiciones (5 a 7).
+- Regla que salió al dibujar la última página (20:45): el taco escalona también hacia abajo, así
+  que **el alto de la página es `viewport − 3 − (T + 10)`** y el ancho `(ancho del libro − 2·(T + 8)
+  − 2) / 2`, donde `T` es el taco total; en la primera y en la última página todo el taco cae a un
+  lado y la tapa de ese lado mide `T + 8` y la del otro 8.
