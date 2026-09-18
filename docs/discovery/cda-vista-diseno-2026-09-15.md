@@ -417,3 +417,61 @@ colofón y guarda trasera), exports `Pt4-*`.
   que **el alto de la página es `viewport − 3 − (T + 10)`** y el ancho `(ancho del libro − 2·(T + 8)
   − 2) / 2`, donde `T` es el taco total; en la primera y en la última página todo el taco cae a un
   lado y la tapa de ese lado mide `T + 8` y la del otro 8.
+
+## Anexo M · Las transiciones (puntos 5 a 7): sacar el libro, y la regla de los 144 Hz (18/09/2026, 21:00)
+
+- **5, sacar el libro de la pila** (hoja 14, `qWkrE`, `Pt5-sacar-el-libro.png`), cinco fotogramas
+  a escala del viewport de 1920: reposo con el libro deslizado 28 px → clic, el libro sale por la
+  derecha y deja su hueco (0 a 120 ms) → se levanta sobre el lomo (rota 90°) y crece a la vez, la
+  pila al 40 % (120 a 240) → de frente, sigue creciendo, el lockup aparece, la solapa entra (240 a
+  340) → la portada de la hoja 13 (380 ms). Ease-out; la vuelta es la misma secuencia al revés en
+  260 ms; interrumpible con otro clic o Esc; con `prefers-reduced-motion`, fundido de 120 ms.
+- **Eneko pregunta si 144, 120 y 60 Hz son mucho pedir. No lo son si se respeta esto** (regla
+  para todas las transiciones): solo `transform` y `opacity` cambian por fotograma (la GPU las
+  compone sin layout ni pintado, y `requestAnimationFrame` sigue el refresco del monitor solo);
+  **nada de layout** (`width`, `height`, `padding`) ni de `filter: blur` ni de `box-shadow` con
+  desenfoque grande por fotograma; crecer es `scale()`, la sombra es un elemento aparte que solo
+  cambia de `opacity`, y la tela va ya al tamaño final desde el primer fotograma, escalada hacia
+  abajo. La pieza con más riesgo es el giro sobre el lomo (`rotateY` con perspectiva y dos caras):
+  se mantiene en GPU, pero es lo que puede caer a 60 en una integrada. **Se mide, no se supone**: en
+  el punto 9, el componente de prueba en el 5180 con el panel de rendimiento de Helium (Chromium),
+  contando fotogramas perdidos a 144 Hz en la principal.
+
+## Anexo N · Anime.js para las transiciones: lo que sirve y lo que no (18/09/2026, 22:30)
+
+Mini investigación antes de seguir, pedida por Eneko tras dos prototipos a mano: fuente, la doc de
+animejs.com y el código de `juliangarnier/anime` (v4.5.0, 22/06/2026, 27 KB modular).
+
+- **Un objeto, no dos.** El fallo de los prototipos era estructural: el libro en la pila (`.hueco`)
+  y el libro que vuela (la caja 3D) eran dos elementos, y «volver» era un remiendo. En CDA cada
+  libro es UNA caja 3D (lomo, tapa, canto, contratapa con `preserve-3d`), que en la pila está
+  tumbada con el lomo al frente; el hueco no es un elemento, es el sitio que la caja deja. Con eso,
+  volver es la misma secuencia al revés.
+- **`createTimeline`**: encadena las fases con posiciones relativas (`'<'`, `'<+=90'`), y da
+  `reverse()`, `seek()`, `playbackRate`, `pause()`, `then()`. Es la ida y la vuelta con un solo
+  objeto, el paso a paso (`seek`) y la velocidad (`playbackRate`) gratis.
+- **`waapi.animate`**: usa la Web Animations API, que compone `transform` y `opacity` en el hilo
+  del compositor: los 144 Hz no dependen del JS. Es la vía para todas las transiciones del libro
+  (sacar, abrir, pasar página). El motor JS de Anime queda para SVG, colores y valores de función.
+  Anime sincroniza WAAPI dentro de una timeline con `tl.sync()`.
+- **`createLayout`** (4.3+): FLIP automático entre dos estados del DOM, incluido cambiar de padre
+  (`swapAt`, `enterFrom`, `leaveTo`). Sirve para **la pila** (un libro se va y los demás se
+  recolocan, o arrastrar para ordenar). ⚠ Leído en `src/layout/layout.js`: cuando el tamaño cambia
+  **anima `width` y `height` de verdad** (`animatedProps.width = [old, new]`), no solo `translate`;
+  para el vuelo del libro NO vale (rompe la regla de los 144 Hz), solo para recolocar la pila.
+- **Lo que no hace ninguna librería**: el 3D. La caja con caras y `perspective` es CSS; Anime mueve
+  `rotateX/Y/Z`, `scale` y `translate` de esa caja y nada más.
+- **Easings**: `createSpring({ stiffness, damping })` para el aterrizaje en la pila, `'outExpo'` /
+  `cubicBezier(.22,.8,.2,1)` para el vuelo. Editor en animejs.com/easings.
+- **Tiempos decididos por Eneko**: la velocidad buena es la que en los prototipos era 0,5×: **840 ms**
+  la ida, 560 la vuelta. Con `playbackRate` se ajusta sin tocar la secuencia.
+- Claude Design (`CDA Abrir Libro.dc.html`) aportó la geometría de la caja con grosor (tapa a +20,
+  contratapa a −20, lomo y canto de 40) y el giro final para que asome el canto; el contenido se lo
+  inventó y el formato de componente no vale tal cual.
+- **Estado al cerrar el 18/09 (22:25)**: la transición 5 NO está cerrada. Hay dos prototipos en
+  `docs/design/prototipos/`: `sacar-el-libro-v1-css.html` (caja CSS, fases por clase) y
+  `sacar-el-libro.html` (Anime.js 4.5, `createTimeline`, un solo objeto por libro, vuelta por
+  `reverse()`, `seek()` para parar en cualquier punto), más el prompt para Claude Design. A Eneko no
+  le convence ninguno: «por hoy guardamos y mañana investigamos a fondo sobre animaciones y
+  Anime.js, para hacerlo en condiciones». Lo hecho hoy sirve de material, no de decisión. La hoja
+  de fotogramas del `.pen` (hoja 14) queda como superada por los prototipos.
