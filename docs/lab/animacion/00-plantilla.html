@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab · plantilla</title>
+<!-- Plantilla del laboratorio de animación (19/09/2026). Copiar a web/NN-tema.html o
+     animejs/NN-modulo.html y cambiar: título, pregunta, escena y el script del final.
+     Anime.js solo en los de animejs/: <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+     (global `anime`, es lo que usó el prototipo del 18/09). -->
+<link rel="stylesheet" href="00-lab.css">
+<style>
+  /* Lo propio de este lab, debajo de lo común. */
+  .escena { height: 360px; }
+  .caja { position: absolute; left: 40px; top: 140px; width: 80px; height: 80px; border-radius: 10px; background: var(--acc); }
+</style>
+</head>
+<body>
+
+<h1>NN · Tema <small>web / animejs · módulo o técnica</small></h1>
+<p>Una línea: qué se prueba aquí y con qué fuente (URL de la doc, <code>fichero:línea</code> de 4.5.0).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> la que Eneko responde con sí o no mirando esto.</div>
+
+<div class="barra">
+  <button id="go">lanzar</button>
+  <!-- lab.init() añade aquí velocidad, reduced-motion y reset -->
+</div>
+
+<div class="escena">
+  <div class="caja"></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Lo que tiene que verse si funciona, y lo que delata que no. Cifras del medidor al terminar: <b>…</b></p>
+
+<h2>Resultado</h2>
+<p class="notas">Se rellena al cerrar el lab: cifras, respuesta de Eneko con hora, y qué pasa al doc o a la skill.</p>
+
+<script src="00-medidor.js"></script>
+<script src="00-lab.js"></script>
+<script>
+  lab.init();
+  const caja = document.querySelector('.caja');
+  let anim = null;
+  document.getElementById('go').addEventListener('click', () => {
+    if (lab.reduced) { /* vía sin movimiento: fundido o salto */ }
+    Meter.begin('ejemplo');
+    anim = caja.animate(
+      [{ transform: 'translateX(0)' }, { transform: 'translateX(600px)' }],
+      { duration: 840, easing: 'cubic-bezier(.22,.8,.2,1)', fill: 'forwards' },
+    );
+    anim.playbackRate = lab.speed;
+    anim.finished.then(() => Meter.end()).catch(() => {});
+  });
+  lab.onSpeed((v) => { if (anim) anim.playbackRate = v; });
+</script>
+</body>
+</html>

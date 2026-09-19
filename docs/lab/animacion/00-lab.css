@@ -1,0 +1,80 @@
+/* Estilos comunes del laboratorio de animación (19/09/2026). Fondo oscuro como la mesa de CDA,
+   monoespaciada para las cifras. Cada lab añade lo suyo debajo; esto no se toca por lab. */
+
+:root {
+  --bg: #121315;
+  --mesa: #1c1d1f;
+  --ink: #e6e8eb;
+  --dim: #8a929e;
+  --dim2: #4b5563;
+  --acc: #5db0ff;
+  --ok: #46c98b;
+  --warn: #e0a64b;
+  --bad: #ff6b6b;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.45 Inter, system-ui, sans-serif;
+  padding: 20px 24px 60px;
+}
+
+h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+h1 small { color: var(--dim); font-weight: 400; margin-left: 8px; }
+h2 { font-size: 14px; font-weight: 600; color: var(--dim); margin: 28px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+p { max-width: 80ch; color: var(--dim); margin: 4px 0 12px; }
+code, .mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: 12.5px; }
+code { color: var(--acc); }
+
+/* La pregunta que este lab aísla: siempre visible, arriba, para que la respuesta sea sí o no. */
+.pregunta {
+  border-left: 3px solid var(--acc);
+  padding: 8px 12px;
+  margin: 12px 0 18px;
+  color: var(--ink);
+  max-width: 90ch;
+}
+.pregunta b { color: var(--acc); }
+
+/* Barra de controles comunes: velocidad, reduced-motion, reset del medidor. */
+.barra {
+  display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center;
+  background: var(--mesa); border-radius: 8px; padding: 10px 14px; margin: 0 0 18px;
+}
+.barra label { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); white-space: nowrap; }
+.barra input[type=range] { width: 140px; accent-color: var(--acc); }
+.barra output { color: var(--ink); min-width: 4ch; }
+.barra button, .escena button, button.btn {
+  background: #2a2d31; color: var(--ink); border: 1px solid #3a3e44; border-radius: 6px;
+  padding: 5px 12px; font: inherit; cursor: pointer;
+}
+.barra button:hover, .escena button:hover, button.btn:hover { border-color: var(--acc); }
+
+/* Escenario: donde pasa la animación. Cada lab fija su alto. */
+.escena {
+  position: relative; background: var(--mesa); border-radius: 10px; overflow: hidden;
+  min-height: 320px; margin: 0 0 18px;
+}
+
+/* Panel del medidor (lo crea 00-medidor.js). */
+#meter {
+  position: fixed; top: 12px; right: 12px; z-index: 1000;
+  background: rgba(18, 19, 21, .92); color: var(--ok);
+  border: 1px solid #2a2d31; border-radius: 8px; padding: 8px 12px;
+  font: 12px/1.5 "JetBrains Mono", ui-monospace, Consolas, monospace;
+  white-space: pre; pointer-events: none;
+}
+#meter.bad { color: var(--warn); }
+
+/* Notas de resultado: lo que se anota al terminar (cifras, respuesta de Eneko). */
+.notas { color: var(--dim); font-size: 13px; max-width: 90ch; }
+.notas b { color: var(--ink); }
+
+/* Reduced-motion simulado: el interruptor de la barra pone `data-reduced` en <html>. Los labs
+   que quieran respetarlo miran `lab.reduced` o este atributo, igual que harían con la media query. */
+html[data-reduced] .solo-movimiento { display: none; }
