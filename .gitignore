@@ -45,3 +45,8 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 .idea/
+
+# Exportaciones crudas de Claude Design (handoff de marca del 26/08/2026): los logos derivados
+# ya viven en docs/img/*.svg; la exportacion (carpeta y zip) se queda en disco sin versionar.
+docs/handoff/*-handoff/
+docs/handoff/*-handoff.zip
