@@ -769,9 +769,34 @@ que lo servido no cambia).
   en verde durante el vuelo, hay pintado por fotograma y la regla se está rompiendo), y el panel
   Performance para ver si el hilo del compositor va solo.
 
-## 7 · La skill y la guía
+## 7 · La skill `animejs` y la revisión de `animation-guide.md` (19/09; estimado 2 h; real: ver el commit de cierre)
 
-_(pendiente)_
+**Skill** en `~/.claude/skills/animejs/` (fuera de este repo; vive con las demás skills de Eneko):
+
+- `SKILL.md`: disparadores («Anime.js», «animejs», «createTimeline», «spring», «stagger», «morph
+  SVG», «split text», «scroll-driven» con lógica, «draggable», «FLIP», «waapi.animate», o un objeto
+  en varias fases con solape, scrubber e inversión) y el NO (el chrome del visor va en CSS; un
+  hover o un chevron es `transition`; un proyecto con GSAP o Framer Motion no suma una segunda
+  librería). Cuerpo: «antes de escribir una línea» (¿hace falta?, import y pesos medidos,
+  reduced-motion), **las cinco trampas de 4.5** con `fichero:línea`, la tabla «para esto, esto»,
+  el patrón Svelte 5 con `createScope` en `$effect` y el de Next.
+- `references/modulos.md`: chuleta módulo a módulo con firmas y `fichero:línea` de 4.5.0.
+- `references/buenas-practicas.md`: las doce reglas de §1 con su escritura en Anime.js, lo que no
+  se anima, y tiempo real frente a no tiempo real.
+- `references/rendimiento.md`: qué corre en qué hilo, capas y rasterizado, pesos, cómo medir.
+- (El `frameworks.md` del plan quedó dentro de `SKILL.md`: dos patrones no daban para un fichero.)
+
+**`craft-ui/references/animation-guide.md`**, revisada en cinco puntos, no reescrita: el peso de
+Anime.js pasa de «no medido» a las cifras de §6.1; las tres trampas de 4.5 y el enlace a la skill;
+la tabla de easings pasa de Material 2 (`(0.4,0,0.2,1)`) a los tokens de Material 3 leídos en su
+código, con `linear()` como muelle legítimo en CSS en vez del «NEVER overshoot»; un bloque de CSS
+nuevo que quita JS viejo (`@starting-style`, `allow-discrete`, `animation-composition`,
+`@property`, scroll-driven con su soporte); el soporte de View Transitions con fechas y el aviso de
+que las instantáneas son planas; y la regla de selección con «13 KB» medidos en vez de «37».
+
+⚠ Pendiente de la verificación del plan: cargar la skill en una sesión limpia con tres peticiones
+(una timeline, un morph SVG, un scroll-driven) y una cuarta que pida «animar el chevron del
+visor» y tenga que responder CSS. Se hace cuando Eneko abra una sesión nueva, no desde esta.
 
 ## 8 · El caso aplicado: el libro
 
