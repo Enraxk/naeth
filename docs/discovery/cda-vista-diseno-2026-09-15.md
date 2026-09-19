@@ -475,3 +475,57 @@ animejs.com y el código de `juliangarnier/anime` (v4.5.0, 22/06/2026, 27 KB mod
   le convence ninguno: «por hoy guardamos y mañana investigamos a fondo sobre animaciones y
   Anime.js, para hacerlo en condiciones». Lo hecho hoy sirve de material, no de decisión. La hoja
   de fotogramas del `.pen` (hoja 14) queda como superada por los prototipos.
+
+## Anexo O · La transición 5 escrita fase a fase tras la investigación de animación (19/09/2026, 15:10)
+
+Sale de [`animacion-en-codigo-2026-09-19.md`](animacion-en-codigo-2026-09-19.md) (§1 reglas, §3 y §4
+Anime.js, §6 rendimiento, §8 el libro) y de los labs de `docs/lab/animacion/`. Es una
+**especificación para el prototipo v3, con los números marcados como «propuesta» hasta que Eneko
+los vea en los labs**; no es el v3.
+
+**Autopsia de los dos prototipos del 18/09, en números** (`docs/design/prototipos/`):
+
+| Defecto que dijo Eneko | Qué era, medido |
+|---|---|
+| La caja no parece un libro | `perspective: 5200px` (casi ortográfico: dolly y zoom se confunden); sin taco de páginas como volumen propio; sin luz que cambie con el ángulo; sombra pintada dentro de la caja |
+| El movimiento es rígido o mecánico | **Easing lineal en todas las fases**: `ease: 'cubicBezier(.22,.8,.2,1)'` en string, sintaxis retirada en 4.5.0 (avisa y cae a `none`). Y las cuatro fases **encadenadas** (0-180, 180-340, 340-580, 580-840) sin solape |
+| Los tiempos y el orden | 840 ms está bien (Material: `extra-long` para un cambio de toda la escena); lo que fallaba era el reparto: fases iguales y secas, sin anticipación ni remate |
+| La pila y el hueco | La pila solo bajaba a opacidad 0,1; el hueco se quedaba abierto; la vuelta era `reverse()` lineal sin aterrizaje |
+
+**Decisiones fijas** (anexos M y N, confirmadas): un objeto por libro; solo `transform` y `opacity`
+por fotograma; la sombra aparte; la tela y el texto al tamaño final escalados hacia abajo; 840 ms
+ida, y **la vuelta es `reverse()`** (560 ms con `speed` 1,5), que además invierte las curvas solas
+(un ease-out reproducido al revés es un ease-in: la regla 2 gratis). El 380/260 del anexo M queda
+superado por el 840/560.
+
+**Storyboard de la ida** (etiquetas de la timeline; solape del 40 % entre fases; los ms son
+propuesta):
+
+| Etiqueta | ms | El libro (caja 3D, presets del lab 15) | Curva | La pila y el resto |
+|---|---|---|---|---|
+| `coge` | 0 a 60 | anticipación: −6 px en x (se «coge») | `inQuad` | nada |
+| `sale` | 60 a 280 | tumbado (rx −90, rz 90), x +300 | `emphasized-decelerate` `(0.05,0.7,0.1,1)` | los de encima cierran el hueco con `stagger(45, { start: 120 })` desde el hueco; todos a opacidad 0,25 en 300 ms |
+| `levanta` | 190 a 450 | rx −90 → 0 (se pone de pie sobre el lomo); y sube 12 px y baja (arco) | `inOutCubic`; y con `inOutSine` | |
+| `gira` | 350 a 650 | ry 90 → −22 (del lomo a la tapa; asoma el canto); luz y sombra por ángulo (`createAnimatable`) | `inOutCubic` | |
+| `crece` | 530 a 840 | a (420, 60), scale S → 1, ry −22 → −4 | `outExpo`, o `spring({ duration: 310, bounce: .05 })` para el remate | sombra de mesa opacity 0 → 1 (640 a 840); la solapa entra 660 a 880 (x 72 → 0, opacity) como hija del libro |
+
+Interrupción: `composition: 'replace'` y `tl.reverse()` en cualquier punto (clic o Esc). Reduced
+motion: fundido de 120 ms entre pila y portada, por `createScope({ mediaQueries: { reduced } })`.
+
+**Con qué se hace cada parte** (tabla de decisión de §2.6 del doc de animación):
+
+- La caja: CSS 3D (lab 15), seis caras, `perspective` entre 900 y 1600 en el contenedor de la
+  biblioteca (**pendiente: Eneko elige en el lab 15**), `perspective-origin` cerca de la pila.
+- El director: `createTimeline` con etiquetas (nunca `'<'`), `defaults.ease` como función.
+- El vuelo: **pendiente del lab 09 en Helium**. Si las custom properties de `waapi.animate` no
+  van al compositor, el vuelo se escribe con `transform` entero en string por fase (opción c de
+  §4.4: la timeline dirige con `call()`, `waapi.animate` mueve, sin `sync`). Si van, `waapi.animate`
+  con `x`/`rotateY` dentro de la timeline y listo.
+- El sombreado por ángulo: `createAnimatable` + `onUpdate` (lab 05). Único JS por fotograma.
+- La pila: `stagger` sobre `animate` (lab 04) en el prototipo; en el visor, `animate:flip` de Svelte
+  si el hueco se cierra reordenando la lista (bench `motion.html`).
+- Medida: `00-medidor.js` con `Meter.begin('sacar')`, 0 perdidos a 144 Hz en la principal.
+
+**Lo que decide Eneko mirando** (con hora cuando lo haga): perspectiva y grosor (lab 15), curva del
+vuelo y del aterrizaje (lab 03), solape del 40 % (lab 07), 45 ms de la pila (lab 04), si el libro se
+arrastra en vez de pulsarse (lab 13), y si la luz por ángulo es lo que le faltaba (lab 05).

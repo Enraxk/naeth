@@ -798,10 +798,55 @@ que las instantáneas son planas; y la regla de selección con «13 KB» medidos
 (una timeline, un morph SVG, un scroll-driven) y una cuarta que pida «animar el chevron del
 visor» y tenga que responder CSS. Se hace cuando Eneko abra una sesión nueva, no desde esta.
 
-## 8 · El caso aplicado: el libro
+## 8 · El caso aplicado: el libro (19/09; estimado 1 h 30; real: ver el commit de cierre)
 
-_(pendiente)_
+### 8.1 La caja, lab `animejs/15`
+
+Seis caras con `preserve-3d`: tapa y contratapa a `±G/2`, lomo girado −90° a la izquierda, y el
+**taco de páginas como caja propia** un poco más pequeña que la tapa (canto, cabeza y pie con las
+hojas dibujadas por `repeating-linear-gradient`). Luz desde la izquierda: una capa blanca y otra
+negra por cara cuya opacidad sale del ángulo (`sin(ry)` para la tapa, `−cos(ry)` para el lomo),
+escrita desde `onUpdate` de un `createAnimatable` con muelle `spring({ duration: 500, bounce: .1 })`
+que mueve los tres ángulos al pulsar un preset. Sombra en la mesa aparte (solo `opacity`).
+Deslizadores: `rx`, `ry`, `rz`, `perspective` (400 a 5200), `perspective-origin`, grosor `G`.
+Presets: los cinco estados de la transición 5 más «tres cuartos». Verificado en el navegador
+integrado: sin errores, la luz y la sombra cambian con el ángulo (a `ry` 34: luz de la tapa 0,17,
+sombra del lomo 0,37) y la caja a tres cuartos se ve como un libro con lomo, tapa y cabeza. Lo que
+decide Eneko: `perspective` y grosor, y desde dónde se mira.
+
+### 8.2 La autopsia y el storyboard
+
+Están en el **anexo O** de [`cda-vista-diseno-2026-09-15.md`](cda-vista-diseno-2026-09-15.md), que
+es donde viven las decisiones de CDA: la autopsia en números de los dos prototipos (perspectiva
+5200, easing lineal por la string retirada, fases encadenadas, pila que solo se atenúa), las
+decisiones fijas, el storyboard con etiquetas y solape del 40 % (`coge`, `sale`, `levanta`,
+`gira`, `crece`, 0 a 840 ms), con qué se hace cada parte, y la lista de lo que Eneko decide
+mirando cada lab. Dos cosas quedan abiertas hasta que él mire: la perspectiva (lab 15) y si las
+custom properties de `waapi.animate` van al compositor (lab 09), que decide cómo se escribe el
+vuelo.
+
+⚠ El texto del punto 5 de la lámina «0 · PLAN» del `.pen` no se ha podido actualizar: Pencil no
+estaba abierto al cerrar la fase (el MCP no conecta). Queda para la próxima sesión con Pencil:
+«5 · sacar el libro: investigado (19/09, `animacion-en-codigo-2026-09-19.md`, anexo O); v3 pendiente de
+lo que Eneko decida en los labs 03, 04, 05, 07, 09, 13 y 15».
 
 ## Lo que no se ha podido comprobar
 
-_(se rellena al cerrar cada fase)_
+1. **Que las custom properties de `waapi.animate` (`x`, `rotateY`) no van al compositor.** Leído
+   en `waapi.js:195-215, 349-355` y en el modelo de Chromium; no visto con el hilo bloqueado en
+   Helium. Lab `09`, fila 3. Decide cómo se escribe el vuelo del libro.
+2. **Que el scroll-driven de CSS corre en el compositor.** MDN no lo dice; es conocimiento de la
+   implementación de Chromium.
+3. **El coste real de `filter`/`backdrop-filter`/`clip-path` por fotograma** y el **rasterizado al
+   escalar** (borroso hasta re-rasterizar) con la caja del libro: leído, no medido.
+4. **El peso de `svelte/motion` dentro de la app** (9,6 KB suelto; comparte internos que ya
+   están): no se ha construido la app con y sin.
+5. **Los tamaños de Motion y Framer Motion tree-shaken**: solo el UMD completo (48,8 KB); el
+   «2,3 KB mini» es del fabricante.
+6. **La skill `animejs` en una sesión limpia** (cuatro peticiones de prueba, §7).
+7. **Las animaciones en el panel del navegador integrado con el panel oculto**: `document.hidden`
+   pausa `requestAnimationFrame`, las transiciones CSS y `engine.pauseOnDocumentHidden`; todo lo
+   que aquí se dice «verificado» del lab es carga, consola, DOM y valores computados, no el ojo.
+   El ojo es de Eneko en Helium.
+8. **`adapters/three`**: citado, no probado (no hay Three.js en ningún proyecto hoy).
+9. Val Head y Rachel Nabors citados de memoria en §1, sin cita textual.

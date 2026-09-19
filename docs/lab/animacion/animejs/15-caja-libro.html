@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 15 · la caja del libro</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --G: 40px; --W: 280px; --H: 380px; --tela: #2b3340; --lomo: #1c2e45; --papel: #d9d2c0; --papel2: #b3ad9d; }
+  .escena { height: 560px; display: grid; grid-template-columns: 1fr 300px; }
+  .vista { position: relative; perspective: var(--persp, 1200px); perspective-origin: var(--po, 50% 50%); }
+  .mesa { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 70%, #1f2124, #121315 70%); }
+  /* La caja: un solo objeto, seis caras. transform-origin en el centro del volumen. */
+  .libro { position: absolute; left: calc(50% - var(--W) / 2); top: calc(50% - var(--H) / 2); width: var(--W); height: var(--H); transform-style: preserve-3d; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) rotateZ(var(--rz, 0deg)); }
+  .cara { position: absolute; backface-visibility: hidden; }
+  .tapa, .contratapa { inset: 0; background: var(--tela); border-radius: 3px 10px 10px 3px; }
+  .tapa { transform: translateZ(calc(var(--G) / 2)); display: grid; place-items: center; color: #e6e8eb; font: 600 26px Inter, sans-serif; }
+  .contratapa { transform: rotateY(180deg) translateZ(calc(var(--G) / 2)); border-radius: 10px 3px 3px 10px; }
+  .lomo { left: 0; top: 0; width: var(--G); height: 100%; background: var(--lomo); transform: rotateY(-90deg) translateZ(calc(var(--G) / 2)); transform-origin: 50% 50%; left: calc(var(--G) / -2); display: grid; place-items: center; }
+  .lomo span { color: #e6e8eb; font: 600 13px Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .04em; }
+  /* El taco de páginas: una caja propia, un poco más pequeña que la tapa, con las hojas como líneas. */
+  .taco { position: absolute; left: 6px; top: 4px; right: 6px; bottom: 4px; transform-style: preserve-3d; }
+  .taco .cara { background: var(--papel); }
+  .canto { right: 0; top: 0; width: calc(var(--G) - 6px); height: 100%; transform: rotateY(90deg) translateZ(calc(var(--G) / 2 - 3px)); right: calc((var(--G) - 6px) / -2); background: repeating-linear-gradient(90deg, var(--papel) 0 2px, var(--papel2) 2px 3px) !important; }
+  .cabeza, .pie { left: 0; width: 100%; height: calc(var(--G) - 6px); background: repeating-linear-gradient(0deg, var(--papel) 0 2px, var(--papel2) 2px 3px) !important; }
+  .cabeza { top: calc((var(--G) - 6px) / -2); transform: rotateX(90deg) translateZ(calc(var(--G) / 2 - 3px)); }
+  .pie { bottom: calc((var(--G) - 6px) / -2); transform: rotateX(-90deg) translateZ(calc(var(--G) / 2 - 3px)); }
+  /* Sombreado falso: una capa de luz y otra de sombra por cara, cuya opacidad depende del ángulo. */
+  .luz, .sombra { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
+  .luz { background: #fff; opacity: 0; } .sombra { background: #000; opacity: 0; }
+  /* Sombra sobre la mesa: elemento aparte, solo cambia opacity y scale. */
+  .sombra-mesa { position: absolute; left: calc(50% - var(--W) / 2); top: calc(50% + var(--H) / 2 + 20px); width: var(--W); height: 40px; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%); filter: blur(6px); transform: scaleX(1.1); opacity: .8; }
+  .panel { padding: 14px; font-size: 12px; color: var(--dim); border-left: 1px solid #2a2d31; overflow: auto; }
+  .panel label { display: grid; grid-template-columns: 90px 1fr 48px; gap: 8px; align-items: center; margin: 6px 0; }
+  .panel input[type=range] { width: 100%; accent-color: var(--acc); }
+  .panel output { color: var(--ink); font-family: "JetBrains Mono", monospace; text-align: right; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .presets button { font-size: 12px; padding: 4px 8px; }
+</style>
+</head>
+<body>
+
+<h1>15 · la caja del libro <small>CSS 3D, sin animación: solo geometría, luz y sombra</small></h1>
+<p>Lo que ninguna librería hace. Seis caras con <code>preserve-3d</code>, la tapa y la contratapa a <code>±G/2</code>, el lomo y el canto girados 90°, y el taco de páginas como caja propia ligeramente más pequeña con las hojas dibujadas. El sombreado es una capa de luz y otra de sombra por cara cuya opacidad sale del ángulo (<code>createAnimatable</code> + <code>onUpdate</code>, lab 05). La sombra en la mesa es un elemento aparte.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> gira la caja con los deslizadores y pasa por los cinco presets de la transición 5. ¿Es un libro desde todos los ángulos? ¿Con qué <code>perspective</code> (el prototipo de ayer usaba 5200, casi ortográfico) y qué grosor?</div>
+
+<div class="barra"><div class="presets" id="presets"></div></div>
+
+<div class="escena">
+  <div class="vista" id="vista"><div class="mesa"></div>
+    <div class="sombra-mesa" id="sm"></div>
+    <div class="libro" id="libro">
+      <div class="taco">
+        <div class="cara canto"></div><div class="cara cabeza"></div><div class="cara pie"></div>
+      </div>
+      <div class="cara tapa">Naeth<div class="luz"></div><div class="sombra"></div></div>
+      <div class="cara contratapa"><div class="luz"></div><div class="sombra"></div></div>
+      <div class="cara lomo"><span>Naeth</span><div class="luz"></div><div class="sombra"></div></div>
+    </div>
+  </div>
+  <div class="panel" id="panel"></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Con <code>perspective</code> 5200 la caja se ve como un recorte plano (dolly y zoom se confunden: §1.2 del doc). Entre 900 y 1600 se ve el volumen sin deformar. El <code>perspective-origin</code> decide desde dónde mira la cámara: si el libro está abajo a la izquierda (la pila), mover el origen ahí evita que se vea «desde arriba». El texto de la tapa y del lomo tiene que seguir nítido en todos los ángulos (si se emborrona, falta <code>backface-visibility: hidden</code> o <code>translateZ(0)</code> en la cara). La luz cae desde la izquierda: al girar a la derecha la tapa se ilumina y el lomo se ensombrece.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  const { createAnimatable, spring, utils } = anime;
+  const root = document.documentElement, libro = document.getElementById('libro'), vista = document.getElementById('vista');
+  const params = { rx: 0, ry: 0, rz: 0, persp: 1200, pox: 50, poy: 50, G: 40 };
+  const rangos = { rx: [-90, 90], ry: [-180, 180], rz: [-90, 90], persp: [400, 5200], pox: [0, 100], poy: [0, 100], G: [8, 80] };
+  const panel = document.getElementById('panel');
+  for (const k in rangos) {
+    const [min, max] = rangos[k];
+    panel.insertAdjacentHTML('beforeend', `<label>${k} <input type="range" data-k="${k}" min="${min}" max="${max}" value="${params[k]}"> <output id="o-${k}">${params[k]}</output></label>`);
+  }
+  panel.insertAdjacentHTML('beforeend', '<p style="margin-top:14px">rx/ry/rz en grados, persp en px, po en %, G grosor en px.</p>');
+  // Los ángulos van por un animatable con muelle: al pulsar un preset la caja se mueve con peso; los deslizadores escriben directo.
+  const ang = createAnimatable(params, { rx: { ease: spring({ duration: 500, bounce: .1 }) }, ry: { ease: spring({ duration: 500, bounce: .1 }) }, rz: { ease: spring({ duration: 500, bounce: .1 }) }, onUpdate: aplica });
+  function aplica() {
+    root.style.setProperty('--rx', params.rx + 'deg'); root.style.setProperty('--ry', params.ry + 'deg'); root.style.setProperty('--rz', params.rz + 'deg');
+    root.style.setProperty('--persp', params.persp + 'px'); root.style.setProperty('--po', `${params.pox}% ${params.poy}%`); root.style.setProperty('--G', params.G + 'px');
+    // Luz desde la izquierda (-x). Coseno del ángulo entre la normal de cada cara y la luz, en plano: aproximación suficiente.
+    const ry = (params.ry * Math.PI) / 180;
+    const lTapa = Math.sin(ry), lLomo = -Math.cos(ry);          // tapa iluminada al girar a la derecha; lomo cuando mira a la izquierda
+    sombrea('.tapa', lTapa); sombrea('.lomo', lLomo); sombrea('.contratapa', -lTapa);
+    for (const k in rangos) { const o = document.getElementById('o-' + k); if (o) o.textContent = Math.round(params[k]); const i = panel.querySelector(`[data-k=${k}]`); if (i && document.activeElement !== i) i.value = params[k]; }
+    document.getElementById('sm').style.opacity = String(utils.clamp(1 - Math.abs(params.rx) / 120, .2, .8));
+  }
+  function sombrea(sel, l) { const c = document.querySelector(sel); c.querySelector('.luz').style.opacity = utils.clamp(l * .3, 0, .3); c.querySelector('.sombra').style.opacity = utils.clamp(-l * .45, 0, .45); }
+  panel.addEventListener('input', (e) => { const k = e.target.dataset.k; if (!k) return; params[k] = Number(e.target.value); aplica(); });
+  const presets = [
+    ['tumbado en la pila (lomo al frente)', { rx: -90, ry: 0, rz: 90 }],
+    ['de pie (lomo al frente)', { rx: 0, ry: 90, rz: 0 }],
+    ['tapa al frente', { rx: 0, ry: 0, rz: 0 }],
+    ['tapa a -22° (asoma el canto)', { rx: 0, ry: -22, rz: 0 }],
+    ['portada final (-4°)', { rx: 0, ry: -4, rz: 0 }],
+    ['tres cuartos', { rx: -12, ry: 34, rz: 0 }],
+  ];
+  presets.forEach(([n, v]) => { const b = document.createElement('button'); b.textContent = n; b.addEventListener('click', () => { ang.rx(v.rx).ry(v.ry).rz(v.rz); }); document.getElementById('presets').appendChild(b); });
+  aplica();
+  document.getElementById('res').textContent = 'Se rellena con la respuesta de Eneko: perspective, grosor y desde dónde se mira.';
+</script>
+</body>
+</html>
