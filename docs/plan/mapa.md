@@ -1,15 +1,26 @@
 # Mapa: todo lo que está abierto en Naeth
 
-**Índice maestro. Se actualiza, no se archiva.** Última revisión: **06/09/2026**.
+**Índice maestro. Se actualiza, no se archiva.** Última revisión: **09/09/2026**.
 
 Existe porque el 04/09 se aprendió que un plan que solo vive en un sitio volátil caduca sin avisar,
 y porque hay tres documentos vivos a la vez y ninguno dice cuál es cuál. Este los ordena y dice el
-estado de cada cosa. **No prioriza**: eso lo decide Eneko.
+estado de cada cosa. **No prioriza**: eso lo decide Eneko, y desde el 09/09 lo que prioriza es el
+roadmap.
 
-**Estado del sistema**: visor v2 completo, `2.2026.09` en los dos nodos, failover cerrado (epoch
-156), 529 vigentes de 907 filas, 236 tests de front.
+**Estado del sistema**: visor v2 completo con el panel de ajustes del grafo, `2.2026.09.2` en los dos
+nodos, failover vivo (epoch 162), 551 vigentes de 943 filas, 263 tests de front y 261 en el
+reconciler de CENIT.
+
+⚠ **CAMBIO DE MARCO, 09/09/2026: Naeth pasa de proyecto a PRODUCTO, con CENIT dentro como núcleo.**
+El objetivo, por orden: que lo use otra gente, que abra puertas, y el dinero al final. Eso reordena
+esta lista, porque casi nada de lo de abajo está en el camino del producto: son mejoras de la
+herramienta diaria, y siguen valiendo como tales.
 
 **Los documentos**:
+- [`roadmap-producto-2026-09-09.md`](roadmap-producto-2026-09-09.md) · **el que prioriza**. Seis
+  fases al producto, con entregable verificable y lo que no entra
+- [`../discovery/cenit-verificacion-2026-09-09.md`](../discovery/cenit-verificacion-2026-09-09.md) ·
+  qué de CENIT es foso real y qué era una frase de README, verificado contra el código
 - [`grafo-lo-que-queremos.md`](grafo-lo-que-queremos.md) · la lista del grafo, 12 entradas
 - [`naeth-ideas-2026-09-06.md`](naeth-ideas-2026-09-06.md) · la ronda de ideas, 16 más 4 frentes
 - [`grafo-vivo-2026-09-05.md`](grafo-vivo-2026-09-05.md) · el diario de la jornada del grafo
@@ -90,8 +101,32 @@ una medición.
 |---|---|---|
 | F1 | Inteligencia dentro de Naeth | Qué pasa cuando se equivoca, no qué puede escribir |
 | F2 | El móvil como cliente | Qué NO cubre una PWA con Web Push |
-| F3 | Corpus compartido | Dónde vive la identidad, y qué le hace eso al `sync.py` de CENIT |
-| F4 | El pase de mantenimiento | El coste de una pasada sobre 529 memorias |
+| F3 | Corpus compartido | ⚠ **Más barato de lo que decía este mapa.** Ver abajo |
+| F4 | El pase de mantenimiento | El coste de una pasada sobre 551 memorias |
+
+⚠ **F3 se abarata, medido el 09/09.** Este mapa decía que la pregunta previa era "dónde vive la
+identidad". Media respuesta ya estaba puesta: **el proxy inyecta el email y el `sub` de Pocket-ID en
+la petición que entra a Naeth, y el código no lee ninguna cabecera** (una petición con un email
+inventado devuelve 200). Así que F3 es **barato en la identidad y caro en los datos**: cero columnas
+de propietario en las diez tablas de dominio (no quince: el recuento viejo incluía vistas y
+escombros de migración), cero RLS, y 31 consultas en `app/core.py` que no filtran por nadie. Sigue en
+pie lo del `sync.py`, que aborta ante cualquier tabla sin clasificar.
+
+⚠ Y aparece un **prerrequisito que no estaba en ninguna lista**: el visor autenticado por SSO y el
+loopback 8801 sin auth son **el mismo proceso y el mismo puerto**, así que hoy el código no puede
+distinguir a Eneko autenticado de cualquier cosa que corra en su máquina. Es la fase 3 del roadmap.
+
+## El producto (nuevo el 09/09)
+
+Estas cuatro no estaban en el mapa porque no existían como trabajo hasta que Naeth pasó a ser
+producto. **Van por el [roadmap](roadmap-producto-2026-09-09.md), que sí las ordena en el tiempo.**
+
+| | Qué | Estado | Nota |
+|---|---|---|---|
+| P-A | Separar la plataforma de la instancia | `listo` | El trabajo número uno. `core/config.yaml` está commiteado con el despliegue de Eneko dentro |
+| P-B | Naeth instalable solo | `listo` | Solo compose y documentación, cero código. Un día o dos |
+| P-C | La cara pública | `bloqueado` | Depende de P-A (el repo de CENIT es privado) y de P-B para no dejar la visita a medias |
+| P-D | Alojamiento de pago | `frente` | **Aparcado**: el dinero va último. Exige medir costes reales |
 
 ## Sueltos
 
@@ -101,6 +136,8 @@ una medición.
 | S2 | Merge de `digest` en el sync | Sin decidir. Toca CENIT |
 | S3 | El tick que compare epochs | Cierra el takeover invisible. Es de CENIT |
 | S4 | El corte de 50 de la rama léxica | Comprobar que no se cae una fila sin embedding |
+| S5 | El grafo en el móvil | ⚠ "Funciona fatal" (Eneko, 08/09), sin diagnosticar. A 375 px la arista mediana mide 10,5 px |
+| S6 | La asimetría PC/VPS del reconciler | Viva desde el 20/08. Es de la instancia, no de la plataforma: fuera del roadmap |
 
 ---
 
