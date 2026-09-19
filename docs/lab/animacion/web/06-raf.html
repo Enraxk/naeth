@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 06 · requestAnimationFrame a mano</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 300px; }
+  .caja { position: absolute; left: 30px; width: 56px; height: 56px; border-radius: 10px; }
+  .a { top: 40px; background: var(--acc); } .b { top: 130px; background: var(--warn); } .c { top: 220px; background: var(--ok); }
+  .lbl { position: absolute; left: 100px; font-size: 12px; color: var(--dim); }
+  .estado { position: absolute; right: 16px; bottom: 12px; font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<h1>web 06 · <code>requestAnimationFrame</code> a mano <small>delta de tiempo, paso fijo, y el bucle que se para solo</small></h1>
+<p>Sin librería. Precedente propio: <code>naeth/web/src/views/graph/Canvas.svelte:122-131</code> (bucle <code>wake()</code>/<code>frame()</code> que se apaga cuando nada se mueve) y <code>lib/layout-map.svelte.ts:50-67</code> (asentamiento con presupuesto de 6 ms por fotograma).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> pon la velocidad a 0,25× y mira las tres: A avanza «un poco por fotograma» y se ve distinta a 60 que a 144 Hz; B usa el delta de tiempo y llega en el mismo tiempo en cualquier monitor; C es un muelle a paso fijo (240 Hz de simulación) con interpolación, la forma correcta. ¿Se ve la diferencia entre A y B al ocupar el hilo?</div>
+
+<div class="barra">
+  <button id="go">lanzar</button>
+  <button id="ocupar">ocupar el hilo 3 s</button>
+</div>
+
+<div class="escena">
+  <div class="caja a"></div><div class="lbl" style="top:58px">A · x += 4 por fotograma (mal: depende del refresco)</div>
+  <div class="caja b"></div><div class="lbl" style="top:148px">B · x = f(t) con delta de tiempo y bezier (bien: independiente del refresco)</div>
+  <div class="caja c"></div><div class="lbl" style="top:238px">C · muelle a paso fijo con acumulador (bien: física estable)</div>
+  <div class="estado" id="estado">bucle parado</div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">A recorre 560 px en 140 fotogramas: 0,97 s a 144 Hz y 2,3 s a 60. Es el error clásico. B y C tardan lo mismo en cualquier pantalla. El bucle se apaga solo cuando las tres han llegado (<code>estado</code> abajo a la derecha): un rAF que corre siempre cuesta batería y pierde el «no hay nada que hacer» que el compositor sí sabe. Cuándo compensa esto frente a WAAPI o una librería: cuando el valor no es una propiedad CSS (canvas, un número en pantalla, la física de un arrastre) o cuando hace falta decidir algo en cada fotograma.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const A = document.querySelector('.a'), B = document.querySelector('.b'), C = document.querySelector('.c');
+  const estado = document.getElementById('estado');
+  const bezier = (x1, y1, x2, y2) => { const cx = (t) => 3*x1*(1-t)**2*t + 3*x2*(1-t)*t**2 + t**3, cy = (t) => 3*y1*(1-t)**2*t + 3*y2*(1-t)*t**2 + t**3;
+    return (x) => { let lo = 0, hi = 1, t; for (let i = 0; i < 24; i++) { t = (lo + hi)/2; if (cx(t) < x) lo = t; else hi = t; } return cy(t); }; };
+  const ease = bezier(.05, .7, .1, 1);
+  const s = { on: false, ax: 0, t0: 0, last: 0, cx: 0, cv: 0, acc: 0, done: 0 };
+  const DT = 1 / 240;
+  function frame(now) {
+    const dt = Math.min(0.1, (now - s.last) / 1000) * lab.speed; s.last = now;
+    let activos = 0;
+    if (s.ax < 560) { s.ax = Math.min(560, s.ax + 4 * lab.speed); A.style.transform = `translateX(${s.ax}px)`; activos++; }
+    const p = Math.min(1, ((now - s.t0) / 1000 * lab.speed) / 1.2);
+    B.style.transform = `translateX(${560 * ease(p)}px)`; if (p < 1) activos++;
+    // C · acumulador: la física avanza en pasos fijos, aunque el fotograma haya tardado lo que sea.
+    s.acc += dt; let prev = s.cx;
+    while (s.acc >= DT) { prev = s.cx; const a = (-170 * (s.cx - 560) - 14 * s.cv * 1) / 1; s.cv += a * DT; s.cx += s.cv * DT; s.acc -= DT; }
+    const alpha = s.acc / DT; const cx = prev + (s.cx - prev) * alpha;
+    C.style.transform = `translateX(${cx}px)`;
+    if (Math.abs(s.cx - 560) > 0.05 || Math.abs(s.cv) > 0.05) activos++;
+    if (activos) requestAnimationFrame(frame); else { s.on = false; estado.textContent = 'bucle parado (se apagó solo)'; Meter.end(); }
+  }
+  document.getElementById('go').addEventListener('click', () => {
+    Object.assign(s, { ax: 0, cx: 0, cv: 0, acc: 0, t0: performance.now(), last: performance.now() });
+    A.style.transform = B.style.transform = C.style.transform = 'none';
+    Meter.begin('raf');
+    if (!s.on) { s.on = true; estado.textContent = 'bucle vivo'; requestAnimationFrame(frame); }
+  });
+  document.getElementById('ocupar').addEventListener('click', () => {
+    const fin = performance.now() + 3000;
+    const bloquea = () => { const t = performance.now() + 40; while (performance.now() < t) {} if (performance.now() < fin) setTimeout(bloquea, 10); };
+    bloquea();
+  });
+  document.getElementById('res').textContent = 'Se rellena con la observación de Eneko.';
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 02 · keyframes, @property, linear()</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 420px; }
+  .fila { position: absolute; left: 0; right: 0; height: 90px; border-bottom: 1px solid #2a2d31; }
+  .fila h3 { position: absolute; top: 8px; left: 14px; margin: 0; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .caja { position: absolute; left: 30px; top: 32px; width: 48px; height: 48px; border-radius: 8px; background: var(--acc); }
+
+  /* 1 · dos animaciones sobre transform a la vez: animation-composition decide si se pisan o se suman. */
+  @keyframes derecha { to { transform: translateX(420px); } }
+  @keyframes salto { 50% { transform: translateY(-30px); } }
+  .f1.go .caja { animation: derecha 1200ms cubic-bezier(.05,.7,.1,1) forwards, salto 300ms ease-in-out 3; animation-composition: replace; }
+  .f1.go.add .caja { animation-composition: add; }
+
+  /* 2 · @property: una variable registrada se interpola (sin registrar, salta). */
+  @property --giro { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+  @property --tono { syntax: '<color>'; inherits: false; initial-value: #5db0ff; }
+  .f2 .caja { transform: rotate(var(--giro)); background: var(--tono); transition: --giro 840ms cubic-bezier(.05,.7,.1,1), --tono 840ms linear; }
+  .f2.go .caja { --giro: 180deg; --tono: #46c98b; }
+
+  /* 3 · linear() como muelle en CSS puro: la curva sale de simular el muelle y muestrearla. */
+  .f3 .caja { transition: transform 900ms var(--muelle, linear); }
+  .f3.go .caja { transform: translateX(420px); }
+
+  /* 4 · el mismo gesto con cubic-bezier rebasado, para comparar con el muelle. */
+  .f4 .caja { transition: transform 600ms cubic-bezier(.34,1.56,.64,1); }
+  .f4.go .caja { transform: translateX(420px); }
+
+  html[data-reduced] .caja { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+</style>
+</head>
+<body>
+
+<h1>web 02 · <code>@keyframes</code>, <code>animation-composition</code>, <code>@property</code>, <code>linear()</code> <small>CSS</small></h1>
+<p>Fuentes: MDN. Soporte según <code>web-features</code> (19/09/2026): <code>animation-composition</code> Baseline 2023 (Chrome 112, Firefox 115, Safari 16); <code>@property</code> Baseline julio 2024 (Chrome 85, Firefox 128, Safari 16.4); <code>linear()</code> Baseline diciembre 2023 (Chrome 113, Firefox 112, Safari 17.2).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> fila 3 contra fila 4: ¿el muelle por <code>linear()</code> se ve como un objeto con peso, y el bezier rebasado como un rebote de dibujo? Y fila 1: con <code>add</code>, ¿la caja salta MIENTRAS avanza (dos animaciones sumadas sobre <code>transform</code>)?</div>
+
+<div class="barra">
+  <button id="go">lanzar todo</button>
+  <label><input type="checkbox" id="add"> fila 1 con <code>animation-composition: add</code></label>
+</div>
+
+<div class="escena">
+  <div class="fila f1" style="top:0"><h3>1 · dos @keyframes sobre transform: replace (se pisan) o add (se suman)</h3><div class="caja"></div></div>
+  <div class="fila f2" style="top:90px"><h3>2 · @property: --giro y --tono registradas, así se interpolan con transition</h3><div class="caja"></div></div>
+  <div class="fila f3" style="top:180px"><h3>3 · linear() con la curva de un muelle (stiffness 170, damping 14, mass 1)</h3><div class="caja"></div></div>
+  <div class="fila f4" style="top:270px"><h3>4 · cubic-bezier(.34,1.56,.64,1), el --t-over del visor</h3><div class="caja"></div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Fila 1 con <code>replace</code>: la segunda animación (<code>salto</code>) gana y la caja solo salta, sin avanzar; con <code>add</code>, salta y avanza. Es el mismo problema que tendrá el libro si dos animaciones tocan <code>transform</code> a la vez: o se descompone en <code>translate</code>/<code>rotate</code>/<code>scale</code> individuales, o se suman. Fila 2: quita el <code>@property</code> y las variables saltan. Fila 3: el muelle no tiene duración propia; los 900 ms son cuánto tarda en asentarse la simulación muestreada (<code>linear()</code> con 60 puntos, generados abajo).</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  /**
+   * Muestrea un muelle amortiguado y devuelve una función linear() de CSS.
+   * Integración semi-implícita a paso fijo, la misma idea que usan Anime.js y svelte/motion;
+   * se corta cuando la posición y la velocidad quedan por debajo de la precisión.
+   */
+  function springLinear({ stiffness = 170, damping = 14, mass = 1, points = 60, maxMs = 2000 } = {}) {
+    let x = 0, v = 0; const dt = 1 / 240; const samples = []; let t = 0;
+    while (t < maxMs / 1000) {
+      const a = (-stiffness * (x - 1) - damping * v) / mass;
+      v += a * dt; x += v * dt; t += dt;
+      samples.push({ t, x });
+      if (Math.abs(x - 1) < 0.001 && Math.abs(v) < 0.001) break;
+    }
+    const total = samples.at(-1).t;
+    const pts = [];
+    for (let i = 0; i <= points; i++) {
+      const s = samples[Math.min(samples.length - 1, Math.round((i / points) * (samples.length - 1)))];
+      pts.push(`${s.x.toFixed(4)} ${((s.t / total) * 100).toFixed(1)}%`);
+    }
+    return { css: `linear(${pts.join(', ')})`, ms: Math.round(total * 1000) };
+  }
+  const m = springLinear();
+  document.documentElement.style.setProperty('--muelle', m.css);
+  document.querySelector('.f3 .caja').style.transitionDuration = m.ms + 'ms';
+  document.querySelector('.f3 h3').textContent += ` → ${m.ms} ms hasta asentarse`;
+  document.getElementById('res').textContent = `linear() generado con ${m.css.split(',').length} puntos, ${m.ms} ms. animation-composition soportado: ${CSS.supports('animation-composition', 'add')}; @property: ${typeof CSS.registerProperty === 'function'}; linear(): ${CSS.supports('transition-timing-function', 'linear(0, 1)')}.`;
+  const filas = document.querySelectorAll('.fila');
+  document.getElementById('go').addEventListener('click', () => {
+    const add = document.getElementById('add').checked;
+    Meter.begin('keyframes');
+    filas.forEach((f) => { f.classList.toggle('go'); f.classList.toggle('add', add); });
+    setTimeout(() => Meter.end(), 1300);
+  });
+</script>
+</body>
+</html>

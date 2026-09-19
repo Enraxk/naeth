@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 01 · transition</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 300px; display: grid; grid-template-columns: 1fr 1fr; }
+  .mitad { position: relative; border-right: 1px solid #2a2d31; }
+  .mitad h3 { position: absolute; top: 10px; left: 14px; margin: 0; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .caja { position: absolute; left: 30px; top: 110px; width: 80px; height: 80px; border-radius: 10px; background: var(--acc); }
+  /* A · transition: interrumpible sola. Cambiar la clase a mitad va desde donde está. */
+  .a .caja { transition: transform 840ms cubic-bezier(.05,.7,.1,1); }
+  .a.ida .caja { transform: translateX(340px); }
+  /* B · @keyframes: no es interrumpible: quitar la clase salta al principio. */
+  @keyframes ir { to { transform: translateX(340px); } }
+  .b.ida .caja { animation: ir 840ms cubic-bezier(.05,.7,.1,1) forwards; }
+
+  /* C · display con transition-behavior + @starting-style: entrar y salir con display:none. */
+  .tarjeta {
+    position: absolute; right: 24px; top: 40px; width: 200px; padding: 12px 14px; border-radius: 10px;
+    background: #2a2d31; color: var(--ink); font-size: 13px;
+    transition: opacity 220ms ease, transform 220ms cubic-bezier(.34,1.56,.64,1), display 220ms allow-discrete;
+    opacity: 1; transform: translateY(0);
+  }
+  .tarjeta[hidden] { display: none; opacity: 0; transform: translateY(10px); }
+  @starting-style { .tarjeta { opacity: 0; transform: translateY(10px); } }
+
+  html[data-reduced] .a .caja, html[data-reduced] .tarjeta { transition-duration: 1ms; }
+</style>
+</head>
+<body>
+
+<h1>web 01 · <code>transition</code> <small>CSS · interrumpible, y `display` con `allow-discrete`</small></h1>
+<p>Fuente: MDN <code>transition-behavior</code> y <code>@starting-style</code> (Baseline agosto 2024: Chrome 117, Firefox 129, Safari 17.4/17.5 según <code>web-features</code>, leído el 19/09/2026).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> pulsa «ida y vuelta» y vuelve a pulsar A MITAD. ¿Se nota que la <code>transition</code> (izquierda) sigue desde donde estaba y la <code>@keyframes</code> (derecha) salta? Y la tarjeta: ¿entra y sale con <code>display:none</code> de por medio sin JS?</div>
+
+<div class="barra">
+  <button id="go">ida y vuelta</button>
+  <button id="tarjeta">mostrar / ocultar tarjeta</button>
+</div>
+
+<div class="escena">
+  <div class="mitad a"><h3>A · transition (interrumpible)</h3><div class="caja"></div>
+    <div class="tarjeta" hidden>Tarjeta con <code>display:none</code> real en reposo: entra por <code>@starting-style</code> y sale por <code>allow-discrete</code>.</div>
+  </div>
+  <div class="mitad b"><h3>B · @keyframes (no interrumpible)</h3><div class="caja"></div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Al interrumpir, A invierte con la velocidad que llevaba (la <code>transition</code> reversa toma el valor computado actual como origen). B reinicia: la animación por clase no tiene estado intermedio que conservar. La tarjeta: sin <code>allow-discrete</code> el <code>display</code> cambia a <code>none</code> al instante y la salida no se ve; sin <code>@starting-style</code> la entrada no tiene punto de partida y aparece de golpe.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  const a = document.querySelector('.a'), b = document.querySelector('.b');
+  const tarjeta = document.querySelector('.tarjeta');
+  document.getElementById('go').addEventListener('click', () => {
+    Meter.begin('transition');
+    a.classList.toggle('ida'); b.classList.toggle('ida');
+    setTimeout(() => Meter.end(), 900);
+  });
+  document.getElementById('tarjeta').addEventListener('click', () => { tarjeta.hidden = !tarjeta.hidden; });
+  document.getElementById('res').textContent = `transition-behavior: allow-discrete soportado: ${CSS.supports('transition-behavior', 'allow-discrete')}.`;
+</script>
+</body>
+</html>

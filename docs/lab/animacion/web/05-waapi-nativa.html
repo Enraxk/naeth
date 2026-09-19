@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 05 · WAAPI nativa</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 300px; }
+  .caja { position: absolute; left: 30px; top: 60px; width: 64px; height: 64px; border-radius: 10px; background: var(--acc); }
+  .caja.dos { top: 180px; background: var(--ok); }
+  .lbl { position: absolute; left: 110px; font-size: 12px; color: var(--dim); }
+  .escena input[type=range] { position: absolute; left: 30px; bottom: 14px; width: 500px; accent-color: var(--acc); }
+</style>
+</head>
+<body>
+
+<h1>web 05 · Web Animations API nativa <small>`element.animate`, el objeto `Animation`, `composite`, `commitStyles`</small></h1>
+<p>Fuente: MDN, «Using the Web Animations API». Baseline 2020 (Chrome 84, Firefox 75, Safari 14). Es la base sobre la que Anime.js <code>waapi</code>, Motion y las <code>css</code> de Svelte construyen: se entiende esta primero.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> pulsa «ocupar el hilo principal» y lanza. La caja azul (WAAPI, <code>transform</code>) ¿sigue fluida mientras la verde (la misma animación calculada en JS con <code>requestAnimationFrame</code>) se atasca? Es la prueba de que <code>transform</code>/<code>opacity</code> por WAAPI corren en el compositor.</div>
+
+<div class="barra">
+  <button id="go">lanzar las dos</button>
+  <button id="rev">reverse()</button>
+  <button id="pausa">pause / play</button>
+  <button id="ocupar">ocupar el hilo principal 3 s</button>
+  <label><input type="checkbox" id="add"> segunda animación con <code>composite: 'add'</code></label>
+</div>
+
+<div class="escena">
+  <div class="caja uno"></div><div class="lbl" style="top:80px">WAAPI · element.animate (compositor)</div>
+  <div class="caja dos"></div><div class="lbl" style="top:200px">rAF · el mismo bezier calculado en JS (hilo principal)</div>
+  <input type="range" id="seek" min="0" max="1000" value="0">
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Con el hilo ocupado, la azul no pierde fotogramas (el medidor sí los cuenta, porque el medidor también vive en el hilo principal: mira la caja, no la cifra). <code>reverse()</code> a mitad invierte con continuidad. El deslizador es <code>animation.currentTime</code>: el scrubber gratis. <code>composite: 'add'</code> suma una segunda animación de <code>transform</code> (un salto) a la primera en vez de pisarla. Al terminar se hace <code>commitStyles()</code> + <code>cancel()</code> en vez de dejar <code>fill: forwards</code> vivo (MDN lo desaconseja: la animación queda ocupando y su estilo manda sobre el CSS).</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const uno = document.querySelector('.uno'), dos = document.querySelector('.dos'), seek = document.getElementById('seek');
+  const D = 1600, EASE = 'cubic-bezier(.05,.7,.1,1)';
+  let anim = null, raf = null;
+  // Bezier en JS: la misma curva, resuelta por bisección sobre x(t) para obtener y.
+  function bezier(x1, y1, x2, y2) {
+    const cx = (t) => 3 * x1 * (1 - t) ** 2 * t + 3 * x2 * (1 - t) * t ** 2 + t ** 3;
+    const cy = (t) => 3 * y1 * (1 - t) ** 2 * t + 3 * y2 * (1 - t) * t ** 2 + t ** 3;
+    return (x) => { let lo = 0, hi = 1, t; for (let i = 0; i < 24; i++) { t = (lo + hi) / 2; if (cx(t) < x) lo = t; else hi = t; } return cy(t); };
+  }
+  const ease = bezier(.05, .7, .1, 1);
+  document.getElementById('go').addEventListener('click', () => {
+    if (anim) anim.cancel(); if (raf) cancelAnimationFrame(raf);
+    Meter.begin('waapi+raf');
+    anim = uno.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(560px)' }], { duration: D, easing: EASE, fill: 'forwards' });
+    anim.playbackRate = lab.speed;
+    if (document.getElementById('add').checked) {
+      uno.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-40px)', offset: .5 }, { transform: 'translateY(0)' }],
+        { duration: 500, iterations: 3, composite: 'add' });
+    }
+    anim.finished.then(() => { anim.commitStyles(); anim.cancel(); Meter.end(); }).catch(() => {});
+    // La misma animación a mano
+    const t0 = performance.now();
+    const paso = (now) => {
+      const p = Math.min(1, ((now - t0) * lab.speed) / D);
+      dos.style.transform = `translateX(${560 * ease(p)}px)`;
+      if (p < 1) raf = requestAnimationFrame(paso);
+    };
+    raf = requestAnimationFrame(paso);
+  });
+  document.getElementById('rev').addEventListener('click', () => anim && anim.reverse());
+  document.getElementById('pausa').addEventListener('click', () => anim && (anim.playState === 'paused' ? anim.play() : anim.pause()));
+  seek.addEventListener('input', () => { if (!anim) return; anim.pause(); anim.currentTime = (seek.value / 1000) * D; });
+  lab.onSpeed((v) => { if (anim) anim.playbackRate = v; });
+  document.getElementById('ocupar').addEventListener('click', () => {
+    // Bloqueos de 40 ms cada 50 ms durante 3 s: el hilo principal casi no respira.
+    const fin = performance.now() + 3000;
+    const bloquea = () => { const t = performance.now() + 40; while (performance.now() < t) {} if (performance.now() < fin) setTimeout(bloquea, 10); };
+    bloquea();
+  });
+  document.getElementById('res').textContent = `Element.animate: ${typeof uno.animate === 'function'}; composite add soportado: ${(() => { try { const a = uno.animate([{ opacity: 1 }], { duration: 1, composite: 'add' }); a.cancel(); return true; } catch { return false; } })()}.`;
+</script>
+</body>
+</html>

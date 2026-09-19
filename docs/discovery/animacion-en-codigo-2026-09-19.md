@@ -193,9 +193,198 @@ La 4 no se prueba: se decide con Material como tabla y el ojo de Eneko como juez
 usarlos.) El handoff del visor usa `ease` (`cubic-bezier(0.25,0.1,0.25,1)`) y `--t-over`
 `(.34,1.56,.64,1)`; no se toca, pero se sabe dónde cae: `ease` es un `standard` suave.
 
-## 2 · El medio: con qué se anima en la web
+## 2 · El medio: con qué se anima en la web (19/09, 15:40 a 17:00; estimado 2 h 30, real 1 h 20 más lo que tarde Eneko en mirar los labs)
 
-_(pendiente)_
+Soporte de navegadores: paquete `web-features` (1.210 entradas, descargado de jsDelivr el 19/09/2026);
+«Baseline» es su vocabulario (fecha en que la última de las tres familias lo tuvo). Lo que importa
+aquí es Chromium (Helium, y el visor se usa ahí), y se anota lo que Firefox y Safari no tienen para
+el día que Naeth sea producto. Tamaños: `gzip -9` sobre el bundle de jsDelivr, medidos hoy.
+
+### 2.1 CSS
+
+**`transition`** (Baseline 2015). La forma más barata de animar un cambio de estado: se declara qué
+propiedad, cuánto y con qué curva, y el navegador interpola cada vez que el valor cambia. Dos
+propiedades que la hacen distinta de todo lo demás: **es interrumpible sola** (si el valor vuelve a
+cambiar a mitad, la nueva transición arranca desde el valor computado actual, con continuidad) y
+`transform` y `opacity` van al compositor. Lo que no da: secuencias (más de un paso), control de
+tiempo (pausar, invertir, scrubber), y hasta 2024 no valía para `display`. Hoy sí:
+**`transition-behavior: allow-discrete`** (Baseline agosto 2024: Chrome 117, Firefox 129, Safari
+17.4) permite transicionar `display` y `content-visibility`, con la regla de que al entrar el
+`display` cambia al 0 % y al salir al 100 %, para que el elemento esté visible toda la transición;
+y **`@starting-style`** (misma fecha, Safari 17.5) da el estado de partida a un elemento que acaba
+de aparecer, que es lo que faltaba para que una entrada tuviera transición. El visor ya lo usa
+(`Header.svelte:155-157`, desde `fe38975`). Lab [`web/01`](../lab/animacion/web/01-css-transition.html):
+la misma caja por `transition` y por `@keyframes` interrumpidas a mitad, y una tarjeta con
+`display:none` real que entra y sale sin JS.
+
+**`@keyframes` + `animation`** (Baseline 2015). Varios pasos, repeticiones, dirección alterna,
+`fill`. Lo que no da: interrupción con continuidad (quitar la clase reinicia), y por defecto dos
+animaciones sobre la misma propiedad se pisan. **`animation-composition`** (Baseline julio 2023:
+Chrome 112, Firefox 115, Safari 16) cambia eso: `add` suma, `accumulate` acumula. Es la respuesta de
+CSS al problema que tendrá el libro cuando dos cosas toquen `transform` a la vez; la otra respuesta
+son las propiedades individuales `translate`, `rotate`, `scale` (Baseline agosto 2022), que se
+animan por separado sin pisarse. **`@property`** (Baseline julio 2024: Chrome 85, Firefox 128,
+Safari 16.4) registra una variable con tipo, y con eso una `--variable` se interpola en vez de
+saltar: sirve para animar un ángulo o un color que después usan varias reglas. **`linear()`**
+(Baseline diciembre 2023: Chrome 113, Firefox 112, Safari 17.2) admite una curva de muchos puntos, y
+con eso **un muelle muestreado cabe en CSS puro** (Comeau, «Springs and Bounces in Native CSS»): se
+simula el muelle en JS una vez, se sacan 60 puntos, y el resto es `transition`. Lab
+[`web/02`](../lab/animacion/web/02-css-keyframes.html): las cuatro cosas en cuatro filas; el muelle
+`linear()` (stiffness 170, damping 14) sale con 61 puntos y 1.117 ms hasta asentarse, al lado del
+`cubic-bezier(.34,1.56,.64,1)` del visor para ver la diferencia entre un rebote de física y uno
+dibujado.
+
+**3D** (`perspective`, `transform-style: preserve-3d`, `backface-visibility`, `rotateX/Y/Z`,
+`translateZ`; Baseline 2022). Es CSS y solo CSS: ninguna librería aporta nada aquí salvo mover los
+ángulos. Se estudia en la fase 8 con la caja del libro; lo que hay que saber ya es que
+`perspective` va en el **padre** (o como función dentro del `transform` del propio elemento, con
+efecto distinto), que `preserve-3d` hay que repetirlo en cada nivel anidado, y que el 5200 px del
+prototipo del 18/09 es casi ortográfico (Willenskomer, «dolly» frente a «zoom», §1.2).
+
+**Scroll-driven** (`animation-timeline: scroll()` / `view()`, `scroll-timeline-name`,
+`view-timeline-name`, `animation-range`, `timeline-scope`). **No es Baseline**: Chrome 115, Safari
+26, **Firefox no** (a 19/09/2026). La animación no avanza con el tiempo sino con el scroll de un
+contenedor (`scroll()`) o con la visibilidad de un elemento en él (`view()`); `animation-duration`
+deja de contar y el easing por defecto es lineal respecto al scroll. Sin un listener, sin JS por
+fotograma, y en Chromium en el compositor si solo toca `transform`/`opacity` (⚠ esto último es
+conocimiento de la implementación, no lo dice MDN). El gemelo en JS es `new ScrollTimeline({source,
+axis})` y `new ViewTimeline({subject, axis, inset})` pasados como `timeline` a `element.animate`.
+Para CDA: el minimapa del libro y cualquier «al pasar por aquí, X». Lab
+[`web/03`](../lab/animacion/web/03-scroll-driven.html): dos columnas iguales, una por CSS y otra
+por JS+WAAPI, con barra de progreso y tarjetas que entran por `view()`.
+
+**View Transitions** (`document.startViewTransition(cb)`; Baseline octubre 2025: Chrome 111,
+Firefox 144, Safari 18; entre documentos con `@view-transition { navigation: auto }` solo Chrome
+126 y Safari 18.2). El navegador captura una instantánea del estado viejo, deja que el callback
+cambie el DOM como quiera, captura el nuevo, y anima entre los dos con un árbol de pseudoelementos
+(`::view-transition-group(nombre)` → `-image-pair` → `-old` y `-new`). Lo que tiene
+`view-transition-name` se anima por separado: el grupo interpola tamaño y posición, y las dos
+imágenes se funden. Se personaliza con `@keyframes` sobre los pseudoelementos, o desde JS tras
+`transition.ready` con `element.animate(..., { pseudoElement: '::view-transition-new(root)' })`.
+Lo que hace bien: continuidad entre dos DOM que no tienen nada que ver, sin calcular nada. Lo que
+no puede: **las instantáneas son imágenes planas**; no hay caras ocultas, no hay 3D, y el objeto
+que «vuela» es una foto que cambia de tamaño. Para el libro sirve donde hay un cambio de vista
+(portada → índice → página), no para el vuelo. Lab
+[`web/04`](../lab/animacion/web/04-view-transitions.html): la pila y la portada como dos DOM
+distintos, con el lomo de Naeth y la portada compartiendo `view-transition-name: naeth`, para ver
+exactamente cómo se ve «una foto que se estira».
+
+**`prefers-reduced-motion`** (Baseline 2020). Media query en CSS y `matchMedia` en JS. Ninguna de
+las técnicas de esta sección la respeta sola: hay que escribirlo. El visor lo hace por tokens
+(`app.css:192-245`); el grafo por JS (`Canvas.svelte:119-120`).
+
+### 2.2 WAAPI nativa (Web Animations API)
+
+Baseline 2020 (Chrome 84, Firefox 75, Safari 14). `element.animate(keyframes, opciones)` devuelve
+un objeto `Animation` con todo lo que a CSS le falta: `play()`, `pause()`, `reverse()`,
+`finish()`, `cancel()`, `currentTime` (el scrubber), `playbackRate` y `updatePlaybackRate()`, las
+promesas `ready` y `finished`, `playState`. Los keyframes van como array de objetos (con `offset`
+opcional) o como objeto de arrays. Opciones: `duration`, `delay`, `easing` (**por defecto
+`linear`**, no `ease` como en CSS), `iterations`, `direction`, `fill`, **`composite`**
+(`replace`, `add`, `accumulate`: dos animaciones sobre `transform` a la vez se suman con `add`),
+`pseudoElement`, y `timeline` (para scroll-driven). `document.getAnimations()` da todas las vivas
+(sirve para bajarlas todas a la mitad con reduced-motion, o para pausarlas al ocultar).
+
+Dos cosas que MDN dice y conviene grabarse:
+
+- **`fill: 'forwards'` indefinido está desaconsejado**: la animación queda viva ocupando memoria
+  y su estilo manda sobre el CSS del elemento. La forma correcta de dejar el estado final es
+  `onfinish: () => { anim.commitStyles(); anim.cancel(); }`: escribe el valor computado en
+  `style` y quita la animación. El navegador además **retira solas** las animaciones `fill` que
+  otra posterior tapa del todo (`replaceState: 'removed'`), salvo que se llame a `persist()`.
+- Es «una de las formas más eficientes de animar en la web» porque `transform` y `opacity` van al
+  compositor: **con el hilo principal bloqueado, la animación sigue**. Lab
+  [`web/05`](../lab/animacion/web/05-waapi-nativa.html): la misma caja por WAAPI y por rAF con
+  el mismo bezier resuelto a mano, y un botón que bloquea el hilo 40 ms de cada 50 durante 3 s.
+  Con `reverse()`, `pause`, scrubber por `currentTime`, y `composite: 'add'`.
+
+Todo lo que hacen Anime.js `waapi`, Motion y las transiciones `css` de Svelte es construir encima
+de esto. Lo que WAAPI no tiene: timeline de varias animaciones con posiciones relativas (hay que
+calcular los `delay` a mano), muelles (solo `linear()` muestreado, igual que en CSS), stagger,
+valores que no sean propiedades CSS, y callbacks por fotograma (no hay `onUpdate`: si hace falta,
+es rAF leyendo `currentTime`).
+
+### 2.3 `requestAnimationFrame` a mano
+
+Sin librería, para lo que no es una propiedad CSS: canvas, un número en pantalla, la física de un
+arrastre, o cuando hay que decidir algo en cada fotograma. Tres reglas, las tres en el lab
+[`web/06`](../lab/animacion/web/06-raf.html) una al lado de otra: **nunca «x += 4 por fotograma»**
+(a 144 Hz va 2,4 veces más rápido que a 60), sino `x = f(t)` con el tiempo real; **la física a paso
+fijo con acumulador** (simular a 240 Hz en pasos de 1/240 s las veces que haga falta por fotograma,
+e interpolar el resto), que es lo que hacen Anime.js `createSpring` y `svelte/motion`; y **el bucle
+se apaga solo** cuando nada se mueve, como `Canvas.svelte:122-131`. Con el hilo ocupado, todo lo
+que va por rAF se atasca: es el precio, y por eso el vuelo del libro no va por aquí.
+
+### 2.4 Svelte 5, lo que trae de serie
+
+Banco [`naeth/web/bench/motion.html`](../../naeth/web/bench/motion.html) (`MotionLab.svelte`,
+sirve Vite en el 5180; compila con `svelte-check` a 0 errores). Cuatro bloques:
+
+- **`transition:` / `in:` / `out:`** (`svelte/transition`: `fade`, `blur`, `fly`, `slide`,
+  `scale`, `draw`, `crossfade`). Solo corren cuando el elemento **entra o sale del DOM** por un
+  `{#if}` o `{#each}`; no sirven para mover algo que se queda. `transition:` es bidireccional:
+  invertida a mitad toma el estado actual. Una transición propia devuelve `{delay, duration,
+  easing, css(t, u), tick(t, u)}`; **con `css` Svelte muestrea la función, genera keyframes y la
+  ejecuta el navegador** (la doc: «web animations can run off the main thread»), con `tick` la
+  llama en cada fotograma por rAF. Bloque 4 del banco: el mismo giro por las dos vías con el hilo
+  ocupado. Modificador `|global` para que corra también cuando es el padre el que se crea.
+- **`animate:flip`** (`svelte/animate`): en un `{#each}` con clave, cuando la lista se reordena
+  cada elemento va de su sitio viejo al nuevo por `transform` (First, Last, Invert, Play). Bloque
+  2: la pila de lomos, pulsar uno lo manda al final y los demás bajan. **Es la pila de CDA
+  recolocándose a 0 KB**, y lo que `createLayout` de Anime.js hace con más opciones (fase 5).
+- **`Tween` y `Spring`** (`svelte/motion`, clases desde 5.8.0; `tweened()` y `spring()` están
+  deprecados): un valor que persigue a `target` y expone `current`. `Tween` con `duration`,
+  `easing`, `delay`, `interpolate`; `Spring` con `stiffness`, `damping`, `precision`
+  (adimensionales, 0 a 1: **no son los de Anime.js ni los de Comeau**) y `set(v, {instant,
+  preserveMomentum})`. Los dos escriben el DOM por rAF: hilo principal. Bloque 3.
+- **Reduced-motion**: nada de esto lo mira solo. El banco lo imprime arriba y lo tendría que
+  aplicar el componente.
+
+Lo que cierra esto respecto al 24/08: la doctrina «primero Svelte» es correcta para **entrar y
+salir** (transiciones), **recolocar listas** (`flip`) y **valores que persiguen** (`Spring`,
+`Tween`); no cubre secuencias con solape, scrubber, ni un objeto que se mueve sin entrar ni salir
+del DOM. Eso es donde entra WAAPI directa o Anime.js.
+
+### 2.5 Librerías y formatos, comparados
+
+| | Versión | Licencia | gzip del bundle completo | Qué da que las otras no |
+|---|---|---|---:|---|
+| **Anime.js** | 4.5.0 | MIT | **40,6 KB** (`anime.umd.min.js`; la 4.3.6 daba 36,9 el 24/08: ha crecido con `layout`, `adapters` y `scramble`) | Timeline con posiciones relativas, muelles, SVG (morph, draw, motion path), texto, scroll, draggable, layout FLIP, adaptador Three.js; y una vía `waapi` que delega en el navegador. 21 subrutas para tree-shaking |
+| **GSAP** | 3.15.0 | «Standard no-charge» (desde la compra por Webflow; todos los plugins incluidos) | **28,3 KB** (`gsap.min.js`, sin plugins) | ScrollTrigger, Flip, MorphSVG, SplitText, Draggable, MotionPath como plugins; el ecosistema y las 9 skills que ya tengo archivadas en `~/.claude/skills-archive/gsap-*`. Todo por su motor JS (rAF): nada en el compositor |
+| **Motion** (antes Motion One + Framer Motion) | 13.4.0 | MIT | **48,8 KB** (`motion.js` UMD completo, vanilla) | Construido sobre WAAPI («hardware accelerated»), API mini `animate` de pocos KB (cifra del fabricante, no medida), layout animations y gestos en React. Es la librería de GridWatch hoy (`framer-motion@12`) |
+| **dotLottie** (`@lottiefiles/dotlottie-web`) | 0.80.0 | MIT | **32,8 KB** + el wasm del reproductor (no medido) | Reproduce lo que un diseñador exporta de After Effects. No es para UI: es para ilustración animada |
+| **Rive** (`@rive-app/canvas-lite`) | 2.42.2 | MIT (runtime) | **93 KB** (`rive.js` con el wasm embebido) | Máquinas de estado dibujadas en su editor, con entradas desde código. Para personajes y piezas interactivas de diseñador, no para transiciones de interfaz |
+| `@formkit/auto-animate` | 0.10.0 | MIT | 3,2 KB (Bundlephobia) | Una línea para animar añadir, quitar y mover hijos. Lo que hace `animate:flip` ya |
+| `@react-spring/web` | 10.1.2 | MIT | 20,1 KB (Bundlephobia) | Muelles en React. No aplica a Svelte |
+| Theatre.js, Popmotion, Velocity, Anime v3 | | | | Theatre es un editor de secuencias para cinemáticas; los otros tres son legado sin desarrollo. Se nombran para reconocerlos |
+| Three.js (y R3F) | | | | 3D real con WebGL. Fuera de alcance: el libro es CSS 3D. Anime.js 4.5 tiene adaptador para cuando llegue |
+
+Bundlephobia da 40.279 B gzip para `animejs@4.5.0` y 27.350 para `gsap@3.15.0`, coherente con lo
+medido. Todo lo tree-shaken sigue sin medir hasta la fase 6.
+
+### 2.6 La tabla de decisión por tarea
+
+Es lo que pasa a `craft-ui/references/animation-guide.md` (fase 7). Orden de preferencia de arriba
+abajo dentro de cada fila: lo primero que baste, gana.
+
+| Tarea | Con qué | Por qué no lo siguiente |
+|---|---|---|
+| Un elemento cambia de estado en el sitio (color, giro de un chevron, escala al pulsar) | `transition` CSS con token | Todo lo demás es más caro para lo mismo |
+| Algo aparece o desaparece (popover, tarjeta, cajón) | `transition` + `@starting-style` + `allow-discrete`; en Svelte, `transition:` si lo gobierna un `{#if}` | `@keyframes` no se invierte a mitad |
+| Una lista se reordena, entra o sale un elemento | `animate:flip` en Svelte; `auto-animate` en vanilla | `createLayout` de Anime.js solo si hace falta cambiar de padre o entrar desde un punto concreto |
+| Un valor numérico se mueve (contador, barra) | `Tween` de Svelte; `animation` CSS con `@property` si es puro CSS | |
+| Un valor persigue a la mano (arrastre, hover que sigue, física) | `Spring` de Svelte o `createSpring`/`createAnimatable` de Anime.js | CSS no tiene muelles vivos: solo uno muestreado con `linear()`, que no hereda velocidad |
+| Algo avanza con el scroll | `animation-timeline` CSS (Chromium y Safari); Anime.js `onScroll` cuando haga falta Firefox o lógica | Un listener de scroll con rAF es lo que se quiere evitar |
+| Cambio de vista completo (de pantalla A a B con continuidad) | View Transitions | Solo si el objeto no necesita 3D ni caras ocultas |
+| Un objeto se mueve en secuencia de varias fases con solape, scrubber e inversión | Anime.js `createTimeline` con `waapi.animate` para `transform`/`opacity` | WAAPI sola obliga a calcular delays a mano; CSS no da scrubber ni inversión |
+| Objeto 3D con caras | CSS 3D para la geometría; la timeline anterior para moverla | Ninguna librería hace la geometría |
+| Muelle en el aterrizaje o rebote con peso | `createSpring` de Anime.js (o `Spring` de Svelte si es un valor) | Bezier rebasado (`--t-over`) es un dibujo, no física: vale para lo pequeño |
+| Canvas, WebGL, o decidir algo por fotograma | rAF a mano con paso fijo y bucle que se apaga | |
+| Ilustración animada de un diseñador | dotLottie o Rive | No para transiciones de UI |
+
+Lo que **nunca** entra, y viene de la regla de los 144 Hz y del handoff del visor: animar `width`,
+`height`, `top`, `left`, `margin`, `padding`, `box-shadow` con desenfoque grande, `filter: blur`
+por fotograma; animar acciones de teclado; animar al cargar.
 
 ## 3 · Anime.js, el motor
 

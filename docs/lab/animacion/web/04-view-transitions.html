@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 04 · View Transitions</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 420px; padding: 20px; }
+  /* Dos estados del DOM: pila (lomos apilados) y portada (un libro grande). Cambiar de uno a otro
+     es un cambio de DOM normal; la View Transition anima entre las dos instantáneas. */
+  .pila { display: flex; flex-direction: column-reverse; gap: 4px; width: 280px; }
+  .lomo { height: 26px; border-radius: 3px; background: #2b3340; color: var(--ink); font-size: 12px; line-height: 26px; padding-left: 10px; cursor: pointer; }
+  .lomo.naeth { background: #1c2e45; view-transition-name: naeth; }
+  .portada { width: 220px; height: 300px; border-radius: 4px 10px 10px 4px; background: #2b3340; color: var(--ink); display: grid; place-items: center; font-size: 20px; view-transition-name: naeth; cursor: pointer; margin-left: 320px; }
+  .solapa { position: absolute; left: 580px; top: 40px; width: 220px; color: var(--dim); font-size: 13px; view-transition-name: solapa; }
+
+  /* La geometría (tamaño y posición del grupo) la anima el navegador; aquí solo la duración y la curva. */
+  ::view-transition-group(naeth) { animation-duration: 840ms; animation-timing-function: cubic-bezier(.05,.7,.1,1); }
+  ::view-transition-old(naeth), ::view-transition-new(naeth) { animation: none; mix-blend-mode: normal; height: 100%; }
+  ::view-transition-group(solapa) { animation-duration: 300ms; }
+  @media (prefers-reduced-motion: reduce) { ::view-transition-group(*) { animation-duration: 120ms; } }
+</style>
+</head>
+<body>
+
+<h1>web 04 · View Transitions <small>mismo documento: `document.startViewTransition`</small></h1>
+<p>Fuente: MDN, «Using the View Transition API». Soporte (<code>web-features</code>, 19/09/2026): Baseline octubre 2025 (Chrome 111, Firefox 144, Safari 18); entre documentos (<code>@view-transition { navigation: auto }</code>) Chrome 126 y Safari 18.2, Firefox no.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> pulsa el lomo de Naeth y luego la portada. El navegador anima solo el cambio de tamaño y posición entre las dos instantáneas. ¿Sirve esto como base de «sacar el libro» o se ve como una foto que se estira (que es lo que es)?</div>
+
+<div class="barra">
+  <button id="alternar">alternar pila / portada</button>
+  <label><input type="checkbox" id="sinvt"> sin View Transition (cambio seco)</label>
+</div>
+
+<div class="escena" id="escena"></div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Lo que hace bien: el DOM cambia de verdad (dos componentes distintos) y aun así hay continuidad, sin calcular nada. Lo que no puede hacer: girar un objeto 3D o mostrar caras que no estaban en la instantánea; las instantáneas son imágenes planas. Para el libro es útil para lo que ES un cambio de vista (portada → índice → página), no para el vuelo del objeto. Aviso: el grupo anima <code>width</code>/<code>height</code> del pseudoelemento (lo dice MDN), pero son capas del compositor, no layout del documento.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  const escena = document.getElementById('escena');
+  let abierto = false;
+  const libros = ['CENIT', 'Naeth', 'GridWatch', 'Yogin API', 'Yogin Website'];
+  function pinta() {
+    escena.innerHTML = abierto
+      ? `<div class="pila">${libros.filter((l) => l !== 'Naeth').map((l) => `<div class="lomo">${l}</div>`).join('')}</div>
+         <div class="portada" style="position:absolute;top:40px">Naeth</div>
+         <div class="solapa"><b style="color:var(--ink)">Naeth</b><br>182 páginas · 24 capítulos<br>memoria persistente, portable</div>`
+      : `<div class="pila">${libros.map((l) => `<div class="lomo ${l === 'Naeth' ? 'naeth' : ''}">${l}</div>`).join('')}</div>`;
+    escena.querySelector('.naeth, .portada')?.addEventListener('click', alterna);
+  }
+  function alterna() {
+    abierto = !abierto;
+    if (document.getElementById('sinvt').checked || !document.startViewTransition) { pinta(); return; }
+    Meter.begin('view-transition');
+    const vt = document.startViewTransition(() => pinta());
+    vt.finished.then(() => Meter.end());
+  }
+  document.getElementById('alternar').addEventListener('click', alterna);
+  pinta();
+  document.getElementById('res').textContent = `document.startViewTransition: ${typeof document.startViewTransition === 'function'}.`;
+</script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 03 · scroll-driven</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 460px; display: grid; grid-template-columns: 1fr 1fr; }
+  .col { position: relative; overflow-y: auto; border-right: 1px solid #2a2d31; scroll-timeline: --col block; }
+  .col h3 { position: sticky; top: 0; margin: 0; padding: 8px 14px; font-size: 12px; color: var(--dim); font-weight: 500; background: var(--mesa); z-index: 2; }
+  .relleno { height: 1600px; padding: 0 14px; color: var(--dim2); font-size: 12px; }
+  /* Barra de progreso del scroll: la animación avanza con el scroll, sin JS. */
+  .progreso { position: sticky; top: 30px; height: 3px; background: var(--acc); transform-origin: 0 50%; transform: scaleX(0);
+    animation: llenar linear both; animation-timeline: --col; }
+  @keyframes llenar { to { transform: scaleX(1); } }
+  /* Tarjetas que entran al hacerse visibles: view(). */
+  .tarjeta { margin: 60px 0; padding: 14px; border-radius: 10px; background: #2a2d31; color: var(--ink); font-size: 13px;
+    animation: entrar linear both; animation-timeline: view(); animation-range: entry 0% entry 80%; }
+  @keyframes entrar { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
+  /* Columna B: lo mismo con ScrollTimeline/ViewTimeline por JS + WAAPI. */
+  .b .progreso, .b .tarjeta { animation: none; }
+  html[data-reduced] .tarjeta { animation: none; opacity: 1; transform: none; }
+</style>
+</head>
+<body>
+
+<h1>web 03 · scroll-driven <small>CSS `animation-timeline: scroll()` / `view()`, y su gemelo en JS</small></h1>
+<p>Fuente: MDN, «CSS scroll-driven animations». Soporte (<code>web-features</code>, 19/09/2026): <b>no es Baseline</b>: Chrome 115, Safari 26, <b>Firefox no</b>. En Helium (Chromium 153) funciona; en Firefox la columna A no anima y la B tampoco (misma API por JS).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> haz scroll en las dos columnas. ¿La barra y las tarjetas siguen al dedo sin retraso (la animación va atada al scroll, no al tiempo)? ¿Se nota diferencia entre CSS (A) y JS+WAAPI (B)?</div>
+
+<div class="barra"></div>
+
+<div class="escena">
+  <div class="col a"><h3>A · CSS: scroll-timeline en la columna, view() en cada tarjeta</h3><div class="progreso"></div>
+    <div class="relleno">
+      <div class="tarjeta">Tarjeta 1. Entra mientras pasa del 0 % al 80 % de su entrada en el viewport de la columna.</div>
+      <div class="tarjeta">Tarjeta 2. <code>animation-range: entry 0% entry 80%</code>.</div>
+      <div class="tarjeta">Tarjeta 3. Con <code>animation-timeline</code> la duración no cuenta: el progreso es el scroll.</div>
+      <div class="tarjeta">Tarjeta 4. Y el easing por defecto es lineal respecto al scroll.</div>
+      <div class="tarjeta">Tarjeta 5. Última.</div>
+    </div>
+  </div>
+  <div class="col b"><h3>B · JS: new ScrollTimeline / ViewTimeline + element.animate</h3><div class="progreso"></div>
+    <div class="relleno">
+      <div class="tarjeta">Tarjeta 1 (JS).</div><div class="tarjeta">Tarjeta 2 (JS).</div><div class="tarjeta">Tarjeta 3 (JS).</div><div class="tarjeta">Tarjeta 4 (JS).</div><div class="tarjeta">Tarjeta 5 (JS).</div>
+    </div>
+  </div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Lo que decide esto para CDA: el minimapa del libro y cualquier «al hacer scroll, X» se pueden hacer sin un solo listener de scroll y sin JS por fotograma. Anime.js tiene <code>onScroll</code> (lab animejs/12) que hace lo mismo con JS y funciona en Firefox: se compara allí.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  const b = document.querySelector('.col.b');
+  const ok = 'ScrollTimeline' in window && 'ViewTimeline' in window;
+  if (ok && !lab.reduced) {
+    b.querySelector('.progreso').animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
+      { timeline: new ScrollTimeline({ source: b, axis: 'block' }), fill: 'both' });
+    b.querySelectorAll('.tarjeta').forEach((t) => {
+      t.animate([{ opacity: 0, transform: 'translateY(24px) scale(.96)' }, { opacity: 1, transform: 'none' }],
+        { timeline: new ViewTimeline({ subject: t, axis: 'block' }), rangeStart: 'entry 0%', rangeEnd: 'entry 80%', fill: 'both' });
+    });
+  }
+  document.getElementById('res').textContent = `CSS animation-timeline soportado: ${CSS.supports('animation-timeline', 'scroll()')}; ScrollTimeline/ViewTimeline en JS: ${ok}.`;
+</script>
+</body>
+</html>
