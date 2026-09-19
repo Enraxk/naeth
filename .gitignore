@@ -50,3 +50,6 @@ Desktop.ini
 # ya viven en docs/img/*.svg; la exportacion (carpeta y zip) se queda en disco sin versionar.
 docs/handoff/*-handoff/
 docs/handoff/*-handoff.zip
+
+# Salida de la medida de peso de bench/peso (se regenera con el comando de su README).
+naeth/web/bench/peso/out/

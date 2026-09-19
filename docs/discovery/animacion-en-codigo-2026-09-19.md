@@ -706,9 +706,68 @@ salir, cosa que la decisión «un objeto por libro» del anexo N justamente evit
 - Draggable: solo si el gesto pasa a ser de arrastre. Decisión de Eneko.
 - Layout: para recolocar la pila si no se hace con Svelte; nunca para el vuelo.
 
-## 6 · Rendimiento y peso
+## 6 · Rendimiento y peso (19/09; estimado 1 h; real: ver el commit de cierre)
 
-_(pendiente)_
+### 6.1 El peso tree-shaken, medido
+
+Cierra el hueco del 24/08 (`stack-diseno-animacion.md` §6.2). `animejs@4.5.0` instalado en
+`naeth/web` (`package.json`, sin ningún uso en `src/` todavía), siete entradas construidas con
+Vite 8.1.2 (rolldown + oxc) en modo `lib` ES y medidas con `gzip -9`; el banco y el comando quedan
+en [`naeth/web/bench/peso/`](../../naeth/web/bench/peso/README.md) para repetirlo al subir de versión.
+
+| Import | Gzip |
+|---|---:|
+| `import { animate } from 'animejs'` | **13,4 KB** |
+| `import { animate } from 'animejs/animation'` | 13,4 KB (idéntico: **el tree-shaking desde la raíz funciona**, la subruta no hace falta) |
+| `import { waapi } from 'animejs/waapi'` | **5,0 KB** |
+| Lo que usaría el libro: `animate, createTimeline, createScope, spring, cubicBezier, utils, waapi` | **21,5 KB** |
+| `import * as anime from 'animejs'` | 44,7 KB (el UMD del cdn, 40,6) |
+| `import { Spring, Tween } from 'svelte/motion'` | 9,6 KB suelto (en la app comparte internos de Svelte que ya están: el coste real es menor, no medido) |
+| `import { fly, fade } from 'svelte/transition'` + `flip` | 0,9 KB |
+
+Lectura: la condición 4 del 24/08 («importar por subruta y medir») queda en «medir»: la subruta
+no cambia nada con Vite 8. El coste real de Anime.js en el visor para el libro es **21,5 KB gzip**,
+la mitad de lo que se temía, y la vía `waapi` sola son 5. `check` y `build` del visor siguen en
+verde con la dependencia (488 ficheros, 0 errores; `build` regenera `dist/` con el mismo `src/`, así
+que lo servido no cambia).
+
+### 6.2 Lo que corre en el compositor, y lo que no
+
+- **`transform` y `opacity` animadas por CSS o WAAPI**: el compositor las interpola sin pasar por
+  el hilo principal; con el hilo bloqueado siguen (web.dev, «Animations guide»: «restrict
+  animations to `opacity` and `transform` to keep animations on the compositing stage»). Labs
+  `web/05` y `animejs/09`.
+- **Todo lo que escribe JS por fotograma** (motor de Anime, rAF a mano, `Tween`/`Spring` de Svelte,
+  `tick` de una transición, un `sync` de timeline): hilo principal. Con el hilo ocupado, se atasca.
+- **Custom properties que alimentan `transform`** (la vía `waapi.animate` con `x`/`rotateY`): la
+  hipótesis del §4.3, `⚠ sin verificar` hasta que Eneko mire el lab `09` en Helium con el hilo
+  ocupado. Si se confirma, la regla para el vuelo es «`transform` entero en string o `el.animate`».
+- **`filter`, `backdrop-filter`, `clip-path`**: Chromium los compone en GPU, pero un `blur` grande
+  se re-rasteriza cada fotograma y cuesta; por eso la regla de los 144 Hz los deja fuera por
+  fotograma. `⚠ sin medir hoy`.
+- **`width`, `height`, `top`, `left`, `margin`, `padding`**: layout en cada fotograma, y layout
+  arrastra a los hermanos. Es lo que hace `createLayout` cuando el tamaño cambia (§5.5) y lo que
+  View Transitions hace sobre sus pseudoelementos (que son capas, no layout del documento).
+
+### 6.3 Capas, `will-change` y rasterizado
+
+- `will-change: transform` promueve el elemento a su propia capa por adelantado y evita el primer
+  fotograma perdido al arrancar (el «1 perdido» de §0.3). web.dev: solo en elementos que van a
+  cambiar, ponerlo antes y quitarlo después si es infrecuente, «layer creation can cause other
+  performance issues» (memoria de GPU: cada capa es una textura del tamaño del elemento).
+- **`preserve-3d` con muchas caras**: cada cara es una capa; el libro son seis más el taco y las
+  sombras. Con un libro es nada; con veinte en la biblioteca, veinte veces. La pila lleva solo el
+  lomo como capa; la caja completa se monta al sacar.
+- **Rasterizado al escalar**: una capa rasterizada a escala 0,3 y ampliada con `scale(3.3)` se ve
+  borrosa hasta que el navegador re-rasteriza (Chromium lo hace al terminar la animación o cuando
+  la escala cambia mucho). Regla del anexo M confirmada por el modelo: la tela y el texto van al
+  **tamaño final** y se escalan hacia abajo al principio; el texto dentro de 3D además necesita
+  `backface-visibility: hidden` o `translateZ(0)` en la cara para no emborronarse. `⚠ sin medir
+  hoy`: se mira en la fase 8 con la caja.
+- **Cómo medir**: `00-medidor.js` (fotogramas perdidos y peor intervalo; LoAF en Chromium 123+),
+  y en Helium el panel Rendering con «Frame Rendering Stats» y «Paint flashing» (si algo parpadea
+  en verde durante el vuelo, hay pintado por fotograma y la regla se está rompiendo), y el panel
+  Performance para ver si el hilo del compositor va solo.
 
 ## 7 · La skill y la guía
 
