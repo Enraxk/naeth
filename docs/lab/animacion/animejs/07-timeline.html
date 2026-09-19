@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 07 · timeline</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 420px; display: grid; grid-template-columns: 1fr 1fr; }
+  .mitad { position: relative; border-right: 1px solid #2a2d31; perspective: 1400px; }
+  .mitad h3 { position: absolute; top: 8px; left: 14px; margin: 0; font-size: 12px; color: var(--dim); font-weight: 500; z-index: 2; }
+  .pila { position: absolute; left: 30px; bottom: 30px; display: flex; flex-direction: column-reverse; gap: 4px; width: 200px; }
+  .lomo { height: 22px; border-radius: 3px; background: #2b3340; color: var(--ink); font-size: 11px; line-height: 22px; padding-left: 8px; }
+  .libro { position: absolute; left: 30px; bottom: 30px; width: 200px; height: 22px; border-radius: 3px; background: #1c2e45; color: var(--ink); font-size: 11px; line-height: 22px; padding-left: 8px; transform-origin: 0 100%; }
+  .fases { position: absolute; left: 14px; right: 14px; bottom: 6px; height: 40px; font-size: 10px; color: var(--dim2); }
+  .fases div { position: absolute; height: 8px; border-radius: 2px; background: var(--dim2); }
+  .fases span { position: absolute; top: 10px; white-space: nowrap; }
+  .escena input[type=range] { position: absolute; left: 14px; width: calc(100% - 28px); bottom: 50px; accent-color: var(--acc); z-index: 3; }
+  .cursor { position: absolute; bottom: 6px; width: 1px; height: 40px; background: var(--acc); left: 14px; }
+</style>
+</head>
+<body>
+
+<h1>animejs 07 · <code>createTimeline</code> <small>posiciones, etiquetas, solape, scrubber, reverse a mitad</small></h1>
+<p>Fuente: <code>src/timeline/timeline.js:137-461</code> y <code>position.js:30-75</code>. Posiciones: número absoluto; <code>'&lt;'</code> = fin del hijo anterior; <code>'&lt;&lt;'</code> = inicio del anterior; <code>'&lt;-=120'</code>, <code>'&lt;&lt;+=90'</code>; <code>'+=100'</code> relativo al final de la timeline; <code>tl.label('tapa', pos)</code> y luego <code>'tapa'</code> o <code>'tapa+=60'</code>. <code>.set()</code>, <code>.call()</code>, <code>.sync(otraAnimación)</code>, <code>defaults</code>, <code>reverse()</code> (= <code>alternate()</code> + <code>resume()</code>, <code>timer.js:442</code>), <code>seek()</code>, <code>speed</code>, <code>stretch()</code>.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> las mismas cuatro fases de «sacar el libro» (sale, se levanta, gira, crece), a la izquierda ENCADENADAS como ayer y a la derecha SOLAPADAS con etiquetas (la siguiente empieza antes de que acabe la anterior). Misma duración total. ¿La derecha es «una mano» y la izquierda «una máquina»? Prueba también «volver» a mitad.</div>
+
+<div class="barra"><button id="go">sacar</button><button id="back">volver (reverse)</button><button id="pausa">pause / play</button></div>
+
+<div class="escena">
+  <div class="mitad" id="A"><h3>A · encadenada: cada fase en '&lt;' (empieza donde acaba la anterior)</h3>
+    <div class="pila"></div><div class="libro">Naeth</div>
+    <input type="range" min="0" max="1000" value="0"><div class="fases"></div><div class="cursor"></div></div>
+  <div class="mitad" id="B"><h3>B · solapada: etiquetas y '&lt;-=' (cada fase arranca al 60 % de la anterior)</h3>
+    <div class="pila"></div><div class="libro">Naeth</div>
+    <input type="range" min="0" max="1000" value="0"><div class="fases"></div><div class="cursor"></div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Debajo de cada escena, las barras son las fases en el tiempo: en A no se tocan, en B se pisan. Es la regla 5 (Disney: overlapping action; Willenskomer: offset & delay). El scrubber es <code>tl.seek(p × tl.duration)</code> con la timeline pausada; el cursor lo mueve <code>onUpdate</code>. «Volver» a mitad: <code>reverse()</code> invierte en el punto actual sin salto (es lo que hacía bien el prototipo de ayer, con easing lineal). Con <code>defaults: { ease }</code> todas las fases heredan la curva salvo que la suya diga otra cosa; aquí cada fase lleva la suya (salir <code>outQuad</code>, levantar <code>inOutCubic</code>, girar <code>inOutCubic</code>, crecer <code>outExpo</code>).</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { createTimeline, utils, cubicBezier } = anime;
+  const libros = ['CENIT', 'GridWatch', 'Yogin API', 'Yogin Website'];
+  const F = { sale: 220, levanta: 260, gira: 300, crece: 320 }; // ms de cada fase
+  function monta(id, solapa) {
+    const root = document.getElementById(id);
+    root.querySelector('.pila').innerHTML = libros.map((l) => `<div class="lomo">${l}</div>`).join('');
+    const libro = root.querySelector('.libro'), otros = root.querySelectorAll('.lomo');
+    const tl = createTimeline({ autoplay: false, defaults: { ease: 'outQuad' },
+      onUpdate: (self) => { root.querySelector('input').value = Math.round(self.progress * 1000); root.querySelector('.cursor').style.left = (14 + self.progress * (root.clientWidth - 28)) + 'px'; } });
+    const at = (prev) => solapa ? `<-=${Math.round(prev * .4)}` : '<';
+    // ⚠ '<' y '<-=' miran al ULTIMO hijo añadido, sea del target que sea: por eso la pila va antes.
+    tl.label('sale', 0)
+      .add(otros, { opacity: .25, duration: 300 }, 'sale')
+      .add(libro, { x: 260, duration: F.sale, ease: 'outQuad' }, 'sale')
+      .label('levanta', at(F.sale))
+      .add(libro, { rotate: -90, duration: F.levanta, ease: 'inOutCubic' }, 'levanta')
+      .label('gira', at(F.levanta))
+      .add(libro, { rotateY: -30, duration: F.gira, ease: 'inOutCubic' }, 'gira')
+      .label('crece', at(F.gira))
+      .add(libro, { y: -160, scale: 2.2, rotateY: -8, duration: F.crece, ease: 'outExpo' }, 'crece');
+    // Barras de fases
+    const fases = root.querySelector('.fases'); const total = tl.duration;
+    ['sale', 'levanta', 'gira', 'crece'].forEach((n, i) => {
+      const s = tl.labels[n], d = F[n];
+      fases.insertAdjacentHTML('beforeend', `<div style="left:${(s / total) * 100}%;width:${(d / total) * 100}%;top:${i * 2}px"></div><span style="left:${(s / total) * 100}%;top:${12 + i * 7}px">${n} ${s}→${s + d}</span>`);
+    });
+    root.querySelector('input').addEventListener('input', (e) => { tl.pause(); tl.seek((e.target.value / 1000) * tl.duration); });
+    return tl;
+  }
+  const A = monta('A', false), B = monta('B', true);
+  document.getElementById('res').textContent = `Duración A ${A.duration} ms (suma), B ${B.duration} ms (con solape). Misma escala de tiempo: B termina antes con las mismas fases.`;
+  document.getElementById('go').addEventListener('click', () => { Meter.begin('timeline'); [A, B].forEach((t) => { t.speed = lab.speed; t.play(); }); B.then(() => Meter.end()); });
+  document.getElementById('back').addEventListener('click', () => [A, B].forEach((t) => t.reverse()));
+  document.getElementById('pausa').addEventListener('click', () => [A, B].forEach((t) => (t.paused ? t.resume() : t.pause())));
+  lab.onSpeed((v) => [A, B].forEach((t) => (t.speed = v)));
+</script>
+</body>
+</html>

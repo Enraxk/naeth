@@ -24,6 +24,10 @@ ejemplo que corre y entrada en la skill con `fichero:línea`; (c) el peso tree-s
 cifra; (d) Eneko ha visto cada lab y ha dicho qué le sirve; (e) la 5 queda escrita fase a fase con
 números elegidos viendo, para que el prototipo v3 sea ejecución y no exploración.
 
+**Sobre los tiempos.** Las estimaciones del plan eran en horas de persona; el «real» de cada fase
+es la hora del commit que la cierra (reloj de la máquina), y no incluye el tiempo de Eneko mirando los
+labs, que es la parte que decide. Se apunta así para no inventar horas.
+
 **Cómo leer las citas.** `src/x/y.js:NN` es el código de `juliangarnier/anime` en el tag v4.5.0
 (descargado entero al scratchpad de la sesión el 19/09: 70 ficheros, 13.756 líneas). Lo que no se ha
 ejecutado lleva `⚠ sin verificar`. El soporte de navegadores lleva fecha.
@@ -34,7 +38,7 @@ por técnica, `animejs/` por módulo); la skill `~/.claude/skills/animejs/`; la 
 
 ---
 
-## 0 · Preparación (19/09, 14:20 a 14:50; estimado 30 min, real 30)
+## 0 · Preparación (19/09; estimado 30 min; real: del plan aprobado a las 14:10 al commit `861fdca` de las 14:20)
 
 ### 0.1 El mapa real de Anime.js 4.5.0
 
@@ -116,7 +120,7 @@ el viewport). [`00-lab.css`](../lab/animacion/00-lab.css): la mesa oscura de CDA
 
 ---
 
-## 1 · Fundamentos del movimiento (19/09, 14:55 a 15:35; estimado 1 h, real 40 min)
+## 1 · Fundamentos del movimiento (19/09; estimado 1 h; real: commit `2df159e` a las 14:23)
 
 Lo que dicen las fuentes, reducido a reglas que se puedan comprobar en un lab, y para cada una qué
 prototipo del 18/09 la rompía. Fuentes leídas hoy: los tokens de movimiento de **Material 3** en su
@@ -193,7 +197,7 @@ La 4 no se prueba: se decide con Material como tabla y el ojo de Eneko como juez
 usarlos.) El handoff del visor usa `ease` (`cubic-bezier(0.25,0.1,0.25,1)`) y `--t-over`
 `(.34,1.56,.64,1)`; no se toca, pero se sabe dónde cae: `ease` es un `standard` suave.
 
-## 2 · El medio: con qué se anima en la web (19/09, 15:40 a 17:00; estimado 2 h 30, real 1 h 20 más lo que tarde Eneko en mirar los labs)
+## 2 · El medio: con qué se anima en la web (19/09; estimado 2 h 30; real: commit `35e44b9` a las 14:35, sin contar lo que tarde Eneko en mirar los labs)
 
 Soporte de navegadores: paquete `web-features` (1.210 entradas, descargado de jsDelivr el 19/09/2026);
 «Baseline» es su vocabulario (fecha en que la última de las tres familias lo tuvo). Lo que importa
@@ -386,7 +390,7 @@ Lo que **nunca** entra, y viene de la regla de los 144 Hz y del handoff del viso
 `height`, `top`, `left`, `margin`, `padding`, `box-shadow` con desenfoque grande, `filter: blur`
 por fotograma; animar acciones de teclado; animar al cargar.
 
-## 3 · Anime.js, el motor (19/09, 17:05 a 18:10; estimado 2 h, real 1 h 05)
+## 3 · Anime.js, el motor (19/09; estimado 2 h; real: commit `ff10113` a las 14:43)
 
 Leído en `src/` de v4.5.0 y probado en seis labs (`docs/lab/animacion/animejs/01` a `06`). Todo
 lo de abajo lleva `fichero:línea`.
@@ -514,9 +518,114 @@ lenta para revisar, lab `06`), `engine.fps` (**240 por defecto**, tope, no objet
   fotograma.
 - `engine.speed = .25` como modo revisión.
 
-## 4 · Anime.js, orquestar e integrar
+## 4 · Anime.js, orquestar e integrar: timeline, scope, waapi (19/09; estimado 1 h 30; real: ver el commit de cierre)
 
-_(pendiente)_
+Labs `animejs/07` a `09`.
+
+### 4.1 `createTimeline` (`src/timeline/timeline.js:137-461`, `position.js:30-75`)
+
+Hereda de `Timer` (§3.3): todo lo de `currentTime`, `progress`, `speed`, `seek`, `pause`, `reverse`
+vale igual sobre la timeline entera. Lo propio:
+
+- **`add(targets, params, posición)`** para una animación, `add(params, posición)` para un timer
+  hijo. Los `defaults` de la timeline (`ease`, `duration`...) los heredan los hijos que no digan lo
+  suyo.
+- **Posiciones** (`position.js:50-75`): número absoluto en ms; sin posición, al final de la
+  timeline; `'<'` = **fin del último hijo añadido**; `'<<'` = inicio del último hijo; `'<-=120'`,
+  `'<<+=90'`, `'+=100'` (relativo al final de la timeline), `'*=2'`; etiquetas: `tl.label('gira',
+  posición)` y luego `'gira'`, `'gira+=60'`. ⚠ **`'<'` mira al último `add`, sea del target que
+  sea**: en el lab `07` la atenuación de la pila añadida después del deslizamiento del libro movía la
+  etiqueta siguiente 80 ms (se resolvió añadiendo la pila antes). Con etiquetas explícitas el
+  problema desaparece: es la forma robusta.
+- `set(targets, props, pos)` fija valores en un punto; `call(fn, pos)` llama a una función en un
+  punto; `remove(targets, prop?)`; `refresh()`, `stretch(ms)`, `revert()`, `then()`.
+- **`sync(animación, pos)`** (`:268-287`): mete en la timeline otra cosa con `pause()`: un timer,
+  un `waapi.animate`, o una `Animation` nativa. Lo hace **animando su `currentTime` de 0 a
+  `duration` con ease lineal**: es la timeline (JS) quien empuja el reloj de la animación sincronizada
+  cada fotograma, y fuerza `persist = true` en las WAAPI para que no dejen de responder al terminar.
+  Consecuencia: lo que se sincroniza así **deja de correr en el compositor** aunque sea WAAPI (§4.3).
+- `reverse()` a mitad: `alternate()` + `resume()` (`timer.js:442-447`): invierte en el punto actual
+  con continuidad. Lab `07`: «volver» a mitad sin salto.
+- Lab `07`, la comparación que importa: **las cuatro fases de «sacar el libro» encadenadas (`'<'`)
+  frente a solapadas** (cada etiqueta en `'<-=40 %'` de la fase anterior). Con las mismas
+  duraciones por fase (220, 260, 300, 320), la encadenada dura 1.100 ms y la solapada 788. Es la
+  regla 5 puesta en un botón.
+
+### 4.2 `createScope` (`src/scope/scope.js:41-200`)
+
+`createScope({ root, defaults, mediaQueries: { nombre: '(query)' } })`:
+
+- `root` acota los selectores de dentro (acepta selector, elemento, `ref.current` de React,
+  `nativeElement` de Angular, `:45-52`).
+- `.add(self => { ... ; return () => limpieza })`: ejecuta el constructor con `self.matches.nombre`
+  disponible y registra todo lo que se cree dentro (`register`, `:97`). **Cuando cambia una media
+  query, `refresh()` revierte todo y vuelve a ejecutar los constructores** (`:126-140`): dos
+  versiones de una animación (reducida y completa) sin escribir un `matchMedia` a mano.
+- `.add('nombre', fn)` registra un método en `scope.methods`; `.addOnce(fn)` no se repite en el
+  refresh.
+- `.revert()` deshace todo lo registrado: **una sola llamada en la limpieza del `$effect`**. Lab
+  `08`: montar deja `style` inline y una animación en bucle; `revert()` deja el `style` vacío y la
+  limpieza del constructor ejecutada. Sin scope, cada `animate` de un componente sigue vivo después
+  de desmontarlo escribiendo en nodos huérfanos.
+
+Patrón Svelte 5 (condición 2 del 24/08, ahora con la pieza que le faltaba):
+
+```svelte
+<script lang="ts">
+  import { createScope, animate, spring } from 'animejs'
+  let root: HTMLElement
+  $effect(() => {
+    const scope = createScope({ root, mediaQueries: { reduced: '(prefers-reduced-motion: reduce)' } })
+    scope.add((self) => {
+      if (self.matches.reduced) { animate('.tapa', { opacity: [0, 1], duration: 120 }); return }
+      animate('.tapa', { rotateY: [-22, -4], ease: spring({ duration: 560, bounce: .1 }) })
+    })
+    return () => scope.revert()
+  })
+</script>
+```
+
+### 4.3 `waapi.animate` (`src/waapi/waapi.js:186-540`)
+
+Crea animaciones nativas (`el.animate`) **por propiedad** (una `Animation` por propiedad y
+elemento, `:296-336`) y devuelve un `WAAPIAnimation` con la misma cara que `JSAnimation`: `speed`,
+`currentTime`, `progress`, `pause`, `play`, `reverse`, `seek`, `restart`, `commitStyles`,
+`complete`, `cancel`, `revert`, `then`. Lo que hace por dentro y hay que saber:
+
+- **Easing**: cualquier easing de Anime se convierte a `linear()` muestreado con 100 puntos
+  (`easingToLinear`, `:85`); los nombres CSS (`ease-out`, `cubic-bezier(...)`, `steps(...)`) pasan
+  tal cual; un muelle usa su `settlingDuration` como duración (`:288`).
+- **Transformadas individuales** (`x`, `y`, `rotateY`, `scale`...): las anima como **custom
+  properties registradas** (`CSS.registerProperty('--translateX', …)`, `:195-215`) y escribe en el
+  elemento `transform: translateX(var(--translateX)) rotate(var(--rotate))` (`:349-355`).
+  Verificado en el lab `09`: `.c3` queda con ese `transform` inline y dos `Animation` nativas, la
+  primera sobre `--translateX`. ⚠ **Si una custom property que alimenta `transform` se resuelve en
+  el hilo principal (que es el modelo de Chromium para `var()` en `transform`), esta vía NO va al
+  compositor**, aunque sea WAAPI. Es una hipótesis por lectura del código y del modelo del
+  navegador, `⚠ sin verificar`: el lab `09` pone cinco variantes bajo un hilo bloqueado (nativa
+  con `transform`; `waapi.animate` con `transform` en string; `waapi.animate` con `x`/`rotate`;
+  motor JS; `waapi` dentro de `sync`) y el ojo de Eneko en Helium decide. Si se confirma, el vuelo
+  del libro se escribe con `transform` entero (string) o con `el.animate` directo.
+- `composition` se traduce a `composite` de WAAPI (`:290`); `persist` (`:257`) mantiene la
+  animación viva al terminar (necesario dentro de una timeline); `commitStyles()` + `cancel()` es lo
+  que MDN pide en vez de `fill: forwards` eterno, y `cancel()` de Anime ya lo hace (`:472-482`).
+- Lo que no da frente al motor JS: `onUpdate` por fotograma con el valor, valores de función,
+  objetos JS como target, SVG, colores por Anime (los deja al navegador).
+- Dentro de una timeline (`sync`) la timeline empuja `currentTime` desde JS (§4.1): se gana
+  orquestación y scrubber, se pierde el compositor.
+
+### 4.4 Lo que se lleva a la skill y al libro
+
+- Etiquetas siempre; `'<'` solo cuando el hijo anterior es evidente.
+- Fases solapadas por etiqueta (`'anterior+=ms'`), nunca encadenadas.
+- `createScope` por componente, `revert()` en la limpieza; `mediaQueries.reduced` como la vía de
+  reduced-motion en JS.
+- Para el vuelo del libro, tres opciones según lo que diga el lab `09` en Helium: (a) timeline de
+  Anime con motor JS (`x`, `rotateY`), lo más cómodo, hilo principal; (b) `waapi.animate` con
+  `transform` en string por fase, compositor, orquestación a mano con `delay`; (c) timeline de
+  Anime como director (etiquetas, `call()`) que dispara `waapi.animate` sueltos con `transform` en
+  string, sin `sync`, y el scrubber solo en modo revisión. La (c) es la que respeta la regla de los
+  144 Hz sin renunciar a la timeline; se decide en la fase 8 con la medida.
 
 ## 5 · Anime.js, módulos especializados
 

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 09 · waapi frente a motor JS</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 400px; }
+  .fila { position: absolute; left: 0; right: 0; height: 66px; border-bottom: 1px solid #2a2d31; }
+  .fila h3 { position: absolute; top: 4px; left: 14px; margin: 0; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .caja { position: absolute; left: 30px; top: 26px; width: 32px; height: 32px; border-radius: 6px; background: var(--acc); }
+</style>
+</head>
+<body>
+
+<h1>animejs 09 · <code>waapi.animate</code> frente al motor JS <small>qué corre de verdad fuera del hilo principal</small></h1>
+<p>Fuente: <code>src/waapi/waapi.js:186-540</code>. <code>waapi.animate(targets, params)</code> crea animaciones nativas (<code>el.animate</code>) por propiedad; convierte cualquier easing de Anime a <code>linear()</code> muestreado (<code>easingToLinear</code>, <code>:85</code>, 100 puntos; un muelle usa su <code>settlingDuration</code>, <code>:288</code>); y <b>las transformadas individuales (<code>x</code>, <code>rotateY</code>, <code>scale</code>...) las anima como custom properties registradas</b> (<code>CSS.registerProperty('--translateX')</code>, <code>:195-215</code>) con <code>transform: translateX(var(--translateX)) ...</code> puesto en el elemento (<code>:349-355</code>). <code>persist</code> (<code>:257</code>), <code>commitStyles()</code> (<code>:464</code>), <code>composition</code> → <code>composite</code> (<code>:290</code>), y <code>tl.sync(waapiAnim)</code> la mete en una timeline animando su <code>currentTime</code> desde JS (<code>timeline.js:268-287</code>).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> pulsa «ocupar el hilo» y luego «lanzar». Con el hilo bloqueado, ¿cuáles siguen fluidas? Lo que se espera por lectura: 1 y 2 sí (el compositor anima <code>transform</code>); 3 quizá no (una custom property que alimenta <code>transform</code> se resuelve en el hilo principal, <code>⚠ sin verificar</code>); 4 no (JS); 5 no (la timeline empuja <code>currentTime</code> desde JS). Es LA medida que decide cómo se escribe el vuelo del libro.</div>
+
+<div class="barra"><button id="go">lanzar las cinco (1600 ms)</button><button id="ocupar">ocupar el hilo principal 3 s</button></div>
+
+<div class="escena">
+  <div class="fila" style="top:0"><h3>1 · WAAPI nativa: el.animate([{transform}], …)</h3><div class="caja c1"></div></div>
+  <div class="fila" style="top:66px"><h3>2 · waapi.animate(el, { transform: 'translateX(640px) rotate(180deg)' }) (la propiedad entera, string)</h3><div class="caja c2"></div></div>
+  <div class="fila" style="top:132px"><h3>3 · waapi.animate(el, { x: 640, rotate: 180 }) (transformadas individuales → custom properties)</h3><div class="caja c3"></div></div>
+  <div class="fila" style="top:198px"><h3>4 · animate(el, { x: 640, rotate: 180 }) (motor JS, rAF)</h3><div class="caja c4"></div></div>
+  <div class="fila" style="top:264px"><h3>5 · waapi.animate dentro de createTimeline().sync() (JS empuja currentTime)</h3><div class="caja c5"></div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">El medidor vive en el hilo principal: con el hilo ocupado marcará perdidos aunque las cajas 1 y 2 vayan finas. Mira las cajas, no la cifra. Si la 3 se atasca, la consecuencia para el libro es concreta: el vuelo se escribe con <code>transform</code> entero como string (o con <code>el.animate</code> directo), no con <code>x</code>/<code>rotateY</code> sueltos; y la timeline de Anime orquesta (tiempos, etiquetas, scrubber) pero no puede ser quien mueva cada fotograma si se quiere el compositor.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { animate, waapi, createTimeline, utils, cubicBezier } = anime;
+  const D = 1600, E = cubicBezier(.05, .7, .1, 1);
+  let vivas = [];
+  document.getElementById('go').addEventListener('click', () => {
+    vivas.forEach((a) => a.cancel && a.cancel()); vivas = [];
+    document.querySelectorAll('.caja').forEach((c) => { c.getAnimations().forEach((a) => a.cancel()); c.style.transform = ''; c.style.cssText = ''; });
+    Meter.begin('waapi-vs-js');
+    const c1 = document.querySelector('.c1');
+    const n = c1.animate([{ transform: 'translateX(0) rotate(0)' }, { transform: 'translateX(640px) rotate(180deg)' }], { duration: D, easing: 'cubic-bezier(.05,.7,.1,1)', fill: 'forwards' });
+    n.playbackRate = lab.speed; vivas.push(n);
+    const w2 = waapi.animate('.c2', { transform: 'translateX(640px) rotate(180deg)', duration: D, ease: E }); w2.speed = lab.speed; vivas.push(w2);
+    const w3 = waapi.animate('.c3', { x: 640, rotate: 180, duration: D, ease: E }); w3.speed = lab.speed; vivas.push(w3);
+    const j4 = animate('.c4', { x: 640, rotate: 180, duration: D, ease: E }); j4.speed = lab.speed; vivas.push(j4);
+    const w5 = waapi.animate('.c5', { transform: 'translateX(640px) rotate(180deg)', duration: D, ease: E, autoplay: false });
+    const tl = createTimeline({ autoplay: false }).sync(w5, 0); tl.speed = lab.speed; tl.play(); vivas.push(tl);
+    tl.then(() => Meter.end());
+    setTimeout(() => {
+      const c3 = document.querySelector('.c3');
+      document.getElementById('res').textContent = `Fila 3: transform inline = "${c3.style.transform}" · animaciones nativas en .c3: ${c3.getAnimations().length} (una por propiedad) · propiedad animada: ${c3.getAnimations()[0]?.effect.getKeyframes()[0] ? Object.keys(c3.getAnimations()[0].effect.getKeyframes()[0]).filter((k) => k.startsWith('--')).join(', ') : '?'}`;
+    }, 100);
+  });
+  lab.onSpeed((v) => vivas.forEach((a) => { if ('playbackRate' in a) a.playbackRate = v; else a.speed = v; }));
+  document.getElementById('ocupar').addEventListener('click', () => {
+    const fin = performance.now() + 3000;
+    const bloquea = () => { const t = performance.now() + 40; while (performance.now() < t) {} if (performance.now() < fin) setTimeout(bloquea, 10); };
+    bloquea();
+  });
+</script>
+</body>
+</html>
