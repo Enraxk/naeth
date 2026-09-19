@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 13 · draggable</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 380px; }
+  .mesa { position: absolute; left: 24px; top: 24px; right: 24px; bottom: 24px; border: 1px dashed #3a3e44; border-radius: 10px; }
+  .libro { position: absolute; left: 40px; top: 60px; width: 120px; height: 160px; border-radius: 3px 8px 8px 3px; background: #2b3340; color: var(--ink); display: grid; place-items: center; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.4); cursor: grab; }
+  .marca { position: absolute; width: 1px; top: 0; bottom: 0; background: #2a2d31; }
+  .estado { position: absolute; right: 12px; bottom: 8px; font-size: 12px; color: var(--dim); font-family: "JetBrains Mono", monospace; }
+</style>
+</head>
+<body>
+
+<h1>animejs 13 · <code>createDraggable</code> <small>arrastrar con física de suelta, contenedor, snap</small></h1>
+<p>Fuente: <code>src/draggable/draggable.js</code> (1.286 líneas, el módulo más grande tras core y layout), parámetros en <code>src/types/index.js:606-640</code>: <code>createDraggable(target, { container, x, y (o { snap, mapTo, modifier }), snap, containerPadding, containerFriction, releaseContainerFriction, dragSpeed, dragThreshold, scrollSpeed, scrollThreshold, minVelocity, maxVelocity, velocityMultiplier, releaseMass, releaseStiffness, releaseDamping, releaseEase, cursor: { onHover, onGrab }, onGrab, onDrag, onRelease, onUpdate, onSettle, onSnap, onResize })</code>. Métodos: <code>animateInView</code>, <code>scrollInView</code>, <code>setX/setY</code>, <code>reset</code>, <code>enable/disable</code>, <code>revert</code>.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> coge el libro y suéltalo con velocidad. La suelta es un muelle (<code>releaseStiffness</code>, <code>releaseDamping</code>) que respeta el contenedor y hace <code>snap</code> a la rejilla de 140 px. ¿Es el gesto que querrías para ordenar la pila o para «sacar el libro» a mano (tiempo real, Willenskomer), o el libro no se arrastra?</div>
+
+<div class="barra"><label><input type="checkbox" id="snap" checked> snap 140 px en x</label></div>
+
+<div class="escena"><div class="mesa" id="mesa">
+  <div class="marca" style="left:140px"></div><div class="marca" style="left:280px"></div><div class="marca" style="left:420px"></div><div class="marca" style="left:560px"></div>
+  <div class="libro" id="libro">Naeth</div>
+  <div class="estado" id="estado">x 0 · y 0 · v 0</div>
+</div></div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Es tiempo real: el objeto sigue a la mano sin easing (principio 3, parenting directo), y la física aparece al soltar. Todo por motor JS (rAF) y <code>transform</code>: bien. Lo que decide para CDA: si el libro se saca con un arrastre en vez de con un clic, la transición 5 cambia de naturaleza (de no tiempo real a tiempo real). Es una decisión de Eneko, no técnica.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  const { createDraggable, utils } = anime;
+  const estado = document.getElementById('estado');
+  let d = null;
+  function monta(snap) {
+    if (d) d.revert();
+    d = createDraggable('#libro', {
+      container: '#mesa', containerPadding: 8, containerFriction: .4,
+      x: { snap: snap ? 140 : 0 }, y: { snap: 0 },
+      releaseStiffness: 120, releaseDamping: 14,
+      cursor: { onHover: 'grab', onGrab: 'grabbing' },
+      onGrab: () => Meter.begin('drag'),
+      onUpdate: (self) => { estado.textContent = `x ${self.x.toFixed(0)} · y ${self.y.toFixed(0)} · v ${self.velocity.toFixed(2)}`; },
+      onSettle: () => { Meter.end(); document.getElementById('res').textContent = `asentado en x ${d.x.toFixed(0)}, y ${d.y.toFixed(0)}.`; },
+    });
+  }
+  monta(true);
+  document.getElementById('snap').addEventListener('change', (e) => monta(e.target.checked));
+</script>
+</body>
+</html>

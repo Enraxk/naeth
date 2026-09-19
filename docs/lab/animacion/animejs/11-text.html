@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 11 · text</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 300px; padding: 24px; }
+  .titulo { font-size: 34px; font-weight: 600; color: var(--ink); max-width: 700px; line-height: 1.25; margin: 0 0 24px; }
+  .kicker { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-family: "JetBrains Mono", monospace; }
+  .titulo .word, .titulo .char { display: inline-block; will-change: transform, opacity; }
+</style>
+</head>
+<body>
+
+<h1>animejs 11 · <code>text</code> <small>splitText y scrambleText</small></h1>
+<p>Fuente: <code>src/text/split.js:213-515</code> (<code>splitText(target, { lines, words, chars, accessible = true, includeSpaces, debug })</code>: parte el texto en <code>span</code>s con <code>Intl.Segmenter</code> (sí, por grafemas y palabras reales), devuelve <code>{ lines, words, chars }</code> como arrays de elementos, y con <code>accessible</code> deja el texto original para lectores de pantalla con <code>aria-hidden</code> en los trozos; se recalcula en resize), <code>src/text/scramble.js:78</code> (<code>scrambleText({ chars: 'A-Z0-9' | 'lowercase' | 'blocks' | 'braille'..., ease, seed, override, settleRate, revealDelay })</code>: un valor de función para el contenido de texto).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> para la portadilla de capítulo de CDA (título grande + kicker monoespaciado): ¿el título entrando por palabras con 30 ms de escalón se ve bien, o es «animación por animar» (regla 1)? ¿Y el kicker con scramble tipo terminal, sí o no?</div>
+
+<div class="barra"><button id="go">lanzar</button></div>
+
+<div class="escena">
+  <div class="kicker" id="kicker">CAPÍTULO 1 · PARTE I · core/ops</div>
+  <h2 class="titulo" id="titulo" style="text-transform:none;letter-spacing:0;color:var(--ink)">El reconciliador: quién manda cuando los dos nodos creen que mandan</h2>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Con <code>accessible: true</code> el DOM queda con el texto entero para el lector de pantalla y los trozos ocultos a la accesibilidad: es lo que hay que exigir a cualquier split. El split es layout (cambia el DOM); la animación posterior es <code>transform</code>/<code>opacity</code> por span. Con 80 palabras es barato; con un capítulo entero no se hace.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { animate, text, stagger, utils } = anime;
+  let split = null, vivas = [];
+  document.getElementById('go').addEventListener('click', () => {
+    vivas.forEach((a) => a.revert()); vivas = [];
+    if (split) split.revert();
+    split = text.splitText('#titulo', { words: true, accessible: true });
+    Meter.begin('text');
+    vivas.push(animate(split.words, { y: [18, 0], opacity: [0, 1], duration: 500, ease: 'outCubic', delay: stagger(30) }));
+    vivas.push(animate('#kicker', { textContent: text.scrambleText({ chars: 'A-Z0-9', seed: 7, settleRate: 24 }), duration: 900, ease: 'linear', onComplete: () => Meter.end() }));
+    vivas.forEach((a) => (a.speed = lab.speed));
+    document.getElementById('res').textContent = `split: ${split.words.length} palabras; aria-hidden en los trozos: ${split.words[0].getAttribute('aria-hidden')}; el texto accesible sigue en el DOM: ${!!document.querySelector('#titulo .sr-only, #titulo [style*="clip"]') || 'ver DOM'}.`;
+  });
+  lab.onSpeed((v) => vivas.forEach((a) => (a.speed = v)));
+</script>
+</body>
+</html>

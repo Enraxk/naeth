@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 12 · onScroll</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 460px; display: grid; grid-template-columns: 1fr 1fr; }
+  .col { position: relative; overflow-y: auto; border-right: 1px solid #2a2d31; }
+  .col h3 { position: sticky; top: 0; margin: 0; padding: 8px 14px; font-size: 12px; color: var(--dim); font-weight: 500; background: var(--mesa); z-index: 2; }
+  .relleno { height: 1600px; padding: 0 14px; }
+  .progreso { position: sticky; top: 30px; height: 3px; background: var(--acc); transform-origin: 0 50%; transform: scaleX(0); }
+  .tarjeta { margin: 60px 0; padding: 14px; border-radius: 10px; background: #2a2d31; color: var(--ink); font-size: 13px; opacity: 0; }
+</style>
+</head>
+<body>
+
+<h1>animejs 12 · <code>onScroll</code> <small>el scroll como reloj de una animación, con JS, en cualquier navegador</small></h1>
+<p>Fuente: <code>src/events/scroll.js:412-600</code> (<code>ScrollObserver</code>), <code>src/types/index.js:540-560</code>. <code>animate(target, { ..., autoplay: onScroll({ container, target, axis, enter: 'bottom top', leave: 'top bottom', sync: true | 'inOutQuad' | 250, repeat, debug, onEnter, onLeave, onEnterForward, onLeaveBackward, onUpdate }) })</code>. Con <code>sync: true</code> el progreso de la animación ES el progreso del scroll entre <code>enter</code> y <code>leave</code>; con un easing o un número, se persigue con retardo suavizado; sin <code>sync</code>, la animación se DISPARA al entrar (y <code>repeat</code> la rearma). <code>debug: true</code> pinta los umbrales.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> es el gemelo del lab web/03 (CSS scroll-driven). Misma escena: barra de progreso ligada al scroll de la columna y tarjetas que entran. ¿Se nota diferencia al dedo entre CSS (izquierda) y <code>onScroll</code> (derecha)? Aquí la derecha funcionaría también en Firefox.</div>
+
+<div class="barra"><label><input type="checkbox" id="debug"> debug (pinta los umbrales)</label></div>
+
+<div class="escena">
+  <div class="col a" style="scroll-timeline: --col block"><h3>A · CSS (igual que web/03)</h3><div class="progreso" style="animation: llenar linear both; animation-timeline: --col"></div>
+    <div class="relleno" id="ra"></div></div>
+  <div class="col b" id="colb"><h3>B · Anime.js onScroll, sync: true (barra) y disparo al entrar (tarjetas)</h3><div class="progreso" id="pb"></div>
+    <div class="relleno" id="rb"></div></div>
+</div>
+<style>@keyframes llenar { to { transform: scaleX(1); } } .col.a .tarjeta { animation: entrar linear both; animation-timeline: view(); animation-range: entry 0% entry 80%; } @keyframes entrar { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }</style>
+
+<h2>Qué mirar</h2>
+<p class="notas">Lo que Anime da que CSS no: lógica (<code>onEnter</code> para cargar algo, contar, cambiar estado), <code>sync</code> con easing (el minimapa del libro persiguiendo el scroll con suavizado), y Firefox. Lo que cuesta: JS por evento de scroll y por fotograma (el observer usa su propio tick). Para CDA, el minimapa en escritorio puede ir por CSS y caer a <code>onScroll</code> solo donde haga falta lógica.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  const { animate, onScroll, utils } = anime;
+  const tarjetas = (n) => Array.from({ length: 5 }, (_, i) => `<div class="tarjeta">Tarjeta ${i + 1} (${n}).</div>`).join('');
+  document.getElementById('ra').innerHTML = tarjetas('CSS');
+  document.getElementById('rb').innerHTML = tarjetas('onScroll');
+  const colb = document.getElementById('colb');
+  let observers = [];
+  function monta(debug) {
+    observers.forEach((o) => o.revert()); observers = [];
+    const barra = animate('#pb', { scaleX: [0, 1], ease: 'linear', autoplay: onScroll({ container: colb, target: '#rb', sync: true, debug }) });
+    observers.push(barra);
+    colb.querySelectorAll('.tarjeta').forEach((t) => {
+      observers.push(animate(t, { opacity: [0, 1], y: [24, 0], duration: 500, ease: 'outCubic',
+        autoplay: onScroll({ container: colb, target: t, enter: 'bottom top+=40', leave: 'top bottom', repeat: true, debug }) }));
+    });
+  }
+  monta(false);
+  document.getElementById('debug').addEventListener('change', (e) => monta(e.target.checked));
+  document.getElementById('res').textContent = `ScrollObservers vivos: ${observers.length}.`;
+</script>
+</body>
+</html>

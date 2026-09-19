@@ -627,9 +627,84 @@ elemento, `:296-336`) y devuelve un `WAAPIAnimation` con la misma cara que `JSAn
   string, sin `sync`, y el scrubber solo en modo revisión. La (c) es la que respeta la regla de los
   144 Hz sin renunciar a la timeline; se decide en la fase 8 con la medida.
 
-## 5 · Anime.js, módulos especializados
+## 5 · Anime.js, módulos especializados: svg, text, scroll, draggable, layout (19/09; estimado 2 h; real: ver el commit de cierre)
 
-_(pendiente)_
+Labs `animejs/10` a `14`. Todo esto es **motor JS por fotograma** (atributos SVG, contenido de
+texto, observadores, física): es donde Anime.js da lo que CSS y WAAPI no dan, y donde el coste es
+el hilo principal.
+
+### 5.1 `svg` (`src/svg/`, 291 líneas)
+
+- `morphTo(path2, precision = .33)` (`morphto.js:21`): devuelve un valor de función para `points`
+  o `d`; muestrea los dos trazados al mismo número de puntos y los interpola. Un logo que cambia de
+  forma.
+- `createDrawable(selector, start = 0, end = 0)` (`drawable.js:111`): envuelve el elemento en un
+  proxy con un atributo `draw` `'0 1'` y traduce a `stroke-dasharray`/`dashoffset`. Verificado en
+  el lab `10`: tras lanzar, `stroke-dasharray` vale `0.6 1009.4`. El símbolo de Naeth dibujándose.
+- `createMotionPath(path, offset = 0)` (`motionpath.js:80`): devuelve `{ translateX, translateY,
+  rotate }` como valores de función para que un elemento siga la curva, orientado. En CSS existe
+  `offset-path` (Baseline 2022) para lo mismo sin JS; el morph de `d` solo lo hace Chromium.
+
+### 5.2 `text` (`src/text/`, 800 líneas)
+
+- `splitText(target, { lines, words, chars, accessible = true, includeSpaces, debug })`
+  (`split.js:213-515`): parte con `Intl.Segmenter` (grafemas y palabras reales, no `split(' ')`),
+  devuelve `{ lines, words, chars }` como arrays de `span`, se recalcula al redimensionar. Con
+  `accessible` (defecto) **deja el texto entero en un `span` visualmente oculto para lectores de
+  pantalla y pone `aria-hidden` en los trozos**: verificado en el lab `11` (`clip: rect(0,0,0,0)`
+  + `aria-hidden="true"` en cada palabra). Es lo que hay que exigir a cualquier split de texto.
+- `scrambleText({ chars: 'A-Z0-9' | 'lowercase' | 'uppercase' | 'numbers' | 'symbols' | 'braille'
+  | 'blocks' | 'shades', ease, seed, override, settleRate = 30, revealDelay, onChange })`
+  (`scramble.js:78`, tipos en `types/index.js:668-684`): un valor de función para `textContent`.
+  El kicker de la portadilla con efecto terminal, si Eneko lo quiere (regla 1: solo si explica
+  algo; aquí es puro carácter, y eso también cuenta si es una vez por capítulo).
+
+### 5.3 `onScroll` (`src/events/scroll.js:412-600`, 988 líneas el módulo)
+
+`animate(target, { ..., autoplay: onScroll({ container, target, axis, enter, leave, sync, repeat,
+debug, onEnter, onLeave, onEnterForward, onLeaveBackward, onUpdate, onResize, onSyncComplete }) })`
+(parámetros en `types/index.js:540-560`). Tres modos por `sync`: `true`, el progreso de la
+animación es el del scroll entre `enter` y `leave`; un easing o un número de ms, se persigue con
+suavizado; sin `sync`, la animación se dispara al entrar y `repeat` la rearma. Umbrales en texto
+(`'bottom top+=40'`, `'center'`), `debug: true` los pinta. Frente al scroll-driven de CSS (§2.1):
+da lógica (`onEnter` para cargar o contar), suavizado, y **Firefox**; cuesta JS por evento y por
+tick. Lab `12`: la misma escena que `web/03`, CSS a la izquierda y `onScroll` a la derecha.
+
+### 5.4 `createDraggable` (`src/draggable/draggable.js`, 1.286 líneas)
+
+`createDraggable(target, { container, x, y (o `{ snap, mapTo, modifier }`), snap, containerPadding,
+containerFriction, releaseContainerFriction, dragSpeed, dragThreshold, scrollSpeed, scrollThreshold,
+minVelocity, maxVelocity, velocityMultiplier, releaseMass, releaseStiffness, releaseDamping,
+releaseEase, cursor: { onHover, onGrab }, onGrab, onDrag, onRelease, onUpdate, onSettle, onSnap,
+onResize })` (`types/index.js:606-640`). Es **tiempo real** (Willenskomer): el objeto sigue a la mano
+sin easing, y la física (un muelle con `releaseStiffness`/`releaseDamping`, el contenedor con
+fricción, el `snap`) aparece al soltar. Lab `13`: el libro se arrastra por la mesa con snap a 140 px.
+Lo que decide para CDA no es técnico: si el libro se saca **arrastrando** en vez de con un clic, la
+transición 5 pasa de no tiempo real a tiempo real, y eso cambia la naturaleza del gesto.
+
+### 5.5 `createLayout` (`src/layout/layout.js:948-1612`, 4.3+; 1.612 líneas)
+
+`const layout = createLayout(root, { duration, ease, swapAt, enterFrom, leaveTo, children,
+properties })`; `layout.update(() => { cambia el DOM })` = `record()` + cambio + `animate()`
+(`:1600-1604`). Registra los hijos con `data-layout-id`, mide antes y después, y anima la diferencia.
+**Confirmado en 4.5.0 lo que el anexo N leyó**: la posición va por `translate` (`:1466-1469`,
+propiedad individual, compositor), pero **si el tamaño cambia anima `width` y `height` de verdad**
+(`:1458-1464`, con `composition: 'none'`). `swapAt` es el estado intermedio al cambiar de padre
+(defecto `{ opacity: 0 }` con `ease: 'inOut(1.75)'`, `:976`); `enterFrom` y `leaveTo` para los que
+aparecen o desaparecen. Lab `14`: un lomo pasa de la pila a la mesa (cambia de padre y de tamaño) y
+los demás cierran el hueco. Veredicto: **para la pila sola (mismo tamaño, solo se mueven) vale y
+respeta los 144 Hz; para el vuelo del libro no**, y `animate:flip` de Svelte hace la pila a 0 KB
+(bench `motion.html`, bloque 2). `createLayout` gana solo si el libro cambia de padre en el DOM al
+salir, cosa que la decisión «un objeto por libro» del anexo N justamente evita.
+
+### 5.6 Lo que se lleva a la skill y al libro
+
+- SVG: `createDrawable` para el símbolo; `morphTo` y `createMotionPath` son catálogo.
+- Texto: `splitText` siempre con `accessible: true` (es el defecto; no quitarlo); `scrambleText` una
+  vez por portadilla como mucho, si Eneko lo quiere.
+- Scroll: CSS primero en Chromium/Safari; `onScroll` cuando haga falta lógica, suavizado o Firefox.
+- Draggable: solo si el gesto pasa a ser de arrastre. Decisión de Eneko.
+- Layout: para recolocar la pila si no se hace con Svelte; nunca para el vuelo.
 
 ## 6 · Rendimiento y peso
 

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 10 · svg</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 320px; display: grid; grid-template-columns: 1fr 1fr 1fr; }
+  .bloque { position: relative; border-right: 1px solid #2a2d31; padding: 12px; }
+  .bloque h3 { margin: 0 0 8px; font-size: 12px; color: var(--dim); font-weight: 500; }
+  svg { width: 100%; height: 240px; }
+  .trazo { fill: none; stroke: var(--acc); stroke-width: 3; stroke-linecap: round; }
+  .forma { fill: #2b3340; stroke: var(--acc); stroke-width: 2; }
+  .punto { fill: var(--ok); }
+</style>
+</head>
+<body>
+
+<h1>animejs 10 · <code>svg</code> <small>morphTo, createDrawable, createMotionPath</small></h1>
+<p>Fuente: <code>src/svg/morphto.js:21</code> (<code>morphTo(path2, precision = .33)</code>: devuelve un valor de función para <code>points</code>/<code>d</code>; muestrea los dos trazados al mismo número de puntos), <code>src/svg/drawable.js:111</code> (<code>createDrawable(selector, start = 0, end = 0)</code>: envuelve el elemento en un proxy con atributo <code>draw</code> <code>'0 1'</code> que anima <code>stroke-dasharray</code>/<code>offset</code> por ti), <code>src/svg/motionpath.js:80</code> (<code>createMotionPath(path, offset)</code> devuelve <code>{ translateX, translateY, rotate }</code> como valores de función).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ninguna del libro. Es catálogo: ¿queda claro qué hace cada una y cuándo sirve (un icono que se dibuja, un logo que cambia de forma, un elemento que sigue una curva)?</div>
+
+<div class="barra"><button id="go">lanzar</button></div>
+
+<div class="escena">
+  <div class="bloque"><h3>createDrawable: el símbolo se dibuja</h3>
+    <svg viewBox="0 0 200 200"><path class="trazo dib" d="M40 140 L100 40 L160 140 M60 110 L140 110"/><circle class="trazo dib" cx="100" cy="100" r="70"/></svg></div>
+  <div class="bloque"><h3>morphTo: de un polígono a otro</h3>
+    <svg viewBox="0 0 200 200"><polygon class="forma" id="p1" points="100,30 170,80 145,160 55,160 30,80"/><polygon id="p2" style="display:none" points="60,40 140,40 180,100 140,160 60,160 20,100"/></svg></div>
+  <div class="bloque"><h3>createMotionPath: un punto sigue la curva, orientado</h3>
+    <svg viewBox="0 0 200 200"><path class="trazo" id="ruta" d="M20 160 C 60 20, 140 20, 180 160"/><rect class="punto" id="movil" x="-8" y="-5" width="16" height="10" rx="2"/></svg></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Todo esto es motor JS (escribe atributos SVG por fotograma): no hay vía compositor para atributos. Es el terreno donde Anime.js da algo que CSS y WAAPI no dan (morph y motion path sí existen en CSS: <code>offset-path</code> es Baseline 2022, pero el morph de <code>d</code> solo en Chromium). Para CDA: el símbolo de Naeth dibujándose en la portadilla o en la carga es un <code>createDrawable</code>.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { animate, svg, utils, stagger } = anime;
+  let vivas = [];
+  document.getElementById('go').addEventListener('click', () => {
+    vivas.forEach((a) => a.revert()); vivas = [];
+    Meter.begin('svg');
+    vivas.push(animate(svg.createDrawable('.dib'), { draw: ['0 0', '0 1'], duration: 1400, ease: 'inOutQuad', delay: stagger(300) }));
+    vivas.push(animate('#p1', { points: svg.morphTo('#p2'), duration: 1200, ease: 'inOutCubic', loop: 1, alternate: true }));
+    const { translateX, translateY, rotate } = svg.createMotionPath('#ruta');
+    vivas.push(animate('#movil', { translateX, translateY, rotate, duration: 2000, ease: 'inOutSine', onComplete: () => Meter.end() }));
+    vivas.forEach((a) => (a.speed = lab.speed));
+  });
+  lab.onSpeed((v) => vivas.forEach((a) => (a.speed = v)));
+  document.getElementById('res').textContent = 'Catálogo: sin decisión que tomar.';
+</script>
+</body>
+</html>

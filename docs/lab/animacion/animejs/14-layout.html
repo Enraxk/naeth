@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 14 · layout</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 380px; padding: 20px; display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
+  .bloque h3 { margin: 0 0 8px; font-size: 12px; color: var(--dim); font-weight: 500; }
+  #raiz { position: relative; display: flex; gap: 24px; align-items: flex-end; height: 300px; }
+  .pila { display: flex; flex-direction: column-reverse; gap: 4px; width: 240px; }
+  .lomo { height: 24px; border-radius: 3px; background: #2b3340; color: var(--ink); font-size: 12px; line-height: 24px; padding-left: 10px; cursor: pointer; }
+  .lomo.naeth { background: #1c2e45; }
+  .mesa { width: 200px; height: 300px; border: 1px dashed #3a3e44; border-radius: 10px; display: grid; place-items: center; }
+  .mesa .lomo { width: 140px; height: 190px; border-radius: 3px 8px 8px 3px; display: grid; place-items: center; padding: 0; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<h1>animejs 14 · <code>createLayout</code> <small>FLIP automático entre dos estados del DOM, incluido cambiar de padre</small></h1>
+<p>Fuente: <code>src/layout/layout.js:948-1612</code> (4.3+). <code>const layout = createLayout(root, { duration, ease, swapAt, enterFrom, leaveTo, children, properties })</code>; <code>layout.update(() => { cambia el DOM })</code> = <code>record()</code> + cambio + <code>animate()</code>. Registra los hijos con <code>data-layout-id</code>, mide antes y después, y anima la diferencia. <b>Confirmado en 4.5.0</b>: la posición va por <code>translate</code> (<code>:1466-1469</code>, compositor), pero <b>si el tamaño cambia anima <code>width</code> y <code>height</code> de verdad</b> (<code>:1458-1464</code>): vale para recolocar la pila (mismo tamaño), no para el vuelo del libro (crece). <code>swapAt</code> es el estado intermedio cuando un elemento cambia de padre (defecto <code>{ opacity: 0 }</code>, <code>:976</code>), <code>enterFrom</code>/<code>leaveTo</code> para los que aparecen o desaparecen.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> pulsa un lomo: sale de la pila a la mesa (cambia de padre y de tamaño) y los demás cierran el hueco. Compáralo con <code>animate:flip</code> de Svelte (bench motion.html, bloque 2), que hace lo mismo sin cambiar de padre a 0 KB. ¿Merece <code>createLayout</code> para la pila, o basta Svelte?</div>
+
+<div class="barra"><button id="volver">devolver a la pila</button><button id="barajar">barajar</button></div>
+
+<div class="escena"><div class="bloque"><h3>root del layout: pila + mesa</h3>
+  <div id="raiz"><div class="pila" id="pila"></div><div class="mesa" id="mesa"></div></div></div>
+  <div class="bloque"><h3>Qué hace por dentro</h3><p class="notas" id="log">…</p></div></div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Al cambiar de padre, el lomo se vuelve portada (otro tamaño): aquí <code>createLayout</code> anima <code>width</code>/<code>height</code>, y eso es layout por fotograma. Se ve bien a 144 Hz con 5 elementos, pero rompe la regla; para el libro de verdad la caja va al tamaño final desde el primer fotograma y crece con <code>scale()</code> (anexo M). Para la pila sola (mismo tamaño, solo se mueven), es <code>translate</code> y está bien.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { createLayout, utils } = anime;
+  const libros = ['CENIT', 'Naeth', 'GridWatch', 'Yogin API', 'Yogin Website'];
+  const pila = document.getElementById('pila'), mesa = document.getElementById('mesa');
+  pila.innerHTML = libros.map((l) => `<div class="lomo ${l === 'Naeth' ? 'naeth' : ''}" data-n="${l}">${l}</div>`).join('');
+  const layout = createLayout('#raiz', { duration: 560, ease: 'outCubic', swapAt: { opacity: .6, scale: .96 } });
+  const log = (t) => { document.getElementById('log').textContent = t; };
+  pila.addEventListener('click', (e) => {
+    const lomo = e.target.closest('.lomo'); if (!lomo) return;
+    Meter.begin('layout');
+    const tl = layout.update(() => { const previo = mesa.firstElementChild; if (previo) pila.appendChild(previo); mesa.appendChild(lomo); });
+    tl.then(() => { const s = Meter.end(); document.getElementById('res').textContent = `${s.frames} fotogramas, ${s.dropped} perdidos, peor ${s.worst.toFixed(1)} ms.`; });
+    log(`update(): ${lomo.dataset.n} pasa de .pila a .mesa (swapAt: opacity .6, scale .96); los demás se recolocan por translate; el que cambia de tamaño anima width/height.`);
+  });
+  document.getElementById('volver').addEventListener('click', () => { const p = mesa.firstElementChild; if (!p) return; layout.update(() => pila.appendChild(p)); });
+  document.getElementById('barajar').addEventListener('click', () => layout.update(() => { [...pila.children].sort(() => Math.random() - .5).forEach((c) => pila.appendChild(c)); }));
+</script>
+</body>
+</html>
