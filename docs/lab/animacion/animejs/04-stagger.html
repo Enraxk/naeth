@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 04 · stagger</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 380px; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .bloque h3 { margin: 0 0 8px; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .pila { display: flex; flex-direction: column-reverse; gap: 4px; width: 240px; }
+  .lomo { height: 24px; border-radius: 3px; background: #2b3340; color: var(--ink); font-size: 12px; line-height: 24px; padding-left: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(8, 28px); gap: 6px; }
+  .celda { width: 28px; height: 28px; border-radius: 6px; background: var(--dim2); }
+</style>
+</head>
+<body>
+
+<h1>animejs 04 · <code>stagger</code> <small>escalonar valores y retardos, desde un punto, en rejilla</small></h1>
+<p>Fuente: <code>src/utils/stagger.js:84-200</code> (<code>stagger(valor | [desde, hasta], { start, from: índice | 'first' | 'center' | 'last' | 'random', reversed, grid: [cols, filas], axis: 'x' | 'y', ease, modifier, seed })</code>). Devuelve una función <code>(target, i, total) => valor</code>: sirve para cualquier parámetro (<code>delay</code>, <code>x</code>, <code>rotate</code>, incluso <code>duration</code>).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> la pila (izquierda): al sacar Naeth, los otros cuatro se recolocan escalonados 45 ms desde el hueco. ¿Es el 45 ms del handoff del visor (tope 6 filas) lo que se ve bien aquí, o pide más o menos?</div>
+
+<div class="barra"><button id="pila">pila: sacar Naeth y recolocar</button><button id="grid">rejilla: onda desde el centro</button></div>
+
+<div class="escena">
+  <div class="bloque"><h3>Pila · delay: stagger(45, { from: índice del hueco })</h3>
+    <div class="pila" id="p"></div></div>
+  <div class="bloque"><h3>Rejilla 8×4 · delay: stagger(60, { grid: [8, 4], from: 'center' }), scale y color</h3>
+    <div class="grid" id="g"></div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">El <code>from</code> importa más que la cifra: escalonar desde el hueco (los que están encima del libro que sale bajan primero) cuenta la historia de «el hueco se cierra»; escalonar desde abajo cuenta otra. Regla 8 (acción secundaria) y principio 2 de Willenskomer (offset & delay dice qué objetos van juntos).</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { animate, stagger, utils } = anime;
+  const libros = ['CENIT', 'Naeth', 'GridWatch', 'Yogin API', 'Yogin Website'];
+  const p = document.getElementById('p');
+  p.innerHTML = libros.map((l) => `<div class="lomo" data-n="${l}">${l}</div>`).join('');
+  const g = document.getElementById('g');
+  g.innerHTML = Array.from({ length: 32 }, () => '<div class="celda"></div>').join('');
+  let sacado = false;
+  document.getElementById('pila').addEventListener('click', () => {
+    const lomos = [...p.children];
+    const i = libros.indexOf('Naeth');
+    const naeth = lomos[i];
+    const encima = lomos.slice(i + 1);
+    Meter.begin('pila');
+    if (!sacado) {
+      animate(naeth, { x: 300, opacity: 0, duration: 400, ease: 'outCubic' });
+      // Los de encima bajan 28 px (24 + 4 de hueco) escalonados desde el más cercano al hueco.
+      animate(encima, { y: 28, duration: 360, ease: 'outCubic', delay: stagger(45, { start: 120 }) });
+    } else {
+      animate(encima, { y: 0, duration: 360, ease: 'outCubic', delay: stagger(45, { from: 'last' }) });
+      animate(naeth, { x: 0, opacity: 1, duration: 400, ease: 'outCubic', delay: 200 });
+    }
+    sacado = !sacado;
+    setTimeout(() => Meter.end(), 800);
+  });
+  document.getElementById('grid').addEventListener('click', () => {
+    utils.set('.celda', { scale: 1, backgroundColor: '#4b5563' });
+    animate('.celda', {
+      scale: [{ to: 1.4, duration: 220, ease: 'outQuad' }, { to: 1, duration: 320, ease: 'inOutQuad' }],
+      backgroundColor: [{ to: '#5db0ff', duration: 220 }, { to: '#4b5563', duration: 400 }],
+      delay: stagger(60, { grid: [8, 4], from: 'center' }),
+    });
+  });
+  document.getElementById('res').textContent = 'Se rellena con la respuesta de Eneko sobre los 45 ms.';
+</script>
+</body>
+</html>

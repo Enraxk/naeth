@@ -386,9 +386,133 @@ Lo que **nunca** entra, y viene de la regla de los 144 Hz y del handoff del viso
 `height`, `top`, `left`, `margin`, `padding`, `box-shadow` con desenfoque grande, `filter: blur`
 por fotograma; animar acciones de teclado; animar al cargar.
 
-## 3 · Anime.js, el motor
+## 3 · Anime.js, el motor (19/09, 17:05 a 18:10; estimado 2 h, real 1 h 05)
 
-_(pendiente)_
+Leído en `src/` de v4.5.0 y probado en seis labs (`docs/lab/animacion/animejs/01` a `06`). Todo
+lo de abajo lleva `fichero:línea`.
+
+### 3.1 Tres hallazgos que cambian lo de ayer
+
+1. **El prototipo del 18/09 corrió con easing lineal en todas las fases.** Pasaba
+   `defaults: { ease: 'cubicBezier(.22,.8,.2,1)' }` como **string**, y 4.5.0 retiró esa sintaxis:
+   `src/easings/eases/parser.js:175-186` avisa por consola («String syntax for `ease:
+   "cubicBezier(...)"` has been removed from the core») y **devuelve `none`, que es lineal**.
+   Reproducido en el lab `01` (el aviso sale en consola). Lo mismo pasa con `steps(`, `irregular(` y
+   `linear(` en string. La forma correcta: importar la función, `ease: cubicBezier(.22,.8,.2,1)`.
+   Lo que sí va en string es el catálogo con nombre (`'outExpo'`, `'inOutQuad'`, `'outBack(2)'`,
+   `'out(1.675)'`). Willenskomer, regla 1: el lineal «se nota, parece sin terminar, chirría»: es
+   la mitad del «rígido o mecánico» de Eneko. La otra mitad es el encadenado sin solape (F1, regla 5).
+2. **`createSpring()` está deprecado; es `spring()`** (`src/easings/spring/index.js:253-265`, con
+   aviso). El anexo N lo recomendaba con el nombre viejo.
+3. **Un muelle en 4.5 se puede definir por duración percibida y rebote**, `spring({ duration:
+   840, bounce: .15 })`, con la fórmula de SwiftUI (WWDC 2023, citada en
+   `spring/index.js:116-135`: stiffness = (2π/duración)², damping = (1 − bounce)·4π/duración). La
+   duración real hasta asentarse la calcula el solver (`settlingDuration`, `:174-187`) y es la que
+   usa la animación; con `{duration: 840, bounce: .15}` sale **1.460 ms** hasta el reposo
+   (stiffness 55,95, damping 12,72), y `onComplete` del muelle salta a los 840 percibidos
+   (`:82-91`). Con `{stiffness: 120, damping: 14}` salen 1.180 ms; con `{duration: 560, bounce: 0}`,
+   1.100. En `animate` un muelle **ignora `duration`**: la manda él.
+
+### 3.2 `animate(targets, params)` (`src/animation/animation.js:216-800`)
+
+- **Targets** (`src/core/targets.js`): selector, elemento, `NodeList`, array, o **cualquier objeto
+  JS** (lab `01`, fila 4: `{ n: 0 }` a 182 con `modifier: utils.round(0)`).
+- **Parámetros** (`src/types/index.js:27-51`): por animación `duration`, `delay`, `loop`
+  (número o `true`), `loopDelay`, `alternate`, `reversed`, `autoplay` (o un `ScrollObserver`),
+  `playbackRate`, `frameRate`, `persist`, `composition`, `modifier`, `ease`; y **cada propiedad
+  puede llevar los suyos**: `translateX: { to: 600, duration: 840, ease: 'outExpo' }`,
+  `rotate: { to: '+=180', delay: 200, ease: 'outBack' }` (lab `01`, fila 3). Valores relativos
+  `'+=', '-=', '*='`; `from`/`to`; unidades y colores se detectan (`src/core/values.js`,
+  `colors.js`). Una función como valor recibe `(target, i, total)`.
+- **Callbacks**: `onBegin`, `onBeforeUpdate`, `onUpdate`, `onRender`, `onLoop`, `onPause`,
+  `onComplete`, y `then()` (promesa).
+- **Keyframes**, dos formas (`animation.js:132-215`, `generateKeyframes`): **array** de pasos,
+  cada uno con sus propiedades, `duration` y `ease` (`[{ x: 300, duration: 800 }, { y: -40,
+  duration: 300 }, ...]`); u **objeto por porcentaje** `{ '0%': {...}, '40%': { x: 400, ease:
+  'outExpo' }, '100%': {...} }` con una sola `duration`, donde el `ease` de una clave se aplica al
+  tramo que **llega** a ella, como en WAAPI (`:196-203`). Lab `02`.
+- **`composition`** (`src/animation/composition.js:95-270`, `composeTween`), lo que pasa cuando
+  dos animaciones tocan la misma propiedad del mismo target:
+  - `'replace'` (**defecto**): la nueva recorta a la anterior en el instante en que arranca
+    (`:141-160`: ajusta `_changeDuration` de la anterior al punto de solape) y toma el mando
+    desde el valor actual. **Es la interrupción con continuidad de la regla 11, gratis.** Si el
+    target tiene 1.000 elementos o más, el defecto pasa a `'none'` por coste (`animation.js:273`).
+  - `'none'`: no mira a nadie; las dos escriben y la última gana cada fotograma (tiembla).
+  - `'blend'`: aditiva (`:221-260`, `src/animation/additive.js`): la nueva se **suma** a la
+    anterior en una animación aparte; una vuelta a mitad de la ida dibuja un arco.
+  Lab `02`: las tres con el mismo «interrumpir a mitad».
+- `refresh()` relee los `from` (`:735`), `stretch(ms)` cambia la duración conservando la forma
+  (`:713`), `revert()` deja el target como estaba (`:771`).
+
+### 3.3 `createTimer` (`src/timer/timer.js:114-510`) y `createAnimatable` (`src/animatable/animatable.js:41-161`)
+
+`Timer` es la clase base: `JSAnimation` y `Timeline` heredan de ella. Lo que da a todo: `currentTime`,
+`progress`, `iterationProgress`, `currentIteration`, `reversed`, `speed` (= `playbackRate`, `:300-311`),
+`paused`, `completed`, `pause()`, `resume()`, `play()`, `reverse()`, `restart()`, `seek(ms)`, `alternate()`,
+`cancel()`, `stretch()`, `revert()`, `complete()`, `then()`. Detalle que importa: `reverse()` no es
+«reproduce al revés» sino **`alternate()` + `resume()`** (`:442-447`): invierte la dirección en el punto
+actual, así que a mitad de la ida vuelve desde ahí. Solo, `createTimer` es un reloj con `frameRate`
+(lab `05`: 24 fps se ven a saltos) para lo que sea un contador o un tick.
+
+`createAnimatable(target, { rotateY: { unit: 'deg', ease: spring(...) }, ... })` convierte cada
+propiedad en un **método** `obj.rotateY(v)` que anima hacia el nuevo objetivo desde donde esté,
+sin reiniciar (retarget), y sin argumentos devuelve el valor actual. Es la pieza para «un valor que
+persigue a la mano», y para el **sombreado por ángulo** del libro: en `onUpdate` se lee
+`tapa.rotateY()` y se escribe la opacidad de una capa de luz y otra de sombra (lab `05`). Lo único
+del libro que necesita el motor JS por fotograma.
+
+### 3.4 Easings (`src/easings/`)
+
+- Catálogo con nombre (`eases/parser.js:43-90`): `in`, `out`, `inOut`, `outIn` × `Quad`, `Cubic`,
+  `Quart`, `Quint`, `Sine`, `Circ`, `Expo`, `Bounce`, `Back(overshoot = 1.7)`, `Elastic(amplitude = 1,
+  period = .3)`; y `in(p)`, `out(p)`, `inOut(p)` con potencia libre (`easeInPower`, `:34`). En string o
+  como función (`eases.outExpo`).
+- Funciones que hay que importar (`easings/index.js`): `cubicBezier(x1, y1, x2, y2)`, `steps(n,
+  fromStart)`, `linear(...puntos)` (la misma idea que `linear()` de CSS), `irregular(length,
+  randomness)`, `spring(params)`.
+- `spring`: `mass` (1), `stiffness` (100), `damping` (10), `velocity` (0), o `duration` y `bounce`
+  (§3.1); `settlingDuration` es la duración real. Lab `03`: el mismo desplazamiento con diez curvas
+  en paralelo, incluidas las cinco de Material como `cubicBezier`, tres muelles, el lineal del
+  prototipo y el `cubicBezier(.22,.8,.2,1)` bien pasado.
+
+### 3.5 `stagger` (`src/utils/stagger.js:84-200`)
+
+`stagger(valor | [desde, hasta], { start, from: índice | 'first' | 'center' | 'last' | 'random',
+reversed, grid: [cols, filas], axis, ease, modifier, seed })` devuelve una función
+`(target, i, total) => valor` y vale para cualquier parámetro, no solo `delay`. Lab `04`: la pila
+cerrando el hueco con `delay: stagger(45, { start: 120 })` sobre los lomos de encima, y una rejilla
+8×4 con onda desde el centro. Lo que decide el gesto es `from`, no la cifra: escalonar desde el
+hueco cuenta «el hueco se cierra».
+
+### 3.6 `utils` (`src/utils/`) y `engine` (`src/engine/engine.js`)
+
+`utils.set(target, props)` escribe sin animar (estado inicial), `utils.get(target, prop, unidad?)`
+lee con unidad (`'100px'`, `'6.25rem'`), `utils.remove(target)` mata todas las animaciones del
+target (la limpieza a mano si no hay `createScope`), `utils.$` es el registro de targets,
+`cleanInlineStyles`. Numéricas y **encadenables** (`chainable.js`: `utils.round(0).clamp(0, 100)`
+devuelve una función): `round`, `clamp`, `snap`, `wrap`, `mapRange`, `lerp`, `damp(a, b, dt,
+factor)` (interpolación independiente del refresco: la caja A del lab `web/06` hecha bien),
+`degToRad`, `radToDeg`, `padStart`, `padEnd`. Aleatorias: `random(min, max, decimales)`,
+`randomPick`, `shuffle`, `createSeededRandom`. Tiempo: `sync`, `keepTime`. Lab `06` imprime cada
+una con su resultado.
+
+`engine`: un solo bucle rAF para todo (`useDefaultMainLoop`, `:52`; con `false` se tickea desde
+fuera con `engine.update()`), `engine.speed` (ralentí global: 0,25 deja todo el visor a cámara
+lenta para revisar, lab `06`), `engine.fps` (**240 por defecto**, tope, no objetivo), `timeUnit`
+(`'ms'` o `'s'`, `:128-144`), `precision` (4 decimales, `:147-152`), `pauseOnDocumentHidden`
+(`:53`, true: es por lo que en el panel oculto del navegador integrado no corre nada).
+
+### 3.7 Lo que se lleva a la skill y al libro
+
+- Easing **siempre como función** cuando sea bezier, muelle, steps o linear; en string solo el
+  catálogo. Un lint mental: si en el código hay `ease: 'cubicBezier`, está mal.
+- `composition: 'replace'` es el defecto y es lo que quiere el libro para «clic a mitad»; `'blend'`
+  para gestos que se suman (un salto sobre un desplazamiento).
+- `spring({ duration, bounce })` para aterrizajes con duración controlada; `settlingDuration` es lo
+  que hay que sumar al storyboard, no `duration`.
+- `createAnimatable` + `onUpdate` para el sombreado por ángulo; nada más del libro necesita JS por
+  fotograma.
+- `engine.speed = .25` como modo revisión.
 
 ## 4 · Anime.js, orquestar e integrar
 

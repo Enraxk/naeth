@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 03 · easings y muelles</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 560px; }
+  .fila { position: absolute; left: 0; right: 0; height: 56px; border-bottom: 1px solid #2a2d31; }
+  .fila h3 { position: absolute; top: 4px; left: 14px; margin: 0; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .caja { position: absolute; left: 30px; top: 22px; width: 28px; height: 28px; border-radius: 6px; background: var(--acc); transform-origin: 50% 50%; }
+  .fila.muelle .caja { background: var(--ok); }
+  .ms { position: absolute; right: 14px; top: 4px; font-size: 11px; color: var(--dim2); }
+</style>
+</head>
+<body>
+
+<h1>animejs 03 · easings y muelles <small>el mismo gesto con diez curvas a la vez</small></h1>
+<p>Fuente: <code>src/easings/eases/parser.js:43-90</code> (el catálogo: <code>in/out/inOut/outIn</code> × <code>Quad Cubic Quart Quint Sine Circ Expo Bounce Back(overshoot) Elastic(amplitude, period)</code>, más <code>'out(p)'</code> con potencia libre), <code>src/easings/spring/index.js:49-260</code> (<code>spring()</code>, y <code>createSpring()</code> está deprecado en 4.5 y avisa: <code>mass stiffness damping velocity</code>, o bien <b><code>duration</code> y <code>bounce</code></b> a la manera de SwiftUI, WWDC 2023, y la duración real sale del solver hasta que se asienta: <code>settlingDuration</code>). Las cinco curvas de Material 3 van como <code>cubicBezier()</code>.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ¿cuál de las diez es «una mano que coge un libro» y cuál «una máquina»? Marca las dos o tres que te parezcan bien para el vuelo y una para el aterrizaje. (La velocidad a 0,25× ayuda a ver la forma.)</div>
+
+<div class="barra"><button id="go">lanzar las diez</button></div>
+
+<div class="escena" id="escena"></div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Las rojas/azules llevan duración fija (840 ms); las verdes son muelles y su duración la decide la física: se imprime a la derecha (<code>spring.settlingDuration</code>), por eso un muelle no lleva <code>duration</code> en <code>animate</code>, la ignora. Con <code>{ duration: 840, bounce: .15 }</code> Anime calcula stiffness y damping para que la duración PERCIBIDA sea 840 (masa 1, velocidad 0), que es lo que hace SwiftUI; con <code>{ stiffness, damping }</code> la duración es la que salga. <code>outBack</code> y <code>outElastic</code> son rebotes dibujados; el muelle es física y hereda velocidad al interrumpir.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { animate, cubicBezier, spring, utils } = anime;
+  const s1 = spring({ duration: 840, bounce: .15 });
+  const s2 = spring({ stiffness: 120, damping: 14, mass: 1 });
+  const s3 = spring({ duration: 560, bounce: 0 });
+  const curvas = [
+    ['linear (lo que corrió el prototipo del 18/09)', 'linear'],
+    ['outQuad', 'outQuad'],
+    ['outExpo', 'outExpo'],
+    ['outBack (rebasa 1.7)', 'outBack'],
+    ['Material standard · cubicBezier(0.2,0,0,1)', cubicBezier(0.2, 0, 0, 1)],
+    ['Material emphasized-decelerate · (0.05,0.7,0.1,1)', cubicBezier(0.05, 0.7, 0.1, 1)],
+    ['el del prototipo bien pasado · cubicBezier(.22,.8,.2,1)', cubicBezier(.22, .8, .2, 1)],
+    ['muelle · duration 840, bounce .15', s1, true],
+    ['muelle · stiffness 120, damping 14', s2, true],
+    ['muelle · duration 560, bounce 0 (sin rebote)', s3, true],
+  ];
+  const escena = document.getElementById('escena');
+  escena.innerHTML = curvas.map(([n, e, m], i) => `<div class="fila ${m ? 'muelle' : ''}" style="top:${i * 56}px"><h3>${i + 1} · ${n}</h3><div class="caja c${i}"></div><span class="ms" id="ms${i}">${m ? Math.round(e.settlingDuration) + ' ms (solver)' : '840 ms'}</span></div>`).join('');
+  let vivas = [];
+  document.getElementById('go').addEventListener('click', () => {
+    vivas.forEach((a) => a.revert()); vivas = [];
+    utils.set('.caja', { x: 0, rotate: 0 });
+    Meter.begin('easings');
+    curvas.forEach(([n, e, m], i) => vivas.push(animate('.c' + i, { x: 640, rotate: 180, duration: 840, ease: e })));
+    vivas.forEach((a) => (a.speed = lab.speed));
+    setTimeout(() => Meter.end(), 1800);
+  });
+  lab.onSpeed((v) => vivas.forEach((a) => (a.speed = v)));
+  document.getElementById('res').textContent = `Muelles: s1 ${Math.round(s1.settlingDuration)} ms (stiffness ${s1.stiffness}, damping ${s1.damping}), s2 ${Math.round(s2.settlingDuration)} ms, s3 ${Math.round(s3.settlingDuration)} ms.`;
+</script>
+</body>
+</html>

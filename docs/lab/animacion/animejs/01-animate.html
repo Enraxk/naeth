@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 01 · animate</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 340px; }
+  .fila { position: absolute; left: 0; right: 0; height: 80px; border-bottom: 1px solid #2a2d31; }
+  .fila h3 { position: absolute; top: 6px; left: 14px; margin: 0; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .caja { position: absolute; left: 30px; top: 30px; width: 40px; height: 40px; border-radius: 8px; background: var(--acc); }
+  .num { position: absolute; right: 20px; top: 28px; font-size: 22px; color: var(--ink); }
+</style>
+</head>
+<body>
+
+<h1>animejs 01 · <code>animate</code> <small>targets, parámetros por propiedad, valores relativos, callbacks, y la trampa del easing en string</small></h1>
+<p>Fuente: <code>src/animation/animation.js:216-800</code> (clase <code>JSAnimation</code>, <code>animate()</code> en <code>:795</code>), <code>src/types/index.js:27-51</code> (parámetros), <code>src/easings/eases/parser.js:175-186</code> (la sintaxis de string retirada).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> filas 1 y 2 son la misma animación; la 1 pasa el easing como <b>string</b> <code>'cubicBezier(.22,.8,.2,1)'</code> y la 2 como <b>función</b> <code>cubicBezier(.22,.8,.2,1)</code>. En 4.5.0 la primera avisa por consola y cae a <b>lineal</b>. ¿Se ve la diferencia? (El prototipo del 18/09 usaba la string: corrió lineal.)</div>
+
+<div class="barra"><button id="go">lanzar</button></div>
+
+<div class="escena">
+  <div class="fila" style="top:0"><h3>1 · ease: 'cubicBezier(.22,.8,.2,1)' como string → aviso y lineal</h3><div class="caja c1"></div></div>
+  <div class="fila" style="top:80px"><h3>2 · ease: cubicBezier(.22,.8,.2,1) como función (import { cubicBezier })</h3><div class="caja c2"></div></div>
+  <div class="fila" style="top:160px"><h3>3 · parámetros por propiedad: x con outExpo 840 ms, rotate con outBack 600 ms y delay 200, valor relativo '+=180'</h3><div class="caja c3"></div></div>
+  <div class="fila" style="top:240px"><h3>4 · target JS (un objeto): { n: 0 } → 182 con round y onUpdate</h3><div class="num" id="num">0</div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Fila 1 debería avisar en consola: «String syntax for `ease: "cubicBezier(...)"` has been removed from the core». Lo que sí admite en string es el catálogo con nombre (<code>'outExpo'</code>, <code>'inOutQuad'</code>, <code>'outBack(2)'</code>, <code>'out(1.675)'</code>...). Fila 3: cada propiedad lleva su <code>duration</code>, <code>delay</code> y <code>ease</code>; <code>'+=180'</code> es relativo al valor actual. Fila 4: <code>animate</code> vale para cualquier objeto JS, y <code>modifier: utils.round(0)</code> redondea lo que se escribe.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { animate, cubicBezier, utils, engine } = anime;
+  const avisos = [];
+  const warn = console.warn; console.warn = (...a) => { avisos.push(String(a[0]).slice(0, 80)); warn(...a); };
+  const contador = { n: 0 };
+  let vivas = [];
+  document.getElementById('go').addEventListener('click', () => {
+    vivas.forEach((a) => a.revert()); vivas = []; contador.n = 0;
+    Meter.begin('animate');
+    vivas.push(animate('.c1', { translateX: 600, duration: 1200, ease: 'cubicBezier(.22,.8,.2,1)' }));
+    vivas.push(animate('.c2', { translateX: 600, duration: 1200, ease: cubicBezier(.22, .8, .2, 1) }));
+    vivas.push(animate('.c3', {
+      translateX: { to: 600, duration: 840, ease: 'outExpo' },
+      rotate: { to: '+=180', duration: 600, delay: 200, ease: 'outBack' },
+      onComplete: () => Meter.end(),
+    }));
+    vivas.push(animate(contador, { n: 182, duration: 1200, ease: 'outCubic', modifier: utils.round(0),
+      onUpdate: () => { document.getElementById('num').textContent = contador.n; } }));
+    vivas.forEach((a) => (a.speed = lab.speed));
+    setTimeout(() => {
+      document.getElementById('res').textContent = `Avisos de consola: ${avisos.length ? avisos.join(' | ') : 'ninguno'}. engine.timeUnit=${engine.timeUnit}, engine.precision=${engine.precision}.`;
+    }, 300);
+  });
+  lab.onSpeed((v) => vivas.forEach((a) => (a.speed = v)));
+</script>
+</body>
+</html>

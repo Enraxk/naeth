@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 06 · utils y engine</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 260px; }
+  .caja { position: absolute; left: 30px; top: 40px; width: 40px; height: 40px; border-radius: 8px; background: var(--acc); }
+  pre { background: var(--mesa); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: var(--ink); overflow: auto; }
+</style>
+</head>
+<body>
+
+<h1>animejs 06 · <code>utils</code> y <code>engine</code> <small>set, get, remove, $, round, mapRange, clamp, lerp, damp; y el motor global</small></h1>
+<p>Fuente: <code>src/utils/</code> (<code>target.js</code>: <code>$</code>, <code>get</code>, <code>set</code>, <code>remove</code>, <code>cleanInlineStyles</code>; <code>number.js</code>: <code>round</code>, <code>clamp</code>, <code>snap</code>, <code>wrap</code>, <code>mapRange</code>, <code>lerp</code>, <code>damp</code>, <code>degToRad</code>; <code>random.js</code>: <code>random</code>, <code>randomPick</code>, <code>shuffle</code>, <code>createSeededRandom</code>; <code>time.js</code>: <code>sync</code>, <code>keepTime</code>; <code>chainable.js</code>: los de número se encadenan, <code>utils.round(2).clamp(0, 100)</code> devuelve una función). <code>src/engine/engine.js:50-165</code>: <code>engine.speed</code>, <code>engine.fps</code>, <code>engine.timeUnit</code> ('ms' o 's'), <code>engine.precision</code> (decimales, 4), <code>engine.pauseOnDocumentHidden</code> (true), <code>engine.useDefaultMainLoop</code> (false para tickear desde tu propio rAF con <code>engine.update()</code>).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ninguna visual. Este lab imprime lo que devuelve cada utilidad y prueba <code>engine.speed = 0.25</code> como ralentí global (lo que el deslizador de velocidad hace uno a uno). ¿Vale <code>engine.speed</code> como «modo cámara lenta» de todo el visor para revisar transiciones?</div>
+
+<div class="barra"><button id="go">lanzar y medir</button><button id="lento">engine.speed 0,25 / 1</button></div>
+
+<div class="escena"><div class="caja"></div></div>
+<pre id="out">…</pre>
+
+<h2>Qué mirar</h2>
+<p class="notas"><code>utils.set(target, { x: 10, rotate: 45 })</code> escribe sin animar (es un <code>animate</code> de duración 0) y es lo que se usa para el estado inicial; <code>utils.get(target, 'x', 'px')</code> lee con unidad; <code>utils.remove(target)</code> mata todas las animaciones del target (limpieza al desmontar un componente si no se usa <code>createScope</code>). <code>utils.damp(a, b, dt, factor)</code> es la interpolación independiente del refresco para bucles a mano (lab web/06, la caja A hecha bien). <code>engine.pauseOnDocumentHidden</code> es lo que hace que en el panel del navegador integrado oculto no corra nada.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init({ speed: false });
+  const { animate, utils, engine } = anime;
+  const out = document.getElementById('out');
+  const lines = [];
+  const log = (k, v) => lines.push(`${k.padEnd(52)} ${typeof v === 'function' ? '[función]' : JSON.stringify(v)}`);
+  document.getElementById('go').addEventListener('click', () => {
+    lines.length = 0;
+    utils.set('.caja', { x: 100, rotate: 45, scale: 1.2 });
+    log("utils.set('.caja', { x: 100, rotate: 45, scale: 1.2 })", 'hecho');
+    log("utils.get('.caja', 'x')", utils.get('.caja', 'x'));
+    log("utils.get('.caja', 'x', 'rem')", utils.get('.caja', 'x', 'rem'));
+    log("utils.get('.caja', 'rotate')", utils.get('.caja', 'rotate'));
+    log("getComputedStyle(caja).transform", getComputedStyle(document.querySelector('.caja')).transform);
+    log("utils.$('.caja').length", utils.$('.caja').length);
+    log('utils.round(2)(3.14159)', utils.round(2)(3.14159));
+    log('utils.round(0).clamp(0, 100)(123.7)', utils.round(0).clamp(0, 100)(123.7));
+    log('utils.mapRange(0.5, 0, 1, 100, 200)', utils.mapRange(0.5, 0, 1, 100, 200));
+    log('utils.lerp(0, 100, .25)', utils.lerp(0, 100, .25));
+    log('utils.damp(0, 100, 16.7, .1)', utils.damp(0, 100, 16.7, .1));
+    log('utils.snap(47, 10)', utils.snap(47, 10));
+    log('utils.wrap(370, 0, 360)', utils.wrap(370, 0, 360));
+    log('utils.random(1, 6)', utils.random(1, 6));
+    log("utils.randomPick(['a','b','c'])", utils.randomPick(['a', 'b', 'c']));
+    log('engine.timeUnit / precision / fps / speed', [engine.timeUnit, engine.precision, engine.fps, engine.speed]);
+    log('engine.pauseOnDocumentHidden / useDefaultMainLoop', [engine.pauseOnDocumentHidden, engine.useDefaultMainLoop]);
+    const a = animate('.caja', { x: 600, duration: 1000, ease: 'outCubic' });
+    log('animate(...).duration / paused', [a.duration, a.paused]);
+    utils.remove('.caja');
+    log("utils.remove('.caja') → la animación se quita; x queda en", utils.get('.caja', 'x'));
+    animate('.caja', { x: 600, rotate: 0, scale: 1, duration: 1000, ease: 'outCubic' });
+    out.textContent = lines.join('\n');
+  });
+  let lento = false;
+  document.getElementById('lento').addEventListener('click', () => { lento = !lento; engine.speed = lento ? .25 : 1; document.getElementById('res').textContent = `engine.speed = ${engine.speed}`; });
+</script>
+</body>
+</html>

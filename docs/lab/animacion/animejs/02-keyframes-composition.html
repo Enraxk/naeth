@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 02 · keyframes y composition</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 340px; }
+  .fila { position: absolute; left: 0; right: 0; height: 80px; border-bottom: 1px solid #2a2d31; }
+  .fila h3 { position: absolute; top: 6px; left: 14px; margin: 0; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .caja { position: absolute; left: 30px; top: 30px; width: 40px; height: 40px; border-radius: 8px; background: var(--acc); }
+</style>
+</head>
+<body>
+
+<h1>animejs 02 · keyframes y <code>composition</code> <small>las dos formas de keyframes, y qué pasa al interrumpir</small></h1>
+<p>Fuente: <code>src/animation/animation.js:132-215</code> (<code>generateKeyframes</code>: array de objetos con <code>duration</code> por paso, u objeto por porcentaje <code>{'0%':…, '50%':…}</code> que reparte la <code>duration</code> total), <code>src/animation/composition.js:95-270</code> (<code>composeTween</code>: <code>replace</code> recorta el tween anterior en el instante en que arranca el nuevo; <code>blend</code> lo suma en una animación aditiva aparte; <code>none</code> no mira a nadie).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> lanza y a mitad pulsa «interrumpir: vuelve al origen». Fila 1 (<code>replace</code>, el defecto): la nueva animación toma el mando desde donde estaba, sin salto. Fila 2 (<code>none</code>): las dos escriben a la vez y la caja tiembla. Fila 3 (<code>blend</code>): la vuelta se SUMA a la ida y la caja hace un arco. ¿Cuál quieres para «clic a mitad de sacar el libro»?</div>
+
+<div class="barra"><button id="go">lanzar (keyframes, 1600 ms)</button><button id="cut">interrumpir: vuelve al origen (600 ms)</button></div>
+
+<div class="escena">
+  <div class="fila" style="top:0"><h3>1 · composition: 'replace' (defecto)</h3><div class="caja c1"></div></div>
+  <div class="fila" style="top:80px"><h3>2 · composition: 'none'</h3><div class="caja c2"></div></div>
+  <div class="fila" style="top:160px"><h3>3 · composition: 'blend' (aditivo)</h3><div class="caja c3"></div></div>
+  <div class="fila" style="top:240px"><h3>4 · keyframes por porcentaje: {'0%','40%','100%'} con ease por tramo</h3><div class="caja c4"></div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Forma array: <code>keyframes: [{ x: 300, duration: 800, ease: 'outQuad' }, { y: -40, duration: 300 }, { x: 600, y: 0, duration: 500 }]</code>; cada paso lleva su duración y su ease. Forma porcentaje: <code>keyframes: { '0%': { x: 0 }, '40%': { x: 400, ease: 'outExpo' }, '100%': { x: 600 } }</code> con una sola <code>duration</code>; el <code>ease</code> de cada clave se aplica al tramo que LLEGA a ella (emula WAAPI, <code>animation.js:196-203</code>). Lo importante para el libro: <code>replace</code> es exactamente «interrumpible con continuidad» (regla 11); es el defecto salvo con 1000 targets o más, que pasa a <code>none</code> por rendimiento (<code>animation.js:273</code>).</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { animate, utils } = anime;
+  const kf = [{ x: 300, duration: 800, ease: 'outQuad' }, { y: -40, duration: 300, ease: 'outQuad' }, { x: 600, y: 0, duration: 500, ease: 'inOutQuad' }];
+  let vivas = [];
+  document.getElementById('go').addEventListener('click', () => {
+    vivas.forEach((a) => a.revert()); vivas = [];
+    utils.set('.caja', { x: 0, y: 0 });
+    Meter.begin('keyframes');
+    vivas.push(animate('.c1', { keyframes: kf, composition: 'replace' }));
+    vivas.push(animate('.c2', { keyframes: kf, composition: 'none' }));
+    vivas.push(animate('.c3', { keyframes: kf, composition: 'blend' }));
+    vivas.push(animate('.c4', { keyframes: { '0%': { x: 0 }, '40%': { x: 400, ease: 'outExpo' }, '100%': { x: 600, ease: 'inOutQuad' } }, duration: 1600, onComplete: () => Meter.end() }));
+    vivas.forEach((a) => (a.speed = lab.speed));
+  });
+  document.getElementById('cut').addEventListener('click', () => {
+    ['replace', 'none', 'blend'].forEach((c, i) => animate('.c' + (i + 1), { x: 0, y: 0, duration: 600, ease: 'outCubic', composition: c }));
+  });
+  lab.onSpeed((v) => vivas.forEach((a) => (a.speed = v)));
+  document.getElementById('res').textContent = 'Se rellena con la elección de Eneko.';
+</script>
+</body>
+</html>

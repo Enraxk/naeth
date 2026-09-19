@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 05 · animatable y timer</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: 360px; perspective: 1200px; }
+  .tapa { position: absolute; left: 60px; top: 40px; width: 200px; height: 280px; border-radius: 4px 10px 10px 4px; background: #2b3340; color: var(--ink); display: grid; place-items: center; font-size: 22px; transform-style: preserve-3d; }
+  .tapa .luz { position: absolute; inset: 0; border-radius: inherit; background: #fff; opacity: 0; pointer-events: none; }
+  .tapa .sombra { position: absolute; inset: 0; border-radius: inherit; background: #000; opacity: 0; pointer-events: none; }
+  .reloj { position: absolute; right: 24px; top: 24px; font-size: 40px; color: var(--ink); }
+  .reloj small { display: block; font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<h1>animejs 05 · <code>createAnimatable</code> y <code>createTimer</code> <small>valores que persiguen, y un reloj sin target</small></h1>
+<p>Fuente: <code>src/animatable/animatable.js:41-161</code> (cada propiedad se vuelve un método <code>obj.rotateY(valor, duración?, ease?)</code> que anima hacia el nuevo objetivo desde donde esté; sin argumentos, devuelve el valor actual), <code>src/timer/timer.js:114-510</code> (<code>createTimer</code>: la base de <code>animate</code> y de la timeline, con <code>currentTime</code>, <code>progress</code>, <code>speed</code>, <code>seek</code>, <code>pause/resume/reverse</code>, <code>frameRate</code>, <code>loop</code>, <code>onUpdate</code>).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> mueve el ratón por la escena: la tapa gira siguiéndolo con un muelle, y el brillo y la sombra de la cara cambian con el ángulo (sombreado falso). ¿Este «la luz cambia al girar» es lo que le faltaba a la caja de ayer para parecer un objeto?</div>
+
+<div class="barra"><button id="timer">timer: cuenta 10 s a 24 fps</button><button id="pausa">pause / resume</button></div>
+
+<div class="escena" id="escena">
+  <div class="tapa" id="tapa">Naeth<div class="luz"></div><div class="sombra"></div></div>
+  <div class="reloj"><span id="t">0.00</span><small id="fr">timer parado</small></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">El animatable es la herramienta para «valor que persigue a la mano»: cada movimiento del ratón llama a <code>tapa.rotateY(ángulo)</code> y la animación en curso se retarget sin reiniciar (por dentro es un <code>JSAnimation</code> con <code>composition: replace</code>). El sombreado por ángulo se hace en <code>onUpdate</code> leyendo <code>tapa.rotateY()</code>: es la única cosa del libro que necesita el motor JS por fotograma; el vuelo en sí no. El timer va a 24 fps a propósito (<code>frameRate</code>): se ve a saltos, y sirve para lo que sea un reloj, no una animación.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">…</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { createAnimatable, createTimer, spring, utils } = anime;
+  const escena = document.getElementById('escena');
+  const luz = document.querySelector('.luz'), sombra = document.querySelector('.sombra');
+  const tapa = createAnimatable('#tapa', {
+    rotateY: { unit: 'deg', ease: spring({ stiffness: 120, damping: 14 }) },
+    rotateX: { unit: 'deg', ease: spring({ stiffness: 120, damping: 14 }) },
+    onUpdate: () => {
+      const ry = tapa.rotateY();
+      // Luz desde la izquierda: al girar hacia la derecha la cara se ilumina, hacia la izquierda se ensombrece.
+      luz.style.opacity = utils.clamp(ry / 120, 0, .35);
+      sombra.style.opacity = utils.clamp(-ry / 100, 0, .5);
+    },
+  });
+  escena.addEventListener('mousemove', (e) => {
+    const r = escena.getBoundingClientRect();
+    const nx = (e.clientX - r.left) / r.width - .5, ny = (e.clientY - r.top) / r.height - .5;
+    tapa.rotateY(nx * 90).rotateX(-ny * 30);
+  });
+  escena.addEventListener('mouseleave', () => tapa.rotateY(0).rotateX(0));
+  let timer = null;
+  document.getElementById('timer').addEventListener('click', () => {
+    if (timer) timer.revert();
+    timer = createTimer({ duration: 10000, frameRate: 24,
+      onUpdate: (self) => { document.getElementById('t').textContent = (self.currentTime / 1000).toFixed(2); document.getElementById('fr').textContent = `progress ${self.progress.toFixed(3)} · ${self.paused ? 'pausado' : 'corriendo'} a 24 fps`; },
+      onComplete: () => { document.getElementById('fr').textContent = 'timer completo'; } });
+    timer.speed = lab.speed;
+  });
+  document.getElementById('pausa').addEventListener('click', () => timer && (timer.paused ? timer.resume() : timer.pause()));
+  lab.onSpeed((v) => timer && (timer.speed = v));
+  document.getElementById('res').textContent = 'Se rellena con la respuesta de Eneko sobre el sombreado.';
+</script>
+</body>
+</html>
