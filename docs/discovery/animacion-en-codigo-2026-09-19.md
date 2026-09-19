@@ -116,9 +116,82 @@ el viewport). [`00-lab.css`](../lab/animacion/00-lab.css): la mesa oscura de CDA
 
 ---
 
-## 1 · Fundamentos del movimiento
+## 1 · Fundamentos del movimiento (19/09, 14:55 a 15:35; estimado 1 h, real 40 min)
 
-_(pendiente)_
+Lo que dicen las fuentes, reducido a reglas que se puedan comprobar en un lab, y para cada una qué
+prototipo del 18/09 la rompía. Fuentes leídas hoy: los tokens de movimiento de **Material 3** en su
+código (`material-components/material-web`, `tokens/versions/v0_192/_md-sys-motion.scss`), la
+**HIG de Apple** (`developer.apple.com/design/human-interface-guidelines/motion`, con cambios hasta
+el 09/09/2025), **Josh Comeau**, «A Friendly Introduction to Spring Physics» (actualizado el
+03/11/2025), **Emil Kowalski**, «Great Animations» (`emilkowal.ski/ui/great-animations`), e **Issara
+Willenskomer**, «The UX in Motion Manifesto» (Medium, 2017). Los libros de Val Head («Designing
+Interface Animations», 2016) y Rachel Nabors («Animation at Work», 2017) se citan de memoria,
+⚠ sin cita textual verificada hoy.
+
+### 1.1 Doce reglas
+
+| # | Regla | Fuente | Qué rompía el 18/09 |
+|---|---|---|---|
+| 1 | **El movimiento explica un cambio; si no hay nada que explicar, no hay movimiento.** Nada de animar por animar, y nada en acciones frecuentes o lanzadas por teclado. | Apple HIG («Add motion purposefully»); Kowalski («never animate keyboard initiated actions»); el propio handoff del visor del 23/08 | Nada: sacar un libro es un cambio de escena que merece explicarse |
+| 2 | **Ease-out para lo que responde a la mano, ease-in para lo que se va, ease-in-out para lo que se mueve entre dos sitios visibles.** El ease-out «empieza rápido y frena»: da sensación de respuesta inmediata. Lineal solo para valores continuos (progreso, color) y para el desplazamiento de un scroll. | Kowalski; Material 3 (`emphasized-decelerate` para entrar, `emphasized-accelerate` para salir); Willenskomer, principio 1 («when to use easing? Always») | Los dos prototipos usaban **una sola curva** (`cubicBezier(.22,.8,.2,1)`, un ease-out) para todas las fases, incluida la vuelta a la pila, que es una salida y pedía acelerar |
+| 3 | **Las curvas con nombre y número, no a ojo.** Material 3: `standard` `cubic-bezier(0.2,0,0,1)`, `standard-decelerate` `(0,0,0,1)`, `standard-accelerate` `(0.3,0,1,1)`; `emphasized-decelerate` `(0.05,0.7,0.1,1)`, `emphasized-accelerate` `(0.3,0,0.8,0.15)`. Apple no publica curvas: usa muelles. | `_md-sys-motion.scss` (leído en el repo el 19/09) | El `(.22,.8,.2,1)` del prototipo está entre `standard` y `emphasized-decelerate`; no era malo, era **único** |
+| 4 | **Duración según lo que recorre y lo que ocupa.** Material 3: `short` 50 a 200 ms (cambios pequeños en el sitio), `medium` 250 a 400 (lo que entra o sale, lo que cambia de forma), `long` 450 a 600 (transiciones de pantalla o de elementos grandes), `extra-long` 700 a 1000 (solo con `emphasized`, para cambios de toda la pantalla). Kowalski: «usually shorter than 300 ms» para lo que responde a un clic. | `_md-sys-motion.scss`; Kowalski | Los 840 ms que Eneko eligió viendo (anexo N) caen en `extra-long`, que Material reserva para lo que cambia toda la pantalla **con curva emphasized**. Es coherente: sacar el libro cambia toda la escena. Los 380 del anexo M eran `medium`, y se sintieron rápidos |
+| 5 | **Solapar, no encadenar.** Las fases de un gesto se pisan: lo siguiente empieza antes de que lo anterior termine. Encadenadas parecen una máquina de estados; solapadas, un movimiento. Disney lo llama «follow through and overlapping action». | Willenskomer, principio 2 (Offset & Delay, «influenced by Follow Through and Overlapping Action»); Disney (Thomas y Johnston, 1981) | **Los dos prototipos encadenaban**: sale (0 a 180) → se levanta (180 a 340) → gira (340 a 580) → crece (580 a 840). Ninguna fase empezaba antes de acabar la anterior. Es el «rígido o mecánico» que dijo Eneko |
+| 6 | **Anticipación y remate.** Un objeto que va a moverse se prepara un poco en sentido contrario, y al llegar rebasa un poco y vuelve. En UI, mínimos: la anticipación es un retroceso de unos píxeles y el remate lo da la curva (rebasamiento) o el muelle. | Disney («anticipation», «follow through»); Comeau (muelle: «slows to a stop in a way that CSS transitions can't replicate») | Ninguna anticipación (el libro salía de la pila sin «cogerlo»), ningún remate (llegaba seco a la portada y seco a la pila) |
+| 7 | **Arcos.** Lo que se mueve de un sitio a otro por una mano va en curva, no en línea recta. Dos ejes con curvas distintas (x con ease-out, y con ease-in-out) ya dan un arco. | Disney («arcs») | La caja iba en recta de la pila al centro |
+| 8 | **Acción secundaria: el entorno reacciona.** Cuando un objeto sale, lo que le rodea se recoloca, se atenúa o se aparta, y lo hace con su propia curva y un poco después. | Disney («secondary action»); Willenskomer, principios 2 y 3 (Offset & Delay; Parenting) | La pila solo bajaba a opacidad 0,1 y se quedaba con el hueco fijo. No se cerraba, no se abría, no reaccionaba al aterrizaje |
+| 9 | **Escenificación: en cada momento el ojo mira a un sitio.** Una transición larga con tres cosas cambiando a la vez no se lee. Se decide qué es lo protagonista en cada tramo y lo demás se subordina. | Disney («staging»); Apple («brevity and precision») | En el giro sobre el lomo el libro crecía y giraba a la vez con la solapa entrando: tres protagonistas |
+| 10 | **Muelle frente a bezier.** Un muelle se define por masa, rigidez y amortiguación, **no por duración**: la duración sale de la física, y el movimiento hereda la velocidad con la que llega (interrupciones limpias). Para lo que responde a la mano y para aterrizar, muelle; para color y opacidad, bezier. | Comeau (mass, tension, friction; «I wouldn't use them for color or opacity»); Kowalski («play around with spring animations») | Todo era bezier con duración fija; el aterrizaje en la pila era `reverse()` de la ida, sin peso |
+| 11 | **Interrumpible siempre.** Un clic a mitad no espera: la animación toma el estado actual y va al nuevo destino con la velocidad que llevaba. Las `transition` de CSS lo hacen solas; las `@keyframes` no; en JS lo decide el modo de composición. | Kowalski («interruptible»); Apple («Let people cancel motion»); decisión propia del 17/09 (navegación D) | El prototipo Anime.js hacía `reverse()`, que sí es interrumpible; el CSS por clases reiniciaba la transición desde el estado de la clase |
+| 12 | **Reduced-motion siempre, y no es «sin animación»: es sin desplazamiento ni giro.** Se queda el fundido; se va el movimiento. Y nunca es la única vía de comunicar algo. | Apple («Make motion optional»); Kowalski (`prefers-reduced-motion` → fundido); handoff del visor 23/08 | El prototipo CSS tenía el fundido de 120 ms; el de Anime.js no tenía guarda |
+
+### 1.2 Lo que añade Willenskomer y no está en Disney
+
+Los 12 principios de Disney (1981) son para **dibujos que gustan**; los 12 de UX in Motion (2017) son
+para **interfaces que se entienden**, y solo dos de los suyos vienen de Disney (easing, y offset &
+delay). Los que importan para el libro:
+
+- **Tiempo real frente a no tiempo real.** Mientras el ratón está sobre la pila y el libro se
+  desliza 28 px (hover), es tiempo real: el objeto sigue a la mano. Desde el clic hasta la portada
+  es no tiempo real: «bloquea brevemente al usuario hasta que la transición termina». Por eso la
+  regla 11: cuanto antes se pueda cancelar, mejor.
+- **Dimensionality**, en su forma «Object Dimensionality»: «múltiples capas 2D dispuestas en el
+  espacio 3D forman objetos con volumen real», y su utilidad es que el usuario entiende la
+  utilidad del objeto por sus caras no visibles. Es exactamente la caja del libro: si el lomo, la
+  tapa y el canto no se ven como caras de un mismo volumen, el principio no funciona, y eso es lo
+  que Eneko llamó «la caja no parece un libro».
+- **Dolly & Zoom**: crecer hasta la portada es un dolly (el objeto se acerca), no un zoom. Con
+  `perspective` correcta las dos cosas se ven distintas; con la perspectiva de 5200 px del
+  prototipo (casi ortográfica) se ven iguales, y el libro parecía un recorte que se agranda.
+- **Parenting**: la solapa que entra a la derecha es hija del libro, no un elemento aparte con su
+  propia animación: su posición sale de la del libro.
+
+### 1.3 Lo que se lleva al laboratorio
+
+Cada regla se convierte en una pregunta aislada de un lab: la 2 y la 3 en `03-easings` (la misma
+caja con ocho curvas, incluidas las cinco de Material y dos muelles); la 5 en `07-timeline` (el
+mismo gesto encadenado y solapado, lado a lado); la 6, la 7 y la 10 en `03-easings` y `05-pila`;
+la 11 en `02-keyframes-composition` y `web/01-css-transition`; la 12 en todos, con el interruptor.
+La 4 no se prueba: se decide con Material como tabla y el ojo de Eneko como juez (ya decidió 840).
+
+### 1.4 Duración y curva de Material 3, la tabla que se usa de referencia
+
+| Token | Valor | Uso que Material le da |
+|---|---|---|
+| `duration-short1..4` | 50, 100, 150, 200 ms | Cambios pequeños y en el sitio: un interruptor, un icono |
+| `duration-medium1..4` | 250, 300, 350, 400 ms | Lo que entra o sale, lo que cambia de forma dentro de una pantalla |
+| `duration-long1..4` | 450, 500, 550, 600 ms | Elementos grandes, transiciones entre pantallas |
+| `duration-extra-long1..4` | 700, 800, 900, 1000 ms | Solo con `emphasized`: cambios que afectan a toda la pantalla |
+| `easing-standard` | `cubic-bezier(0.2, 0, 0, 1)` | Lo normal: mover entre dos sitios visibles |
+| `easing-standard-decelerate` | `cubic-bezier(0, 0, 0, 1)` | Entrar |
+| `easing-standard-accelerate` | `cubic-bezier(0.3, 0, 1, 1)` | Salir |
+| `easing-emphasized` | `cubic-bezier(0.2, 0, 0, 1)` en el token; en la spec es una curva partida que el token no representa | Lo que merece atención |
+| `easing-emphasized-decelerate` | `cubic-bezier(0.05, 0.7, 0.1, 1)` | Entrar con énfasis |
+| `easing-emphasized-accelerate` | `cubic-bezier(0.3, 0, 0.8, 0.15)` | Salir con énfasis |
+
+(Los `legacy` `(0.4,0,0.2,1)` y sus variantes son Material 2; se citan para reconocerlos, no para
+usarlos.) El handoff del visor usa `ease` (`cubic-bezier(0.25,0.1,0.25,1)`) y `--t-over`
+`(.34,1.56,.64,1)`; no se toca, pero se sabe dónde cae: `ease` es un `standard` suave.
 
 ## 2 · El medio: con qué se anima en la web
 
