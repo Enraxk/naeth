@@ -12,7 +12,7 @@
   .lab .n { font-family: "JetBrains Mono", monospace; color: var(--dim2); font-size: 13px; padding-top: 3px; }
   .lab a { color: var(--ink); text-decoration: none; font-weight: 600; }
   .lab a:hover { color: var(--acc); }
-  .lab .q { color: var(--dim); font-size: 13.5px; }
+  .lab .q { grid-column: 2; color: var(--dim); font-size: 13.5px; }
   .lab.decide { border-color: var(--acc); }
   .lab.decide .n::after { content: "★"; color: var(--acc); margin-left: 4px; }
   .lab .r { grid-column: 2; }
@@ -59,10 +59,12 @@
   <div class="lab"><span class="n">14</span><a href="animejs/14-layout.html">createLayout: la pila con cambio de padre</a><span class="q">¿Merece frente a animate:flip de Svelte?</span></div>
 </div>
 
-<div class="acciones"><button class="btn" id="copiar">copiar respuestas</button><button class="btn" id="borrar">borrar respuestas</button><span class="notas" id="estado"></span></div>
+<div class="acciones"><button class="btn" id="abrir7">abrir las siete en pestañas</button><button class="btn" id="copiar">copiar respuestas</button><button class="btn" id="borrar">borrar respuestas</button><span class="notas" id="estado"></span></div>
 <pre id="salida" hidden></pre>
 
 <script>
+  document.querySelectorAll('.lab a').forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; });
+  document.getElementById('abrir7').addEventListener('click', () => { document.querySelectorAll('.lab.decide a').forEach((a) => window.open(a.href, '_blank')); });
   const K = 'lab-animacion-respuestas';
   let r = {}; try { r = JSON.parse(localStorage.getItem(K) || '{}'); } catch {}
   const areas = document.querySelectorAll('textarea[data-k]');
