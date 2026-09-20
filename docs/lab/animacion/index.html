@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab de animación · índice</title>
+<link rel="stylesheet" href="00-lab.css">
+<style>
+  body { max-width: 980px; }
+  .grupo { margin: 26px 0; }
+  .lab { display: grid; grid-template-columns: 44px 1fr; gap: 6px 14px; padding: 12px 14px; border: 1px solid #2a2d31; border-radius: 10px; margin: 8px 0; background: var(--mesa); }
+  .lab .n { font-family: "JetBrains Mono", monospace; color: var(--dim2); font-size: 13px; padding-top: 3px; }
+  .lab a { color: var(--ink); text-decoration: none; font-weight: 600; }
+  .lab a:hover { color: var(--acc); }
+  .lab .q { color: var(--dim); font-size: 13.5px; }
+  .lab.decide { border-color: var(--acc); }
+  .lab.decide .n::after { content: "★"; color: var(--acc); margin-left: 4px; }
+  .lab .r { grid-column: 2; }
+  .lab textarea { width: 100%; min-height: 40px; background: #16181b; color: var(--ink); border: 1px solid #2a2d31; border-radius: 6px; padding: 6px 8px; font: 13px "JetBrains Mono", monospace; resize: vertical; }
+  .lab textarea::placeholder { color: var(--dim2); }
+  .aviso { border-left: 3px solid var(--warn); padding: 8px 12px; color: var(--dim); font-size: 13.5px; margin: 14px 0; }
+  .acciones { display: flex; gap: 10px; align-items: center; margin: 18px 0; }
+  pre { background: var(--mesa); border: 1px solid #2a2d31; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; color: var(--ink); white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Lab de animación <small>19/09/2026 · 23 páginas · las siete con ★ deciden algo del libro</small></h1>
+<p>Cada página tiene arriba su pregunta de sí o no. Ábrela, pulsa, mira, y apunta aquí lo que decidas: las respuestas se guardan en este navegador (localStorage) y con «copiar respuestas» salen como texto para pegarlas en el chat y que vayan al anexo O.</p>
+<div class="aviso">Ábrelo en <b>Helium</b> en la pantalla principal (144 Hz). Con la pestaña en segundo plano las animaciones se pausan: vuelve a pulsar. El medidor cuenta fotogramas perdidos arriba a la derecha; la velocidad a 0,25× enseña la forma de las curvas. En el lab 09 (y en web/05), pulsa primero «ocupar el hilo» y luego «lanzar».</div>
+
+<div class="grupo"><h2>Los que deciden algo (en este orden)</h2>
+  <div class="lab decide"><span class="n">15</span><a href="animejs/15-caja-libro.html">La caja del libro</a><span class="q">Gírala y pasa por los presets. ¿Es un libro desde todos los ángulos? ¿Qué <code>perspective</code> (el prototipo usaba 5200) y qué grosor?</span><div class="r"><textarea data-k="15" placeholder="perspective elegida, grosor, desde dónde se mira, qué le falta…"></textarea></div></div>
+  <div class="lab decide"><span class="n">03</span><a href="animejs/03-easings.html">Easings y muelles</a><span class="q">Diez curvas en paralelo. ¿Cuál es «una mano» y cuál «una máquina»? Dos o tres para el vuelo, una para el aterrizaje.</span><div class="r"><textarea data-k="03" placeholder="vuelo: … · aterrizaje: …"></textarea></div></div>
+  <div class="lab decide"><span class="n">07</span><a href="animejs/07-timeline.html">Timeline: encadenada contra solapada</a><span class="q">Las mismas fases; A en fila, B pisándose al 40 %. ¿La derecha es una mano? ¿El 40 % es poco, mucho? Prueba «volver» a mitad.</span><div class="r"><textarea data-k="07" placeholder="solape: …"></textarea></div></div>
+  <div class="lab decide"><span class="n">04</span><a href="animejs/04-stagger.html">Stagger: la pila cierra el hueco</a><span class="q">¿Los 45 ms del handoff del visor se ven bien aquí, o pide más o menos?</span><div class="r"><textarea data-k="04" placeholder="ms del escalón: …"></textarea></div></div>
+  <div class="lab decide"><span class="n">05</span><a href="animejs/05-animatable-timer.html">Animatable: la luz cambia con el ángulo</a><span class="q">Mueve el ratón. ¿Este «la luz cambia al girar» es lo que le faltaba a la caja para parecer un objeto?</span><div class="r"><textarea data-k="05" placeholder="sí / no / con matices…"></textarea></div></div>
+  <div class="lab decide"><span class="n">09</span><a href="animejs/09-waapi-vs-js.html">WAAPI contra motor JS, con el hilo ocupado</a><span class="q">Ocupa el hilo y lanza. ¿Qué filas siguen fluidas? La 3 decide cómo se escribe el vuelo.</span><div class="r"><textarea data-k="09" placeholder="fluidas: 1 2 … · se atascan: …"></textarea></div></div>
+  <div class="lab decide"><span class="n">13</span><a href="animejs/13-draggable.html">Draggable</a><span class="q">Coge el libro y suéltalo con velocidad. ¿El libro se saca arrastrando (tiempo real) o pulsando (transición)?</span><div class="r"><textarea data-k="13" placeholder="arrastrar / pulsar / las dos…"></textarea></div></div>
+</div>
+
+<div class="grupo"><h2>El medio (web/)</h2>
+  <div class="lab"><span class="n">01</span><a href="web/01-css-transition.html">transition, interrumpible; display con allow-discrete</a><span class="q">Pulsa a mitad: la transition sigue desde donde está, la @keyframes salta.</span></div>
+  <div class="lab"><span class="n">02</span><a href="web/02-css-keyframes.html">@keyframes, animation-composition, @property, linear() como muelle</a><span class="q">Fila 3 contra 4: muelle de física contra rebote dibujado.</span></div>
+  <div class="lab"><span class="n">03</span><a href="web/03-scroll-driven.html">Scroll-driven en CSS y en JS</a><span class="q">¿Siguen al dedo sin retraso?</span></div>
+  <div class="lab"><span class="n">04</span><a href="web/04-view-transitions.html">View Transitions: la pila y la portada</a><span class="q">¿Sirve como base de sacar el libro o es una foto que se estira?</span></div>
+  <div class="lab"><span class="n">05</span><a href="web/05-waapi-nativa.html">WAAPI nativa contra rAF con el hilo bloqueado</a><span class="q">La azul sigue; la verde se atasca.</span></div>
+  <div class="lab"><span class="n">06</span><a href="web/06-raf.html">requestAnimationFrame a mano</a><span class="q">A depende del refresco; B y C no.</span></div>
+  <div class="lab"><span class="n">Sv</span><a href="http://localhost:5180/bench/motion.html">Svelte 5: transition, flip, Spring, Tween, css contra tick</a><span class="q">Con el dev server (5180). ¿Basta Svelte para la pila?</span></div>
+</div>
+
+<div class="grupo"><h2>Anime.js, el resto (animejs/)</h2>
+  <div class="lab"><span class="n">01</span><a href="animejs/01-animate.html">animate y la trampa del easing en string</a><span class="q">Fila 1 avisa y corre lineal.</span></div>
+  <div class="lab"><span class="n">02</span><a href="animejs/02-keyframes-composition.html">keyframes y composition (replace, none, blend)</a><span class="q">Interrumpe a mitad y compara.</span></div>
+  <div class="lab"><span class="n">06</span><a href="animejs/06-utils-engine.html">utils y engine</a><span class="q">engine.speed 0,25 como cámara lenta global.</span></div>
+  <div class="lab"><span class="n">08</span><a href="animejs/08-scope.html">createScope: montar y desmontar limpio</a><span class="q">¿Queda el DOM sin estilo inline tras revert()?</span></div>
+  <div class="lab"><span class="n">10</span><a href="animejs/10-svg.html">svg: drawable, morph, motion path</a><span class="q">Catálogo.</span></div>
+  <div class="lab"><span class="n">11</span><a href="animejs/11-text.html">text: splitText y scrambleText</a><span class="q">¿El título por palabras y el kicker scramble, para la portadilla?</span></div>
+  <div class="lab"><span class="n">12</span><a href="animejs/12-scroll.html">onScroll contra scroll-driven de CSS</a><span class="q">¿Se nota diferencia al dedo?</span></div>
+  <div class="lab"><span class="n">14</span><a href="animejs/14-layout.html">createLayout: la pila con cambio de padre</a><span class="q">¿Merece frente a animate:flip de Svelte?</span></div>
+</div>
+
+<div class="acciones"><button class="btn" id="copiar">copiar respuestas</button><button class="btn" id="borrar">borrar respuestas</button><span class="notas" id="estado"></span></div>
+<pre id="salida" hidden></pre>
+
+<script>
+  const K = 'lab-animacion-respuestas';
+  let r = {}; try { r = JSON.parse(localStorage.getItem(K) || '{}'); } catch {}
+  const areas = document.querySelectorAll('textarea[data-k]');
+  areas.forEach((t) => { t.value = r[t.dataset.k] || ''; t.addEventListener('input', () => { r[t.dataset.k] = t.value; try { localStorage.setItem(K, JSON.stringify(r)); } catch {} }); });
+  document.getElementById('copiar').addEventListener('click', async () => {
+    const txt = [...areas].filter((t) => t.value.trim()).map((t) => `lab ${t.dataset.k}: ${t.value.trim()}`).join('\n');
+    const s = document.getElementById('salida'); s.hidden = false; s.textContent = txt || '(sin respuestas)';
+    try { await navigator.clipboard.writeText(txt); document.getElementById('estado').textContent = 'copiado'; } catch { document.getElementById('estado').textContent = 'no se pudo copiar; está abajo'; }
+  });
+  document.getElementById('borrar').addEventListener('click', () => { if (!confirm('¿Borrar las respuestas guardadas?')) return; r = {}; try { localStorage.removeItem(K); } catch {} areas.forEach((t) => (t.value = '')); });
+</script>
+</body>
+</html>
