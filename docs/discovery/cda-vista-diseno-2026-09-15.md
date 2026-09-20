@@ -575,3 +575,165 @@ respondidas ahí, con seis plantillas PNG en `docs/design/tania/plantillas/`.
 | 05 luz por ángulo | «No. No está mal, pero sin más» | No es lo que le faltaba a la caja; se deja como detalle sutil o se quita; la luz de verdad la dirá la referencia de Tania |
 | 09 compositor | «Las únicas fluidas son la 1 y la 2» | **Confirmado**: las transformadas individuales de `waapi.animate` (custom properties) NO van al compositor. El vuelo se escribe con `transform` entero en string (`waapi.animate(el, { transform: '...' })` o `el.animate`), y la timeline de Anime dirige con etiquetas y `call()`, sin `sync`. Opción (c) de `animacion-en-codigo-2026-09-19.md` §4.4 |
 | 13 draggable | «Se siente muy bien» | **Dejar el libro es arrastrando** (con peso al soltar y snap a los tres estados de reposo). **Sacar no**: se pulsa |
+
+## Anexo Q · Las transiciones 6 (cerrar y dejar) y 7 (pasar página y hojear), fase a fase (20/09/2026, 21:50)
+
+Mismas reglas que el anexo O: un objeto por libro, solo `transform` y `opacity` por fotograma, la
+sombra aparte, el contenido al tamaño final escalado hacia abajo, fases solapadas al 40 % con
+etiquetas, curvas por papel (vuelo `emphasized-decelerate` `(0.05,0.7,0.1,1)`, giro `inOutCubic`,
+aterrizaje `spring({ duration, bounce })`, nunca lineal), el vuelo con `transform` entero en string
+(lab 09) y la timeline dirigiendo con `call()`, sin `sync`. **Los ms son propuesta** hasta que se
+vean en un lab. La perspectiva y el grosor esperan a la ficha de cámara de Tania (encargo 1).
+
+**La escena es una.** El libro es la misma caja desde la estantería hasta abierto: un solo
+contenedor con `perspective` y `perspective-origin` en el centro del lomo para los tres estados
+(en la balda, en la mano, abierto sobre la mesa). Si la estantería y el libro abierto tuvieran
+contenedores distintos, el libro cambiaría de cámara a mitad de vuelo y se notaría (el 5200 del
+prototipo era justo eso: una cámara que no era la de nadie).
+
+### Q.1 · La cola de la 5: abrir (720 a 1.400 ms)
+
+El anexo O acaba en `crece` (530 a 840), con el libro de frente. Desde el 20/09 pulsar un libro lo
+saca **y lo abre**, así que la secuencia sigue sin parar en la portada (la solapa no entra; ver
+Q.5). Abre por el índice (ficha | índice p. 1), como decía el botón «abrir el libro» del anexo L.
+
+| Etiqueta | ms | El libro | Curva | El resto |
+|---|---|---|---|---|
+| `abre` | 720 a 1.240 | la tapa delantera gira ry 0 → −180 con el eje en el lomo (`transform-origin: 0 50%`, es una caja con grosor: se ve el canto al pasar por 90°); a los 980 ms (mitad) pasa de mostrar la tela a mostrar la guarda | `inOutCubic` | sombra de la tapa sobre la página derecha: opacity 0 → .35 → 0 (pico a los 980); el fondo de la estantería baja a .25 si no lo estaba |
+| `asienta` | 720 a 1.300 | el cuerpo se desplaza media página a la izquierda (el lomo acaba en el centro) y escala del tamaño de portada al de la doble página abierta (1840 / 2000 px de ancho); ry −4 → 0, rx 0 → 4 (la ligera picada de la doble página) | `emphasized-decelerate` | la sombra de mesa cambia de forma: es una segunda sombra (la de libro abierto) que sube de 0 → 1 mientras la de cerrado baja 1 → 0 (opacity, las dos aparte) |
+| `hoja` | 1.030 a 1.350 | la anteportada gira como una hoja de la 7 (ry 0 → −180): guarda \| anteportada → ficha \| índice p. 1. Empieza cuando la tapa ya ha pasado de 90° | la curva de la 7 (`spring({ duration: 320, bounce: .1 })`) | el taco: todo a la derecha (T a la derecha, 0 a la izquierda) desde el primer fotograma abierto; la hoja no lo cambia visiblemente (0,28 px) |
+| `posa` | 1.350 a 1.400 | rx 4 → 3 y scale 1.01 → 1: el remate del peso al quedar abierto | `outQuad` | nada |
+
+Coger y abrir entero: **1.400 ms**. Es un cambio de toda la escena (Material: `extra-long` 700 a
+1.000 para uno; aquí son dos seguidos que se solapan). Si al verlo se siente largo, el tope es
+`speed` 1,25 (1.120 ms) sin tocar la secuencia; lo que no se hace es quitar solape.
+
+### Q.2 · La 6: cerrar y dejar
+
+Dos entradas, porque Eneko decidió que sacar es pulsar y dejar es arrastrar (respuestas del 20/09):
+
+- **Cerrar sin mano**: Esc, «cerrar» del índice, «cerrar y volver» de la guarda trasera. Es
+  **`tl.reverse()` de coger y abrir a `speed` 1,5** (unos 930 ms): la hoja vuelve, la tapa cierra,
+  el libro vuela a su hueco de la estantería y aterriza **en el estado en que estaba** (de pie,
+  inclinado o tumbado). Las curvas se invierten solas (ease-out al revés = ease-in). Pulsar fuera
+  del libro NO cierra: un clic perdido en la mesa no puede cerrar un libro por el que ibas.
+- **Cerrar y dejar (con mano)**: se pulsa **sobre la tela** (tapa, lomo o canto: nunca sobre las
+  páginas, que tienen texto y selección) y se mueve más de 6 px (`dragThreshold`). Desde ese
+  momento el libro está en la mano hasta que se suelte.
+
+**Storyboard con mano.** Tiempos desde que arranca el arrastre; `lleva` dura lo que dure la mano.
+
+| Etiqueta | ms | El libro | Curva | El resto |
+|---|---|---|---|---|
+| `cierra` | 0 a 420 | el cuerpo izquierdo (tapa delantera + todas las hojas de la izquierda, **como un solo bloque con el grosor del taco izquierdo**) gira ry 0 → 180 sobre el lomo y cae sobre la derecha. No se pasan las hojas una a una: se cierra de golpe, como se cierra un libro con la mano | `inOutCubic` | la sombra del bloque sobre la página derecha: opacity 0 → .35 → 0; el fondo de la estantería vuelve de .25 → 1 en 400 ms (300 a 700) |
+| `encoge` | 250 a 770 | escala de la doble página al tamaño que tiene en la estantería (el S de `crece` al revés) y se recoloca bajo el puntero: el lomo arriba, colgado de la mano (el punto de agarre es el tercio superior del lomo), ry −20, rx 8; `cursor: grabbing` | `emphasized-decelerate` | la sombra de mesa de libro abierto baja a 0; entra la sombra de mano (pequeña, desplazada abajo, opacity .5) |
+| `lleva` | tiempo real | sigue al puntero **sin easing** (regla del tiempo real: el objeto va donde va la mano). Lo único con inercia es el balanceo: rz entre −6° y 6° según la velocidad horizontal, con `createAnimatable` y un muelle blando para que se asiente al parar (es el único JS por fotograma) | ninguna en la posición; `spring({ stiffness: 120, damping: 14 })` en rz | **la estantería hace sitio mientras llevas** (ver abajo) |
+| `suelta` | 0 a 420 desde soltar | de la pose de mano a la pose de reposo del hueco (de pie: ry 90, rx 0, rz 0; inclinado: ry 90 y rz ±12 sobre la esquina de apoyo, inclinado hacia el vecino; tumbado: rx −90, rz 90 con el lomo al frente) y a su sitio en la balda. La velocidad del puntero al soltar entra como `velocity` del muelle: soltar rápido se nota | `spring({ duration: 420, bounce: .15, velocity })` | la sombra de mano baja a 0 y la de balda sube a 1 (300 a 420); la silueta se apaga en 120 ms; la posición queda guardada: es el estado de lectura |
+
+**La estantería hace sitio mientras llevas** (tiempo real, no al soltar): cuando el puntero lleva
+120 ms sobre un hueco (histéresis, para que no parpadee entre dos), los vecinos se apartan con FLIP
+(200 ms, `emphasized-decelerate`, `stagger(45)` desde el hueco hacia fuera) y aparece la **silueta**
+del libro en el estado que va a tomar (contorno, opacity .35). Si el puntero cambia de hueco, el
+anterior se cierra y el nuevo se abre (`composition: 'replace'`: los que estaban a medio apartarse
+vuelven desde donde están). Al soltar, el hueco ya existe: `suelta` no tiene que esperar a nadie.
+
+**Dónde y cómo se deja** (la regla que hace que la posición sea el estado de lectura sin iconos):
+
+- **De pie**: hueco entre dos libros (o al final de la fila) de menos de 1,4 grosores.
+- **Inclinado**: hueco de 1,4 grosores o más con un vecino a un lado: se apoya contra ese vecino.
+- **Tumbado**: encima de un libro tumbado, o sobre la balda donde no hay ningún vecino a menos de un
+  alto de libro.
+- **Y a mano**: mientras se sostiene, la rueda del ratón (o las teclas 1, 2, 3) cambia el estado de
+  la silueta; la regla de arriba es el defecto, no una imposición.
+- **No hay sitio inválido**: soltar fuera de la estantería lo lleva al hueco más cercano de la balda
+  más cercana. Nunca se pierde un libro ni queda en el suelo.
+- **Esc con el libro en la mano**: vuelve a su hueco y estado anteriores con la misma `suelta`.
+
+Reduced motion: cerrar sin mano es un fundido de 120 ms de la doble página a la estantería con el
+libro ya en su hueco; con mano, el libro aparece bajo el puntero sin `cierra` ni `encoge`, los
+vecinos se apartan con un fundido de 120 ms en vez de FLIP, y `suelta` es un fundido: nada de
+muelle.
+
+### Q.3 · La 7: pasar página, y hojear
+
+**Una hoja** (página siguiente desde la p): la hoja es un elemento con dos caras, `transform-origin:
+0 50%` en el lomo, recto = la página derecha actual, verso = la página izquierda siguiente,
+`backface-visibility: hidden` en las dos y el verso pre-girado 180°. Debajo, la doble página
+siguiente ya está en el DOM (la derecha siguiente bajo la hoja; la izquierda actual sigue hasta que
+el verso la tapa al pasar de 90°). Al acabar, la hoja se retira y el DOM es la doble página nueva.
+Solo la hoja lleva `preserve-3d` y `will-change`; las páginas de debajo son planas.
+
+| Etiqueta | ms | La hoja | Curva | El resto |
+|---|---|---|---|---|
+| `pasa` | 0 a 320 | ry 0 → −180 (hacia atrás es 0 → 180 desde la izquierda, la misma hoja al revés) | `spring({ duration: 320, bounce: .1 })`: arranca como un dedo que empuja y cae con un golpe seco pequeño, que es lo que hace el papel | sombra móvil sobre las páginas de debajo: un elemento por lado, opacity 0 → .3 → 0 con el pico a los 160 (90°); el degradado del pliegue va fijo en cada cara de la hoja y no cambia |
+| `taco` | al acabar | el taco recalcula: T·(p−1)/N a la izquierda y T·(N−p)/N a la derecha. Por una página son 0,28 px (Naeth, N = 182): **se pone, no se anima** | | |
+
+Material `medium` (250 a 400) y la regla del anexo F (< 400 ms). Más corto que 320 y el papel no
+se lee como papel; lo probaron Minecraft y Skyrim, referencias del anexo H.
+
+**Hojear** («volver al índice» desde la p, «seguir por donde ibas» desde el índice, «seguir por
+memory_search, página 21» de la portadilla, «anteportada y créditos» y abrir por atrás desde la
+contraportada): la misma hoja, en cascada.
+
+- Distancia de 1 a 3 páginas: cada hoja pasa, `stagger(45)` entre ellas (3 hojas: 410 ms).
+- Más de 3: **un bloque y seis hojas**. El bloque es una sola hoja gruesa (el grosor de todo lo que
+  se salta; recto = la página actual, verso = la página anterior a las seis últimas) que pasa
+  primero en 420 ms; detrás, las **seis páginas más cercanas al destino** con su contenido real, con
+  `stagger(45, { ease: 'inQuad' })`: las primeras casi juntas, las últimas separándose, para que la
+  cascada frene y la última caiga sola. Total 6 × 45 + 320 = **590 ms**, dentro del `extra-long`.
+  Se ven pasar las páginas de verdad donde vas a aterrizar, que es lo que deja orientado.
+- El taco sí se mueve al hojear (de la 44 a la 1 son 13 px): las tiras del taco con `scaleX` desde
+  su borde exterior y el bloque de páginas con `translate`, 320 ms `emphasized-decelerate`, a la
+  vez que la última hoja. Nunca `width`.
+
+**Interrupción**: «siguiente» con una hoja en vuelo lanza la siguiente sin esperar (son elementos
+distintos; no hay cola ni debounce, y hasta seis en vuelo son seis capas). «Anterior» con una hoja
+yendo hacia delante es `reverse()` de esa misma `Animation` nativa (la curva invertida es un ease-in
+suave: vuelve como se apoya una hoja). Cualquier orden durante un hojeo lo termina (`finish()`) y
+ejecuta la nueva.
+
+**Teclado** (escritorio): → , espacio y AvPág siguiente; ← y RePág anterior; Inicio, índice; Fin,
+guarda trasera; Esc, cerrar. **Móvil**: sin hoja. El anexo F decidió una página, botones al pie y
+nada del escritorio; ahí la página que llega entra deslizando 24 px y fundiendo en 200 ms
+(`emphasized-decelerate`), y la que se va, fundido de 120. Reduced motion, en los dos: fundido
+cruzado de 120 ms entre dobles páginas, también al hojear.
+
+### Q.4 · Con qué se hace cada parte
+
+| Parte | Pieza | Por qué |
+|---|---|---|
+| La hoja y la tapa (ry con eje en el lomo) | `el.animate([{ transform: 'rotateY(0)' }, { transform: 'rotateY(-180deg)' }], { duration, easing, fill })`, o `waapi.animate(hoja, { transform: 'rotateY(-180deg)' })` que hace lo mismo | compositor (lab 09); `reverse()`, `finish()` y `finished` vienen de la `Animation` nativa |
+| El muelle del papel y del aterrizaje | `spring({ duration, bounce })` de Anime; `waapi.animate` lo convierte a `linear()` de 100 puntos solo (`waapi.js:85, :288`); para `el.animate` directo, `waapi.convertEase(spring(...))` | la curva se decide una vez y va como CSS |
+| La cascada del hojeo | `stagger(45, { ease: 'inQuad' })` devuelve `(el, i, total) => ms` (`src/utils/stagger.js:84-200`): se usa a mano para el `delay` de cada `el.animate` | mismo escalonado que la pila (45 ms del handoff) |
+| El director (`abre`, `asienta`, `hoja`, `posa`; `cierra`, `encoge`) | `createTimeline` con etiquetas y `call()` que dispara cada `waapi.animate` en su ms; sin `sync` | lab 07 y lab 09: dirige sin tocar el compositor |
+| La mano (`lleva`) | `pointerdown` con `setPointerCapture`, `pointermove` escribe el `transform` del envoltorio directamente; `createAnimatable` solo para rz. **No** `createDraggable`: aplica su propio `translate` al mismo elemento que `cierra` y `encoge` están transformando, y el hueco al que hay que ir cambia con cada balda (su `snap` es a valores fijos) | Lo que gustó del lab 13 (peso al soltar) se reproduce con `velocity` en el muelle de `suelta`; si al probar no se siente igual, se prueba `createDraggable` sobre un envoltorio exterior con `releaseStiffness` y el vuelo en el hijo |
+| Los vecinos que hacen sitio | `animate:flip` de Svelte (bench `motion.html`) si la balda es una lista que se reordena; `createLayout` si el libro cambia de balda (cambio de padre) | 0 KB o el FLIP con `swapAt`; nunca `width` |
+| La silueta | un hijo del hueco con `transition: opacity 120ms` | CSS basta |
+| Las sombras (tapa, bloque, mano, balda, hoja) | elementos aparte, solo `opacity`, keyframes con `offset: .5` para el pico | regla de los 144 Hz |
+| Reduced motion | `createScope({ mediaQueries: { reduced } })` y las clases CSS del componente | como en la 5 |
+| Medida | `Meter.begin('pasar')`, `Meter.begin('dejar')`: 0 perdidos a 144 Hz en la principal, con seis hojas en vuelo y con el hilo bloqueado a propósito | la prueba del lab 09 |
+
+Dos cosas que hay que tener antes del primer fotograma, porque son hilo principal y no se pueden
+esconder: la doble página siguiente **ya renderizada** (Shiki incluido) debajo de la hoja, así que
+el visor mantiene en el DOM p − 1, p y p + 1 y renderiza la siguiente al acabar cada paso; y
+`will-change: transform` en la hoja **antes** de lanzar, para no perder el primer fotograma en crear
+la capa (§6 del doc de animación).
+
+### Q.5 · Lo que decide Eneko mirando, y lo que falta
+
+- **La vista de portada con solapa** (anexo L). Con «pulsar saca y abre», la portada es un
+  fotograma de paso y la solapa (seguir por donde ibas, dar la vuelta, anteportada y créditos) no
+  entra en la secuencia. Propuesta: esas acciones viven en la ficha (que ya está en la primera
+  doble página abierta) y en la contraportada se llega con «dar la vuelta» desde el índice; la vista
+  de portada de la hoja 13 queda como cara, no como parada. ⚠ Sin decidir.
+- **Dónde se abre**: siempre por el índice (propuesta), o por donde ibas si ya lo habías empezado.
+- **1.400 ms para coger y abrir**, o `speed` 1,25.
+- **La regla de los tres estados** por el ancho del hueco (1,4 grosores) y la rueda como anulación.
+- **La estantería que hace sitio mientras llevas**, o solo al soltar.
+- **Pulsar fuera no cierra**.
+- **Móvil sin hoja**: deslizar y fundir, o una hoja a una página.
+- Labs que faltan, cuando toque (no dependen de Tania): `animejs/16-pasar-pagina.html` (una hoja
+  con dos caras y sombra, tres curvas, la cascada de seis con bloque, `reverse()` a mitad, seis en
+  vuelo con el hilo bloqueado) y `animejs/17-dejar-en-estanteria.html` (cierra, encoge, la mano con
+  balanceo, la silueta y los vecinos, `suelta` con velocidad, los tres estados). Con la ficha de
+  cámara de Tania, los dos se ajustan de perspectiva y se convierten en el prototipo v3.
