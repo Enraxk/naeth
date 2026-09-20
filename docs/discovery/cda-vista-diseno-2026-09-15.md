@@ -563,3 +563,15 @@ sola secuencia: las transiciones 5 y 6 del plan se funden, y cerrar y dejar es l
 avatar ni silla: el que está delante de la estantería es el usuario. Encargos 2 y 3 de Tania
 reescritos en el brief; sus otras dudas (motor de render, texturas como seis imágenes planas)
 respondidas ahí, con seis plantillas PNG en `docs/design/tania/plantillas/`.
+
+**Respuestas de Eneko a los labs (20/09/2026, 20:17, en Helium a 144 Hz):**
+
+| Lab | Respuesta | Consecuencia |
+|---|---|---|
+| 15 caja | «Es un libro, pero mejor esperamos al modelo de Tania para tener mejor referencia» | Perspectiva y grosor se deciden con la ficha de cámara de Tania (encargo 1) |
+| 03 curvas | «Todas menos la 1 (lineal) me gustan y se sienten bien» | Se elige por papel, no por gusto: vuelo `emphasized-decelerate` `(0.05,0.7,0.1,1)` o `outExpo`; aterrizaje `spring({ duration, bounce })`; nunca lineal |
+| 07 solape | «La B sin duda, me gusta mucho más» | Fases solapadas al 40 % con etiquetas; el storyboard del anexo O se mantiene |
+| 04 stagger | «Se ven bien» | 45 ms, el mismo del handoff del visor |
+| 05 luz por ángulo | «No. No está mal, pero sin más» | No es lo que le faltaba a la caja; se deja como detalle sutil o se quita; la luz de verdad la dirá la referencia de Tania |
+| 09 compositor | «Las únicas fluidas son la 1 y la 2» | **Confirmado**: las transformadas individuales de `waapi.animate` (custom properties) NO van al compositor. El vuelo se escribe con `transform` entero en string (`waapi.animate(el, { transform: '...' })` o `el.animate`), y la timeline de Anime dirige con etiquetas y `call()`, sin `sync`. Opción (c) de `animacion-en-codigo-2026-09-19.md` §4.4 |
+| 13 draggable | «Se siente muy bien» | **Dejar el libro es arrastrando** (con peso al soltar y snap a los tres estados de reposo). **Sacar no**: se pulsa |

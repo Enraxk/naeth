@@ -832,9 +832,11 @@ lo que Eneko decida en los labs 03, 04, 05, 07, 09, 13 y 15».
 
 ## Lo que no se ha podido comprobar
 
-1. **Que las custom properties de `waapi.animate` (`x`, `rotateY`) no van al compositor.** Leído
-   en `waapi.js:195-215, 349-355` y en el modelo de Chromium; no visto con el hilo bloqueado en
-   Helium. Lab `09`, fila 3. Decide cómo se escribe el vuelo del libro.
+1. ~~Que las custom properties de `waapi.animate` (`x`, `rotateY`) no van al compositor.~~
+   **Comprobado el 20/09/2026** por Eneko en Helium a 144 Hz con el hilo bloqueado (lab `09`):
+   solo las filas 1 (`el.animate` con `transform`) y 2 (`waapi.animate` con `transform` en string)
+   siguen fluidas; la 3 (custom properties) y la 4 (motor JS) se atascan. El vuelo del libro se
+   escribe con `transform` entero en string y la timeline dirige sin `sync` (§4.4, opción c).
 2. **Que el scroll-driven de CSS corre en el compositor.** MDN no lo dice; es conocimiento de la
    implementación de Chromium.
 3. **El coste real de `filter`/`backdrop-filter`/`clip-path` por fotograma** y el **rasterizado al
