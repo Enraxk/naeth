@@ -552,3 +552,14 @@ arrastra en vez de pulsarse (lab 13), y si la luz por ángulo es lo que le falta
   siete preguntas), las transiciones 6 (abrir) y 7 (pasar página), el punto 5 de la lámina del plan
   en el `.pen`, y el checkpoint 7 de Naeth. El prototipo v3 de la 5 espera al animatic y a la
   cámara; la biblioteca en Pencil espera a la composición elegida.
+
+**Corrección del mismo día (20/09, 20:10), tras las dudas de Tania.** No hay mesa. Al entrar se ve
+**solo la estantería**, y los libros están **como los dejó el usuario**: de pie, inclinados contra el
+vecino, tumbados sobre la balda o sobre otros (boceto de Eneko). La posición es el estado de lectura,
+sin iconos. Al cerrar un libro, el usuario **lo deja con la mano donde y como quiere** (arrastre con
+peso al soltar y tres estados de reposo; los vecinos se apartan con FLIP); «físicas» ligeras, no un
+motor con colisiones (queda escrito como «no ahora»). Pulsar un libro lo saca **y lo abre** en una
+sola secuencia: las transiciones 5 y 6 del plan se funden, y cerrar y dejar es la 6 nueva. Sin
+avatar ni silla: el que está delante de la estantería es el usuario. Encargos 2 y 3 de Tania
+reescritos en el brief; sus otras dudas (motor de render, texturas como seis imágenes planas)
+respondidas ahí, con seis plantillas PNG en `docs/design/tania/plantillas/`.
