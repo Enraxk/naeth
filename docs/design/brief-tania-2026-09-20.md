@@ -14,7 +14,9 @@ libro**: cada repositorio es un libro, cada carpeta un capítulo, cada función 
 biblioteca se ven los libros; al pulsar uno, sale, se pone de frente y se abre por el índice. Todo
 esto se dibuja **con CSS en el navegador** (una caja de seis caras con `transform-style: preserve-3d`),
 no con un motor 3D. Por eso lo que necesitamos de ti no es un modelo para un videojuego: es
-**referencia** de cómo se ve y cómo se mueve un libro, y **piel** (texturas) para esa caja.
+**referencia** de cómo se ve y cómo se mueve un libro, y **piel** (texturas) para esa caja. **Tu
+modelo no se exporta a la web nunca**: tus renders son fotos que miramos, y tus texturas son las
+imágenes planas que van en cada cara de la caja CSS (ver la respuesta 4 al final).
 
 La pantalla donde se ve: 2560×1440 (principal) y 1920×1080. Fondo oscuro. El código es el
 protagonista; la biblioteca es la entrada, no el sitio donde se trabaja.
