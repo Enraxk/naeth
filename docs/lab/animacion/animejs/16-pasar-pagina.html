@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 16 · pasar página y hojear</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --PW: 300px; --PH: 400px; --T: 26px; --tela: #2b3340; --papel: #f1ece0; --papel2: #cdc6b2; --tinta: #3a3630; }
+  .escena { height: 520px; perspective: var(--persp, 1400px); perspective-origin: 50% 50%; }
+  .mesa { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 70%, #1f2124, #121315 70%); }
+  /* El libro abierto: tapa alrededor, dos páginas planas, el taco a los lados como tiras que se escalan (nunca width). */
+  .libro { position: absolute; left: 50%; top: 50%; width: calc(var(--PW) * 2 + var(--T) * 2 + 18px); height: calc(var(--PH) + 16px); transform: translate(-50%, -50%); transform-style: preserve-3d; background: var(--tela); border-radius: 4px; box-shadow: 0 30px 40px -20px rgba(0,0,0,.7); }
+  .taco { position: absolute; top: 8px; height: var(--PH); width: var(--T); background: repeating-linear-gradient(90deg, var(--papel) 0 2px, var(--papel2) 2px 3px); transition: transform 320ms cubic-bezier(.05,.7,.1,1); }
+  .taco.i { left: 9px; transform-origin: 0 50%; }
+  .taco.d { right: 9px; transform-origin: 100% 50%; }
+  .pag { position: absolute; top: 8px; width: var(--PW); height: var(--PH); background: var(--papel); color: var(--tinta); padding: 22px 26px; font: 12px/1.6 "JetBrains Mono", monospace; overflow: hidden; }
+  .pag.izq { left: calc(9px + var(--T)); box-shadow: inset -24px 0 24px -24px rgba(0,0,0,.35); }
+  .pag.der { right: calc(9px + var(--T)); box-shadow: inset 24px 0 24px -24px rgba(0,0,0,.35); }
+  .pag h4 { margin: 0 0 10px; font: 600 13px Inter, sans-serif; color: #1f2937; }
+  .pag .n { position: absolute; bottom: 12px; font-size: 11px; color: #6b7280; }
+  .pag.izq .n, .cara.verso .n { left: 26px; } .pag.der .n, .cara.recto .n { right: 26px; }
+  .pag .l { height: 7px; margin: 5px 0; background: #b9b3a3; border-radius: 2px; opacity: .55; }
+  /* La hoja: dos caras, eje en el lomo. Solo ella lleva preserve-3d y will-change. */
+  .hoja { position: absolute; left: 50%; top: 8px; width: var(--PW); height: var(--PH); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
+  .cara { position: absolute; inset: 0; backface-visibility: hidden; background: var(--papel); color: var(--tinta); padding: 22px 26px; font: 12px/1.6 "JetBrains Mono", monospace; overflow: hidden; }
+  .cara.recto { box-shadow: inset 24px 0 24px -24px rgba(0,0,0,.35); }
+  .cara.verso { transform: rotateY(180deg); box-shadow: inset -24px 0 24px -24px rgba(0,0,0,.35); }
+  .hoja.bloque .recto { box-shadow: inset 24px 0 24px -24px rgba(0,0,0,.35), inset -10px 0 0 0 #d8d2c0, inset -11px 0 0 0 #bdb6a3, inset -13px 0 0 0 #d8d2c0, inset -14px 0 0 0 #bdb6a3; }
+  /* Sombras móviles sobre las páginas de debajo: solo opacity. */
+  .som { position: absolute; top: 8px; width: var(--PW); height: var(--PH); opacity: 0; pointer-events: none; }
+  .som.i { left: calc(9px + var(--T)); background: linear-gradient(90deg, transparent, rgba(0,0,0,.6)); }
+  .som.d { right: calc(9px + var(--T)); background: linear-gradient(270deg, transparent, rgba(0,0,0,.6)); }
+  .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
+  .barra select { background: #2a2d31; color: var(--ink); border: 1px solid #3a3e44; border-radius: 6px; padding: 4px 8px; font: inherit; }
+  html[data-reduced] .hoja { display: none; }
+</style>
+</head>
+<body>
+
+<h1>animejs 16 · pasar página y hojear <small>la transición 7 del libro, anexo Q</small></h1>
+<p>Una hoja con dos caras (recto = la página derecha de ahora, verso = la izquierda siguiente), <code>transform-origin</code> en el lomo, <code>backface-visibility: hidden</code>, y debajo la doble página siguiente ya en el DOM. La hoja gira con <code>waapi.animate(hoja, { transform: 'rotateY(-180deg)' })</code>: la propiedad entera en string, que es lo que va al compositor (lab 09). El muelle del papel es <code>spring({ duration: 320, bounce: .1 })</code>, convertido a <code>linear()</code> por <code>waapi.js:85</code>; la <code>Animation</code> nativa dura su <code>settlingDuration</code> (680 ms para ese muelle), aunque lo visible acaba a los 320: el resto es el asentamiento. Hojear: hasta 3, una a una con <code>stagger(45)</code>; más, un bloque grueso y las seis páginas más cercanas al destino con <code>stagger(45, { ease: 'inQuad' })</code>, así la cascada frena.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ¿320 ms con el muelle se lee como papel (y no como una máquina, ni como un flap)? ¿La cascada de seis para volver al índice orienta o marea? Ocupa el hilo y pasa página: tiene que seguir fluida.</div>
+
+<div class="barra">
+  <span class="grupo"><button id="ant">← anterior</button><button id="sig">siguiente →</button></span>
+  <span class="grupo"><button id="ind">al índice (hojear)</button><button id="p44">a la página 44</button><button id="tres">tres adelante</button></span>
+  <span class="grupo"><button id="inv">invertir la hoja en vuelo</button><button id="ocupar">ocupar el hilo 3 s</button></span>
+  <label>curva <select id="curva">
+    <option value="spring1" selected>spring 320 · bounce .1 (propuesta)</option>
+    <option value="spring2">spring 320 · bounce .3</option>
+    <option value="emph">emphasized-decelerate</option>
+    <option value="inout">inOutCubic</option>
+    <option value="lin">lineal (lo que no)</option>
+  </select></label>
+  <label>ms <input type="range" id="dur" min="160" max="640" step="20" value="320"> <output id="odur">320</output></label>
+</div>
+
+<div class="escena">
+  <div class="mesa"></div>
+  <div class="libro" id="libro">
+    <div class="taco i" id="tacoI"></div><div class="taco d" id="tacoD"></div>
+    <div class="pag izq" id="izq"></div><div class="pag der" id="der"></div>
+    <div class="som i" id="somI"></div><div class="som d" id="somD"></div>
+  </div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">La hoja tiene que pesar poco y caer con un golpe corto: si rebota visiblemente es demasiado <code>bounce</code>; si llega frenando sin golpe es un ease-out y no papel. Al pasar de 90° el verso tapa la página izquierda y la derecha nueva ya estaba debajo: si hay un parpadeo ahí, la doble página siguiente no estaba renderizada antes de lanzar. «Invertir» a mitad: la hoja vuelve como se apoya, sin salto. Con «ocupar el hilo», la hoja sigue (compositor) aunque el medidor marque perdidos (el medidor vive en el hilo). El taco se mueve solo al hojear, por <code>scaleX</code> de las tiras. Teclado: → ← Inicio Fin.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">Se rellena con la respuesta de Eneko: curva, ms, y si la cascada orienta.</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { waapi, spring, stagger, cubicBezier } = anime;
+  const N = 91;                       // dobles páginas (182 páginas, el Naeth del anexo J)
+  const libro = document.getElementById('libro'), izq = document.getElementById('izq'), der = document.getElementById('der');
+  let s = 22;                         // doble página actual: izquierda 2s, derecha 2s+1 (la 44 | 45)
+  let vivas = [];                     // { anim, hoja, step }
+  const titulos = ['ÍNDICE', 'Prólogo', 'Capítulo', 'memory_search', 'memory_add', 'relation_add', 'system_status', 'worker', 'sync'];
+
+  /** Devuelve el HTML de una página falsa: título, líneas de ancho pseudoaleatorio por semilla y número. */
+  function pagina(p) {
+    if (p < 1 || p > 2 * N) return '';
+    let x = p * 9301 + 49297; const rnd = () => { x = (x * 9301 + 49297) % 233280; return x / 233280; };
+    const t = p <= 2 ? 'ÍNDICE' : p <= 5 ? 'Prólogo' : titulos[3 + (p % 6)];
+    let h = `<h4>${t}</h4>`;
+    for (let i = 0; i < 16; i++) h += `<div class="l" style="width:${40 + Math.round(rnd() * 55)}%"></div>`;
+    return h + `<span class="n">${p}</span>`;
+  }
+  function pinta() {
+    izq.innerHTML = pagina(2 * s); der.innerHTML = pagina(2 * s + 1);
+    document.getElementById('tacoI').style.transform = `scaleX(${(2 * s - 1) / (2 * N)})`;
+    document.getElementById('tacoD').style.transform = `scaleX(${(2 * N - 2 * s - 1) / (2 * N)})`;
+  }
+  pinta();
+
+  function curva() {
+    const v = document.getElementById('curva').value;
+    return v === 'spring1' ? spring({ duration: dur(), bounce: .1 }) : v === 'spring2' ? spring({ duration: dur(), bounce: .3 })
+      : v === 'emph' ? cubicBezier(.05, .7, .1, 1) : v === 'inout' ? 'inOutCubic' : 'linear';
+  }
+  const dur = () => Number(document.getElementById('dur').value);
+  document.getElementById('dur').addEventListener('input', (e) => { document.getElementById('odur').textContent = e.target.value; });
+
+  /**
+   * Crea una hoja para un paso (de la doble `from` a la `to`) y la lanza con retardo.
+   * Hacia delante gira 0 → −180; hacia atrás nace tumbada a la izquierda (−180) y vuelve a 0.
+   * `z` separa las hojas en vuelo (rotateY antes que translateZ: al aterrizar cambia de signo solo).
+   */
+  function lanza(step, delay, z, bloque) {
+    const fwd = step.to > step.from;
+    const A = fwd ? 2 * step.from + 1 : 2 * step.to + 1;   // recto: lo que se ve cuando la hoja está a la derecha
+    const B = fwd ? 2 * step.to : 2 * step.from;           // verso: lo que se ve cuando está a la izquierda
+    const hoja = document.createElement('div');
+    hoja.className = 'hoja' + (bloque ? ' bloque' : '');
+    hoja.innerHTML = `<div class="cara recto">${pagina(A)}</div><div class="cara verso">${pagina(B)}</div>`;
+    const desde = `rotateY(${fwd ? 0 : -180}deg) translateZ(${z}px)`, hasta = `rotateY(${fwd ? -180 : 0}deg) translateZ(${z}px)`;
+    hoja.style.transform = desde;
+    libro.appendChild(hoja);
+    const D = bloque ? dur() + 100 : dur();
+    const anim = waapi.animate(hoja, { transform: hasta, duration: D, delay, ease: curva() });
+    anim.speed = lab.speed;
+    // Sombra móvil: pico a 90°, en el lado que la hoja va tapando. el.animate directo, solo opacity.
+    const som = document.getElementById(fwd ? 'somI' : 'somD');
+    const sa = som.animate([{ opacity: 0 }, { opacity: .3, offset: .5 }, { opacity: 0 }], { duration: D, delay: delay / lab.speed, easing: 'linear' });
+    sa.playbackRate = lab.speed;
+    const v = { anim, hoja, step, fwd, sa };
+    vivas.push(v);
+    anim.then(() => { hoja.remove(); vivas = vivas.filter((w) => w !== v); if (!vivas.length) { pinta(); Meter.end(); } });
+    return v;
+  }
+
+  /** Va a la doble página `target` con la regla del anexo Q: hasta 3 una a una; más, bloque y seis. */
+  function ir(target) {
+    target = Math.max(1, Math.min(N, target));
+    if (target === s) return;
+    if (lab.reduced) { s = target; pinta(); libro.animate([{ opacity: .4 }, { opacity: 1 }], { duration: 120 }); return; }
+    const dir = Math.sign(target - s), n = Math.abs(target - s);
+    Meter.begin(n === 1 ? 'pasar' : 'hojear');
+    const steps = [];
+    if (n <= 3) for (let i = 1; i <= n; i++) steps.push({ from: s + dir * (i - 1), to: s + dir * i });
+    else { const salto = target - dir * 6; steps.push({ from: s, to: salto, bloque: true }); for (let i = 1; i <= 6; i++) steps.push({ from: salto + dir * (i - 1), to: salto + dir * i }); }
+    // La cara que se destapa al levantar la primera hoja ya enseña el destino; la otra se pinta al aterrizar la última.
+    if (dir > 0) der.innerHTML = pagina(2 * target + 1); else izq.innerHTML = pagina(2 * target);
+    s = target;
+    const k = steps.length;
+    // stagger() devuelve (target, i, targets) => valor: el tercer argumento es la LISTA (usa su length), no un total.
+    const esc = n <= 3 ? stagger(45) : stagger(45, { ease: 'inQuad' });
+    const lista = new Array(n <= 3 ? k : k - 1).fill(null);
+    steps.forEach((st, i) => {
+      const delay = st.bloque ? 0 : (n <= 3 ? esc(null, i, lista) : 200 + esc(null, i - 1, lista));
+      const z = dir > 0 ? (k - i) * .6 : (i + 1) * .6;
+      lanza(st, delay, z, !!st.bloque);
+    });
+  }
+
+  document.getElementById('sig').addEventListener('click', () => ir(s + 1));
+  document.getElementById('ant').addEventListener('click', () => ir(s - 1));
+  document.getElementById('ind').addEventListener('click', () => ir(1));
+  document.getElementById('p44').addEventListener('click', () => ir(22));
+  document.getElementById('tres').addEventListener('click', () => ir(s + 3));
+  document.getElementById('inv').addEventListener('click', () => {
+    const v = vivas[vivas.length - 1]; if (!v) return;
+    v.anim.reverse(); v.sa.reverse();
+    // La hoja vuelve a su origen: la doble página lógica también.
+    s = v.step.from; v.step = { from: v.step.to, to: v.step.from };
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); ir(s + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); ir(s - 1); }
+    else if (e.key === 'Home') ir(1); else if (e.key === 'End') ir(N);
+  });
+  lab.onSpeed((v) => vivas.forEach((w) => { w.anim.speed = v; w.sa.playbackRate = v; }));
+  document.getElementById('ocupar').addEventListener('click', () => {
+    const fin = performance.now() + 3000;
+    const bloquea = () => { const t = performance.now() + 40; while (performance.now() < t) {} if (performance.now() < fin) setTimeout(bloquea, 10); };
+    bloquea();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 17 · cerrar y dejar en la estantería</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --W: 100px; --H: 150px; --G: 22px; --tela: #2b3340; --lomo: #1c2e45; --papel: #f1ece0; --papel2: #cdc6b2; }
+  .escena { height: 600px; perspective: var(--persp, 1400px); perspective-origin: 50% 45%; user-select: none; touch-action: none; }
+  .fondo { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, #1f2124, #121315 70%); }
+  .balda { position: absolute; left: 20px; right: 20px; height: 10px; background: linear-gradient(#3a3227, #241f18); border-radius: 2px; box-shadow: 0 12px 24px -8px rgba(0,0,0,.8); }
+  .balda::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 190px; background: linear-gradient(transparent, rgba(0,0,0,.25)); pointer-events: none; }
+  /* Los vecinos: rectángulos planos (el lomo), sin 3D; el FLIP es un translateX. */
+  .vec { position: absolute; width: var(--G); height: var(--H); background: var(--lomo); border-radius: 2px; box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.08); display: grid; place-items: center; }
+  .vec span { color: #cfd6e0; font: 600 10px Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .04em; white-space: nowrap; }
+  .vec.tumbado { width: var(--H); height: var(--G); } .vec.tumbado span { writing-mode: horizontal-tb; transform: none; }
+  /* La silueta del hueco: opacity por CSS, forma según el estado. */
+  .silueta { position: absolute; z-index: 1; border: 2px dashed var(--acc); border-radius: 3px; opacity: 0; transition: opacity 120ms; pointer-events: none; transform-origin: 50% 100%; }
+  .silueta.on { opacity: .45; }
+  /* El libro: outer = posición (la mano o el hueco), inner = escala y giros con origen en el lomo, y dentro la caja. */
+  .outer { position: absolute; left: 0; top: 0; z-index: 2; transform-style: preserve-3d; will-change: transform; }
+  .inner { position: absolute; left: 0; top: calc(var(--H) / -2); width: var(--W); height: var(--H); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
+  .cara { position: absolute; backface-visibility: hidden; }
+  .paginas { inset: 0; background: var(--tela); transform: translateZ(var(--G)); border-radius: 0 4px 4px 0; padding: 8px 8px 8px 0; }
+  .paginas .pag { width: 100%; height: 100%; background: var(--papel); box-shadow: inset 10px 0 12px -10px rgba(0,0,0,.4); }
+  .contratapa { inset: 0; background: var(--tela); transform: rotateY(180deg); border-radius: 0 4px 4px 0; }
+  .lomo { left: 0; top: 0; width: var(--G); height: 100%; background: var(--lomo); transform-origin: 0 50%; transform: rotateY(-90deg); display: grid; place-items: center; }
+  .lomo span { color: #e6e8eb; font: 600 9px Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); }
+  .canto { right: 0; top: 0; width: var(--G); height: 100%; transform-origin: 100% 50%; transform: rotateY(90deg); background: repeating-linear-gradient(90deg, var(--papel) 0 2px, var(--papel2) 2px 3px); }
+  .cabeza, .pie { left: 0; width: 100%; height: var(--G); background: repeating-linear-gradient(0deg, var(--papel) 0 2px, var(--papel2) 2px 3px); }
+  .cabeza { top: 0; transform-origin: 50% 0; transform: rotateX(90deg); }
+  .pie { bottom: 0; transform-origin: 50% 100%; transform: rotateX(-90deg); }
+  /* La tapa: bisagra en el lomo, tela por fuera y guarda por dentro. Abierta = rotateY(-180deg). */
+  .tapa { position: absolute; inset: 0; transform-origin: 0 50%; transform: translateZ(calc(var(--G) + 1px)) rotateY(-180deg); transform-style: preserve-3d; will-change: transform; }
+  .tela { position: absolute; inset: 0; background: var(--tela); border-radius: 0 4px 4px 0; backface-visibility: hidden; display: grid; place-items: center; color: #e6e8eb; font: 600 11px Inter, sans-serif; }
+  .guarda { position: absolute; inset: 0; background: var(--tela); border-radius: 4px 0 0 4px; backface-visibility: hidden; transform: rotateY(180deg); padding: 8px 0 8px 8px; }
+  .guarda .pag { width: 100%; height: 100%; background: var(--papel); box-shadow: inset -10px 0 12px -10px rgba(0,0,0,.4); }
+  .pag { cursor: default; } .tela, .guarda, .paginas, .lomo, .canto { cursor: grab; }
+  body.mano .escena { cursor: grabbing; }
+  .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
+  .hud { position: absolute; left: 12px; bottom: 10px; color: var(--dim); font: 11px "JetBrains Mono", monospace; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<h1>animejs 17 · cerrar y dejar en la estantería <small>la transición 6 del libro, anexo Q</small></h1>
+<p>El libro es una sola caja desde abierto hasta la balda. Coge el libro abierto <b>por la tela</b> (el borde de la tapa, no la página) y arrastra: la tapa cierra de golpe (420 ms, <code>inOutCubic</code>), el cuerpo encoge a la mano (520 ms, <code>emphasized-decelerate</code>, desde 250) y desde ahí sigue al puntero sin easing; solo el balanceo (rz) lleva un muelle por <code>createAnimatable</code>. Mientras llevas, el hueco bajo el puntero se abre (120 ms de histéresis; los vecinos con <code>translateX</code> y <code>stagger(45)</code>) y aparece la silueta en el estado que dicta el hueco. Al soltar, <code>spring({ duration: 420, bounce: .15, velocity })</code> hasta el estado de reposo. Esc devuelve el libro a su hueco anterior; «cerrar sin mano» es lo mismo sin arrastrar. Los giros y el encoger van por <code>waapi.animate</code> con <code>transform</code> en string (lab 09).</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ¿cerrar de golpe y encoger a la mano se siente como coger un libro? ¿La estantería que hace sitio mientras llevas ayuda o distrae? ¿La regla del hueco (estrecho: de pie; ancho con vecino: inclinado; libre: tumbado) acierta lo que querías, con la rueda para cambiarlo?</div>
+
+<div class="barra">
+  <span class="grupo"><button id="abrir">abrir de nuevo</button><button id="cerrar">cerrar sin mano (Esc)</button></span>
+  <span class="grupo"><label>estado a mano: rueda o teclas 1 de pie · 2 inclinado · 3 tumbado</label></span>
+  <label>velocidad al soltar <input type="range" id="vel" min="0" max="2" step=".25" value="1"> <output id="ovel">1</output></label>
+</div>
+
+<div class="escena" id="escena">
+  <div class="fondo"></div>
+  <div class="balda" id="b1" style="top:260px"></div>
+  <div class="balda" id="b2" style="top:520px"></div>
+  <div class="silueta" id="silueta"></div>
+  <div class="outer" id="outer"><div class="inner" id="inner">
+    <div class="cara contratapa"></div>
+    <div class="cara lomo"><span>NAETH</span></div>
+    <div class="cara canto"></div>
+    <div class="cara cabeza"></div><div class="cara pie"></div>
+    <div class="cara paginas"><div class="pag"></div></div>
+    <div class="tapa" id="tapa"><div class="tela">NAETH</div><div class="guarda"><div class="pag"></div></div></div>
+  </div></div>
+  <div class="hud" id="hud">abierto</div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Al cerrar, la tapa cae sobre las páginas con peso (in-out) y el cuerpo empieza a encoger antes de que la tapa llegue: si el encoger espera al cierre, es el encadenado que rechazaste en el lab 07. En la mano, el libro cuelga del lomo y se balancea con la velocidad y se asienta al parar. En la balda, la silueta cambia de forma según dónde estés y los vecinos se apartan antes de soltar: al soltar no debería moverse nadie más que el libro. Soltar con velocidad: el muelle lleva la inercia (⚠ la escala de <code>velocity</code> del muelle de Anime no está medida: el deslizador la multiplica). Con reduced-motion no hay cierre ni muelle: el libro aparece bajo el puntero y en el hueco.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">Se rellena con la respuesta de Eneko: el cierre, la estantería que hace sitio, la regla del hueco.</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { waapi, spring, stagger, cubicBezier, createAnimatable, utils } = anime;
+  const W = 100, H = 150, G = 22, EMPH = cubicBezier(.05, .7, .1, 1);
+  const escena = document.getElementById('escena'), outer = document.getElementById('outer'), inner = document.getElementById('inner'), tapa = document.getElementById('tapa');
+  const silueta = document.getElementById('silueta'), hud = document.getElementById('hud');
+  const ANCHO = () => Math.max(escena.clientWidth, 800);   // 0 mientras el panel se abre: se guarda un mínimo
+
+  // Las baldas y sus vecinos: x base de cada uno; el FLIP es un translateX sobre esa base.
+  const baldas = [
+    { y: 260, libros: [[40, 0], [68, 0], [96, 0], [124, 0], [420, 0], [448, 0], [476, 0], [504, 0], [532, 0]] },
+    { y: 520, libros: [[40, 0], [68, 0], [96, 0], [190, 0], [218, 0], [300, 1]] },   // 1 = tumbado
+  ];
+  const nombres = ['CENIT', 'GridWatch', 'Yogin', 'Inkerlum', 'Whisper', 'Doctor', 'CDA', 'Sanas', 'Formación'];
+  baldas.forEach((b, bi) => b.libros.forEach(([x, t], i) => {
+    const el = document.createElement('div'); el.className = 'vec' + (t ? ' tumbado' : '');
+    el.style.left = x + 'px'; el.style.top = (b.y - (t ? G : H)) + 'px';
+    el.innerHTML = `<span>${nombres[(bi * 4 + i) % nombres.length]}</span>`;
+    el.dataset.x = x; el.dataset.w = t ? H : G;
+    escena.appendChild(el); b.libros[i] = { x, w: t ? H : G, el, shift: 0 };
+  }));
+
+  // Poses del inner (escala y giros, origen en el lomo) y de la tapa.
+  const POSE = {
+    abierto: 'scale(2.4) rotateX(4deg) rotateY(0deg) rotateZ(0deg)',
+    mano: (rz) => `scale(1) rotateX(8deg) rotateY(-20deg) rotateZ(${rz}deg)`,
+    pie: (rz = 0) => `scale(1) rotateX(0deg) rotateY(90deg) rotateZ(${rz}deg)`,
+    tumbado: 'scale(1) rotateX(90deg) rotateY(0deg) rotateZ(-90deg)',
+  };
+  const CENTRO = () => ({ x: ANCHO() / 2, y: 290 });
+  const state = { modo: 'abierto', rz: 0, hueco: null, ultimo: null, forzado: null, vivas: [] };
+  const sway = createAnimatable(state, { rz: { ease: spring({ stiffness: 120, damping: 14 }) }, onUpdate: () => { if (state.modo === 'mano') inner.style.transform = POSE.mano(state.rz); } });
+
+  function setOuter(x, y) { outer.style.transform = `translate(${x}px, ${y}px)`; outer.dataset.x = x; outer.dataset.y = y; }
+  // El ancho de la escena puede ser 0 al ejecutar el script (pestaña recién creada): se centra en el primer fotograma y al redimensionar.
+  const centra = () => { if (state.modo === 'abierto') { const c = CENTRO(); setOuter(c.x, c.y); } };
+  inner.style.transform = POSE.abierto; centra(); requestAnimationFrame(centra); window.addEventListener('resize', centra);
+
+  /** waapi.animate con la velocidad del lab y registro para poder cancelar. */
+  function anima(target, params) { const a = waapi.animate(target, params); a.speed = lab.speed; state.vivas.push(a); a.then(() => { state.vivas = state.vivas.filter((v) => v !== a); }); return a; }
+  function cancelaVivas() { state.vivas.forEach((a) => a.cancel && a.cancel()); state.vivas = []; }
+
+  // ---- Huecos ----------------------------------------------------------------------------------
+  /** Devuelve el hueco bajo el puntero: balda, segmento libre [a, b], estado que dicta la regla y a qué lado está el vecino. */
+  function huecoEn(px, py) {
+    const b = baldas.find((b) => py > b.y - H - 40 && py < b.y + 24); if (!b) return null;
+    const libros = [...b.libros].sort((p, q) => p.x - q.x);
+    const bordes = [{ fin: 20, el: null }, ...libros.map((l) => ({ ini: l.x, fin: l.x + l.w, l })), { ini: ANCHO() - 20, l: null }];
+    let mejor = null;
+    for (let i = 0; i < bordes.length - 1; i++) {
+      const a = bordes[i].fin, c = bordes[i + 1].ini;
+      const d = px < a ? a - px : px > c ? px - c : 0;
+      if (!mejor || d < mejor.d) mejor = { d, a, c, izq: bordes[i].l, der: bordes[i + 1].l, idx: i };
+    }
+    const w = mejor.c - mejor.a;
+    const vecino = mejor.izq || mejor.der;
+    let estado = w < 1.4 * G ? 'pie' : (vecino && w < H + 12) ? 'inclinado' : 'tumbado';
+    if (state.forzado) estado = state.forzado;
+    const lado = mejor.izq && (!mejor.der || px - mejor.a < mejor.c - px) ? -1 : 1;    // hacia qué vecino se inclina
+    return { balda: b, a: mejor.a, c: mejor.c, w, estado, lado, x: utils.clamp(px, mejor.a, mejor.c) };
+  }
+  const NEED = { pie: G + 8, inclinado: G + 44, tumbado: H + 8 };
+  /** Abre el hueco: aparta a los vecinos de la derecha lo que falte y pinta la silueta. */
+  function abreHueco(h) {
+    const need = NEED[h.estado], falta = Math.max(0, need - h.w);
+    const x0 = h.w >= need ? utils.clamp(h.x - need / 2, h.a, h.c - need) : h.a;
+    baldas.forEach((b) => b.libros.forEach((l) => {
+      const shift = (b === h.balda && l.x >= h.c) ? falta : 0;
+      if (shift !== l.shift) { l.shift = shift; anima(l.el, { transform: `translateX(${shift}px)`, duration: 200, ease: EMPH, delay: b === h.balda ? Math.abs(l.x - h.c) / 28 * 45 : 0 }); }
+    }));
+    const sw = h.estado === 'tumbado' ? H : G, sh = h.estado === 'tumbado' ? G : H;
+    silueta.style.width = sw + 'px'; silueta.style.height = sh + 'px';
+    silueta.style.left = (x0 + 4 + (h.estado === 'inclinado' ? 20 : 0)) + 'px'; silueta.style.top = (h.balda.y - sh) + 'px';
+    silueta.style.transform = h.estado === 'inclinado' ? `rotateZ(${12 * h.lado}deg)` : '';
+    silueta.classList.add('on');
+    h.x0 = x0; state.hueco = h;
+    hud.textContent = `en la mano · hueco de ${Math.round(h.w)} px → ${h.estado}${state.forzado ? ' (a mano)' : ''}`;
+  }
+  function cierraHueco() {
+    baldas.forEach((b) => b.libros.forEach((l) => { if (l.shift) { l.shift = 0; anima(l.el, { transform: 'translateX(0px)', duration: 200, ease: EMPH }); } }));
+    silueta.classList.remove('on'); state.hueco = null;
+  }
+
+  // ---- La mano ---------------------------------------------------------------------------------
+  let ptr = { x: 0, y: 0, t: 0, vx: 0, vy: 0 }, timer = null, huecoPend = null;
+  function aPuntero(e) { const r = escena.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+
+  escena.addEventListener('pointerdown', (e) => {
+    if (state.modo !== 'abierto' || e.button !== 0) return;
+    if (e.target.classList.contains('pag')) { hud.textContent = 'eso es la página: coge por la tela'; return; }
+    if (!e.target.closest('#outer')) return;
+    escena.setPointerCapture(e.pointerId);
+    const p = aPuntero(e); ptr = { ...p, t: performance.now(), vx: 0, vy: 0 };
+    state.modo = 'cierra'; document.body.classList.add('mano'); Meter.begin('cerrar-y-dejar');
+    cancelaVivas();
+    if (lab.reduced) { state.modo = 'mano'; inner.style.transform = POSE.mano(0); tapa.style.transform = `translateZ(${G + 1}px) rotateY(0deg)`; setOuter(p.x, p.y + H / 3); return; }
+    // cierra: la tapa cae sobre las páginas. encoge: el cuerpo a la mano, desde 250. La posición la lleva JS hacia el puntero durante el encoger.
+    anima(tapa, { transform: `translateZ(${G + 1}px) rotateY(0deg)`, duration: 420, ease: 'inOutCubic' });
+    const enc = anima(inner, { transform: POSE.mano(0), duration: 520, delay: 250, ease: EMPH });
+    const desde = { x: Number(outer.dataset.x), y: Number(outer.dataset.y) }, t0 = performance.now();
+    const paso = () => {
+      if (state.modo !== 'cierra') return;
+      const t = utils.clamp((performance.now() - t0) * lab.speed - 250, 0, 520) / 520, k = EMPH(t);
+      setOuter(desde.x + (ptr.x - desde.x) * k, desde.y + (ptr.y + H / 3 - desde.y) * k);
+      if (t < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+    enc.then(() => { if (state.modo === 'cierra') { state.modo = 'mano'; inner.style.transform = POSE.mano(state.rz); setOuter(ptr.x, ptr.y + H / 3); } });
+  });
+  escena.addEventListener('pointermove', (e) => {
+    if (state.modo !== 'mano' && state.modo !== 'cierra') return;
+    const p = aPuntero(e), now = performance.now(), dt = Math.max(1, now - ptr.t);
+    ptr = { x: p.x, y: p.y, t: now, vx: (p.x - ptr.x) / dt * 1000, vy: (p.y - ptr.y) / dt * 1000 };
+    if (state.modo === 'mano') { setOuter(p.x, p.y + H / 3); sway.rz(utils.clamp(ptr.vx / 120, -8, 8)); }
+    // El hueco, con 120 ms de histéresis para que no parpadee entre dos.
+    const h = huecoEn(p.x, p.y);
+    const clave = h ? `${h.balda.y}:${h.a}:${h.estado}` : '';
+    if (clave !== huecoPend) { huecoPend = clave; clearTimeout(timer); timer = setTimeout(() => { if (h) abreHueco(h); else cierraHueco(); }, 120); }
+  });
+  escena.addEventListener('pointerup', (e) => {
+    if (state.modo !== 'mano' && state.modo !== 'cierra') return;
+    clearTimeout(timer);
+    const h = state.hueco || huecoEn(ptr.x, ptr.y) || masCercano(ptr.x, ptr.y);
+    if (!state.hueco) abreHueco(h);
+    suelta(h);
+  });
+  /** El hueco de un libro que nunca se ha dejado: después del último de la primera balda. */
+  function huecoPorDefecto() { const fin = baldas[0].libros.reduce((m, l) => Math.max(m, l.x + l.w), 0); const h = huecoEn(fin + 40, baldas[0].y - 10); h.estado = 'pie'; return h; }
+  /** Soltar fuera de las baldas: el hueco más cercano de la balda más cercana. */
+  function masCercano(px, py) { const b = baldas.reduce((m, b) => Math.abs(b.y - py) < Math.abs(m.y - py) ? b : m); return huecoEn(px, b.y - 10); }
+
+  /** De la mano al reposo del hueco: outer al sitio, inner al giro del estado; muelle con la velocidad de la mano. */
+  function suelta(h) {
+    state.modo = 'suelta'; document.body.classList.remove('mano');
+    sway.rz(0);
+    const kv = Number(document.getElementById('vel').value);
+    const vel = utils.clamp(Math.hypot(ptr.vx, ptr.vy) / 400 * kv, 0, 6);
+    const ease = spring({ duration: 420, bounce: .15, velocity: vel });
+    let x, y, pose;
+    if (h.estado === 'tumbado') { x = h.x0 + 4 + H / 2; y = h.balda.y - G; pose = POSE.tumbado; }
+    else if (h.estado === 'inclinado') { x = h.x0 + 4 + 20; y = h.balda.y - H / 2; pose = POSE.pie(12 * h.lado); }
+    else { x = h.x0 + 4; y = h.balda.y - H / 2; pose = POSE.pie(0); }
+    hud.textContent = `suelta → ${h.estado} · velocity ${vel.toFixed(2)}`;
+    if (lab.reduced) { setOuter(x, y); inner.style.transform = pose; silueta.classList.remove('on'); state.modo = 'balda'; state.ultimo = { x, y, pose, h }; return; }
+    const a = anima(outer, { transform: `translate(${x}px, ${y}px)`, duration: 420, ease });
+    anima(inner, { transform: pose, duration: 420, ease });
+    outer.dataset.x = x; outer.dataset.y = y;
+    silueta.classList.remove('on');
+    a.then(() => { state.modo = 'balda'; state.ultimo = { x, y, pose, h }; Meter.end(); });
+  }
+
+  // ---- Abrir de nuevo y cerrar sin mano -----------------------------------------------------
+  document.getElementById('abrir').addEventListener('click', () => {
+    if (state.modo !== 'balda') return;
+    cancelaVivas(); state.modo = 'abre'; Meter.begin('abrir'); cierraHueco(); baldas.forEach((b) => b.libros.forEach((l) => { l.shift = 0; }));
+    const c = CENTRO();
+    anima(outer, { transform: `translate(${c.x}px, ${c.y}px)`, duration: 640, ease: EMPH }); outer.dataset.x = c.x; outer.dataset.y = c.y;
+    anima(inner, { transform: POSE.abierto, duration: 640, ease: EMPH });
+    anima(tapa, { transform: `translateZ(${G + 1}px) rotateY(-180deg)`, duration: 520, delay: 200, ease: 'inOutCubic' }).then(() => { state.modo = 'abierto'; hud.textContent = 'abierto'; Meter.end(); });
+  });
+  function cerrarSinMano() {
+    if (state.modo === 'mano' || state.modo === 'cierra') { // Esc con el libro en la mano: a su hueco anterior
+      clearTimeout(timer); const u = state.ultimo; cierraHueco();
+      if (u && u.h) { abreHueco(u.h); silueta.classList.remove('on'); }   // los vecinos vuelven a hacerle su sitio
+      if (!u) { const h = huecoPorDefecto(); abreHueco(h); suelta(h); return; }
+      state.modo = 'suelta'; document.body.classList.remove('mano');
+      const ease = spring({ duration: 420, bounce: .15 });
+      const a = anima(outer, { transform: `translate(${u.x}px, ${u.y}px)`, duration: 420, ease }); outer.dataset.x = u.x; outer.dataset.y = u.y;
+      anima(inner, { transform: u.pose, duration: 420, ease });
+      a.then(() => { state.modo = 'balda'; Meter.end(); });
+      return;
+    }
+    if (state.modo !== 'abierto') return;
+    // Cerrar sin mano: la tapa cierra y el libro vuela solo a su hueco anterior (o al final de la primera balda).
+    cancelaVivas(); state.modo = 'cierra'; Meter.begin('cerrar-sin-mano');
+    const u = state.ultimo || (() => { const h = huecoPorDefecto(); abreHueco(h); return { x: h.x0 + 4, y: h.balda.y - H / 2, pose: POSE.pie(0), h }; })();
+    abreHueco(u.h); silueta.classList.remove('on');   // los vecinos vuelven a hacerle su sitio antes de que llegue
+    anima(tapa, { transform: `translateZ(${G + 1}px) rotateY(0deg)`, duration: 420, ease: 'inOutCubic' });
+    anima(inner, { transform: u.pose, duration: 560, delay: 250, ease: EMPH });
+    const a = anima(outer, { transform: `translate(${u.x}px, ${u.y}px)`, duration: 560, delay: 250, ease: EMPH }); outer.dataset.x = u.x; outer.dataset.y = u.y;
+    a.then(() => { state.modo = 'balda'; state.ultimo = u; hud.textContent = 'en la balda'; Meter.end(); });
+  }
+  document.getElementById('cerrar').addEventListener('click', cerrarSinMano);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') cerrarSinMano();
+    const n = { 1: 'pie', 2: 'inclinado', 3: 'tumbado' }[e.key]; if (n) { state.forzado = n; if (state.modo === 'mano') { const h = huecoEn(ptr.x, ptr.y); if (h) abreHueco(h); } }
+  });
+  escena.addEventListener('wheel', (e) => {
+    if (state.modo !== 'mano') return; e.preventDefault();
+    const orden = ['pie', 'inclinado', 'tumbado']; const cur = state.forzado || state.hueco?.estado || 'pie';
+    state.forzado = orden[(orden.indexOf(cur) + (e.deltaY > 0 ? 1 : 2)) % 3];
+    const h = huecoEn(ptr.x, ptr.y); if (h) abreHueco(h);
+  }, { passive: false });
+  document.getElementById('vel').addEventListener('input', (e) => { document.getElementById('ovel').textContent = e.target.value; });
+  lab.onSpeed((v) => state.vivas.forEach((a) => { a.speed = v; }));
+</script>
+</body>
+</html>
