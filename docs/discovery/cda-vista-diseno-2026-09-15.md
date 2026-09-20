@@ -529,3 +529,26 @@ motion: fundido de 120 ms entre pila y portada, por `createScope({ mediaQueries:
 **Lo que decide Eneko mirando** (con hora cuando lo haga): perspectiva y grosor (lab 15), curva del
 vuelo y del aterrizaje (lab 03), solape del 40 % (lab 07), 45 ms de la pila (lab 04), si el libro se
 arrastra en vez de pulsarse (lab 13), y si la luz por ángulo es lo que le faltaba (lab 05).
+
+## Anexo P · La biblioteca pasa a estantería y mesa, y el primer encargo a Tania (20/09/2026, 17:30)
+
+- **Cambio de forma de la biblioteca** (Eneko, 20/09): en vez de la pila del anexo D, **una
+  estantería con todos los libros de pie y una mesa delante con los que está leyendo** (tumbados,
+  quizá alguno abierto). Razón: escala mejor y separa «lo que hay» de «lo que estoy leyendo». La
+  pila queda como referencia (`B-II-pila-v2.png`); la forma nueva la proponen renders de Tania y
+  Eneko elige; después se lleva al `.pen`. Afecta al punto 8 del plan (estados de la biblioteca) y
+  a la transición 5, que ahora tiene dos orígenes: la mesa (tumbado) y la estantería (de pie, sale
+  inclinándose por arriba).
+- **Encargo a Tania** (artista 3D en formación, 3ds Max; es su primer encargo real):
+  [`docs/design/brief-tania-2026-09-20.md`](../design/brief-tania-2026-09-20.md) y la página con
+  las referencias `https://claude.ai/artifact/EwMhvhcagb4QytYQ2KY4LL`. Cuatro entregas en orden:
+  (1) ficha de cámara y luz (focal → `perspective = ancho × focal / 36`; los 5200 px del prototipo
+  eran un 73 mm), (2) dos o tres composiciones de la biblioteca a 2560×1440 y una con veinte
+  libros, (3) animatic MP4 a 60 fps y 10× lento de sacar el libro desde la mesa y desde la
+  estantería, con tabla de fotogramas por fase (y abrir, si sobra), (4) texturas PNG 2048 planas
+  (telas T1 a T4 tileables, lomo, canto en tres grosores, cabeza y pie). Sin plazo: ella estima y
+  se apunta lo real. Lo que NO: código, WebGL, pantallas del visor, el interior del libro.
+- **Lo que hacemos nosotros mientras**: lo que no depende de ella. Los labs (Eneko responde las
+  siete preguntas), las transiciones 6 (abrir) y 7 (pasar página), el punto 5 de la lámina del plan
+  en el `.pen`, y el checkpoint 7 de Naeth. El prototipo v3 de la 5 espera al animatic y a la
+  cámara; la biblioteca en Pencil espera a la composición elegida.
