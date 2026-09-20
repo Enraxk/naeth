@@ -80,7 +80,8 @@ la portada de frente.
 
 **Qué es.** Hasta ahora la biblioteca era una pila de libros tumbados (referencia `B-II-pila-v2`).
 Eneko quiere cambiarla: **una estantería con todos los libros de pie, y una mesa delante con los
-que está leyendo** (tumbados, quizá alguno abierto). Los libros se identifican por el lomo. Hoy son
+que está leyendo**: tumbados **uno al lado del otro, sin apilar**, como mucho tres, el que está en
+curso abierto (ver la respuesta 2 al final). Los libros se identifican por el lomo. Hoy son
 cinco; llegarán a veinte o treinta.
 
 **Qué entregas.** Dos o tres composiciones distintas de la escena, cada una como render fijo a
@@ -186,3 +187,34 @@ libro decidido), `Pt4-portada.png` y `Pt4-portada-P1-P2-telas.png` (la portada y
 `Pt2-B1-oscuro-reposo.png` (el libro abierto), `Pt3b-portadilla-capitulo.png` (una página por
 dentro, para que veas el tono), `Pt5-sacar-el-libro.png` (nuestro storyboard de sacar el libro, el
 que no convence).
+
+---
+
+## 7 · Respuestas a tus dudas del 20/09
+
+**1 · Motor de render y luces.** Da igual el motor: nada de lo que renderices se exporta. De la luz
+nos llevamos tres números: de dónde viene la principal (acimut y elevación), cuánto relleno hay
+respecto a ella, y cómo de dura es. Con eso hacemos la «luz falsa» del navegador (cada cara se
+aclara u oscurece según su ángulo con esa dirección). Usa el motor con el que estés cómoda; Arnold
+da una caída de luz física que sirve más como referencia de sombreado, Scanline vale de sobra
+para cámara y composición. Lo que más nos ayudaría: **el libro renderizado desde ocho ángulos con
+la misma luz** (una vuelta de 45° en 45°).
+
+**2 · La pila en la mesa.** Tienes razón: una pila obliga a una animación distinta por posición y a
+recolocar los demás al sacar uno del medio. **En la mesa no hay pila**: los libros que se están
+leyendo van tumbados uno al lado del otro, sin tocarse, como mucho tres, el que está en curso
+abierto. Así hay dos animaciones y solo dos: sacar de la estantería (de pie) y coger de la mesa
+(tumbado), las mismas para todos los libros.
+
+**3 · Avatar, silla y mesa.** Pendiente: Eneko te cuenta lo que se decidió.
+
+**4 · Las texturas.** El malentendido es del brief. **No vamos a usar tu modelo en la web**, ni con
+texturas ni sin ellas. El libro en el navegador son seis rectángulos planos (tapa, contratapa,
+lomo, canto, cabeza, pie) colocados en 3D, y a cada rectángulo se le pone una imagen plana de
+fondo. Lo que necesitamos son esas seis imágenes: como si desplegaras la caja del libro sobre la
+mesa. Si pintas el material en Max, renderiza o «bake» cada cara a una imagen con luz plana, o
+pásanos los bitmaps que has usado. Y más simple: con **la tela repetible y el canto de hojas
+repetible** componemos las seis caras nosotros. En `docs/design/tania/plantillas/` hay **seis PNG
+vacíos con el tamaño exacto de cada cara** (tapa 1120×1520, lomo 104×1520, canto 104×1494, cabeza
+y pie 1088×104, contratapa 1120×1520) para pintar encima, y un README que explica de dónde salen
+los números.
