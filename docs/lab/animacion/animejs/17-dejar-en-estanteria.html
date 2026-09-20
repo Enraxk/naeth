@@ -36,7 +36,9 @@
   .tela { position: absolute; inset: 0; background: var(--tela); border-radius: 0 4px 4px 0; backface-visibility: hidden; display: grid; place-items: center; color: #e6e8eb; font: 600 11px Inter, sans-serif; }
   .guarda { position: absolute; inset: 0; background: var(--tela); border-radius: 4px 0 0 4px; backface-visibility: hidden; transform: rotateY(180deg); padding: 8px 0 8px 8px; }
   .guarda .pag { width: 100%; height: 100%; background: var(--papel); box-shadow: inset -10px 0 12px -10px rgba(0,0,0,.4); }
-  .pag { cursor: default; } .tela, .guarda, .paginas, .lomo, .canto { cursor: grab; }
+  .outer { cursor: grab; }
+  /* En reposo en la balda el libro es su lomo, como los vecinos: las demás caras se apagan (Eneko, 20/09, img 2 frente a img 1). */
+  .inner.plano .cara:not(.lomo), .inner.plano .tapa { visibility: hidden; }
   body.mano .escena { cursor: grabbing; }
   .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
   .hud { position: absolute; left: 12px; bottom: 10px; color: var(--dim); font: 11px "JetBrains Mono", monospace; pointer-events: none; }
@@ -45,7 +47,7 @@
 <body>
 
 <h1>animejs 17 · cerrar y dejar en la estantería <small>la transición 6 del libro, anexo Q</small></h1>
-<p>El libro es una sola caja desde abierto hasta la balda. Coge el libro abierto <b>por la tela</b> (el borde de la tapa, no la página) y arrastra: la tapa cierra de golpe (420 ms, <code>inOutCubic</code>), el cuerpo encoge a la mano (520 ms, <code>emphasized-decelerate</code>, desde 250) y desde ahí sigue al puntero sin easing; solo el balanceo (rz) lleva un muelle por <code>createAnimatable</code>. Mientras llevas, el hueco bajo el puntero se abre (120 ms de histéresis; los vecinos con <code>translateX</code> y <code>stagger(45)</code>) y aparece la silueta en el estado que dicta el hueco. Al soltar, <code>spring({ duration: 420, bounce: .15, velocity })</code> hasta el estado de reposo. Esc devuelve el libro a su hueco anterior; «cerrar sin mano» es lo mismo sin arrastrar. Los giros y el encoger van por <code>waapi.animate</code> con <code>transform</code> en string (lab 09).</p>
+<p>El libro es una sola caja desde abierto hasta la balda. Coge el libro abierto por cualquier parte y arrastra (en el visor será por la tela, porque la página tiene texto y selección; aquí no hace falta): la tapa cierra de golpe (420 ms, <code>inOutCubic</code>), el cuerpo encoge a la mano (520 ms, <code>emphasized-decelerate</code>, desde 250) y desde ahí sigue al puntero sin easing; solo el balanceo (rz) lleva un muelle por <code>createAnimatable</code>. Mientras llevas, el hueco bajo el puntero se abre (120 ms de histéresis; los vecinos con <code>translateX</code> y <code>stagger(45)</code>) y aparece la silueta en el estado que dicta el hueco. Al soltar, <code>spring({ duration: 420, bounce: .15, velocity })</code> hasta el estado de reposo. Esc devuelve el libro a su hueco anterior; «cerrar sin mano» es lo mismo sin arrastrar. Los giros y el encoger van por <code>waapi.animate</code> con <code>transform</code> en string (lab 09).</p>
 
 <div class="pregunta"><b>Pregunta aislada:</b> ¿cerrar de golpe y encoger a la mano se siente como coger un libro? ¿La estantería que hace sitio mientras llevas ayuda o distrae? ¿La regla del hueco (estrecho: de pie; ancho con vecino: inclinado; libre: tumbado) acierta lo que querías, con la rueda para cambiarlo?</div>
 
@@ -169,7 +171,6 @@
 
   escena.addEventListener('pointerdown', (e) => {
     if (state.modo !== 'abierto' || e.button !== 0) return;
-    if (e.target.classList.contains('pag')) { hud.textContent = 'eso es la página: coge por la tela'; return; }
     if (!e.target.closest('#outer')) return;
     escena.setPointerCapture(e.pointerId);
     const p = aPuntero(e); ptr = { ...p, t: performance.now(), vx: 0, vy: 0 };
@@ -223,18 +224,18 @@
     else if (h.estado === 'inclinado') { x = h.x0 + 4 + 20; y = h.balda.y - H / 2; pose = POSE.pie(12 * h.lado); }
     else { x = h.x0 + 4; y = h.balda.y - H / 2; pose = POSE.pie(0); }
     hud.textContent = `suelta → ${h.estado} · velocity ${vel.toFixed(2)}`;
-    if (lab.reduced) { setOuter(x, y); inner.style.transform = pose; silueta.classList.remove('on'); state.modo = 'balda'; state.ultimo = { x, y, pose, h }; return; }
+    if (lab.reduced) { setOuter(x, y); inner.style.transform = pose; silueta.classList.remove('on'); state.modo = 'balda'; state.ultimo = { x, y, pose, h }; inner.classList.add('plano'); return; }
     const a = anima(outer, { transform: `translate(${x}px, ${y}px)`, duration: 420, ease });
     anima(inner, { transform: pose, duration: 420, ease });
     outer.dataset.x = x; outer.dataset.y = y;
     silueta.classList.remove('on');
-    a.then(() => { state.modo = 'balda'; state.ultimo = { x, y, pose, h }; Meter.end(); });
+    a.then(() => { state.modo = 'balda'; state.ultimo = { x, y, pose, h }; inner.classList.add('plano'); Meter.end(); });
   }
 
   // ---- Abrir de nuevo y cerrar sin mano -----------------------------------------------------
   document.getElementById('abrir').addEventListener('click', () => {
     if (state.modo !== 'balda') return;
-    cancelaVivas(); state.modo = 'abre'; Meter.begin('abrir'); cierraHueco(); baldas.forEach((b) => b.libros.forEach((l) => { l.shift = 0; }));
+    cancelaVivas(); state.modo = 'abre'; Meter.begin('abrir'); inner.classList.remove('plano'); cierraHueco(); baldas.forEach((b) => b.libros.forEach((l) => { l.shift = 0; }));
     const c = CENTRO();
     anima(outer, { transform: `translate(${c.x}px, ${c.y}px)`, duration: 640, ease: EMPH }); outer.dataset.x = c.x; outer.dataset.y = c.y;
     anima(inner, { transform: POSE.abierto, duration: 640, ease: EMPH });
@@ -249,7 +250,7 @@
       const ease = spring({ duration: 420, bounce: .15 });
       const a = anima(outer, { transform: `translate(${u.x}px, ${u.y}px)`, duration: 420, ease }); outer.dataset.x = u.x; outer.dataset.y = u.y;
       anima(inner, { transform: u.pose, duration: 420, ease });
-      a.then(() => { state.modo = 'balda'; Meter.end(); });
+      a.then(() => { state.modo = 'balda'; inner.classList.add('plano'); Meter.end(); });
       return;
     }
     if (state.modo !== 'abierto') return;
@@ -260,7 +261,7 @@
     anima(tapa, { transform: `translateZ(${G + 1}px) rotateY(0deg)`, duration: 420, ease: 'inOutCubic' });
     anima(inner, { transform: u.pose, duration: 560, delay: 250, ease: EMPH });
     const a = anima(outer, { transform: `translate(${u.x}px, ${u.y}px)`, duration: 560, delay: 250, ease: EMPH }); outer.dataset.x = u.x; outer.dataset.y = u.y;
-    a.then(() => { state.modo = 'balda'; state.ultimo = u; hud.textContent = 'en la balda'; Meter.end(); });
+    a.then(() => { state.modo = 'balda'; state.ultimo = u; hud.textContent = 'en la balda'; inner.classList.add('plano'); Meter.end(); });
   }
   document.getElementById('cerrar').addEventListener('click', cerrarSinMano);
   document.addEventListener('keydown', (e) => {

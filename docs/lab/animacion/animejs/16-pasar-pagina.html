@@ -20,7 +20,7 @@
   .pag h4 { margin: 0 0 10px; font: 600 13px Inter, sans-serif; color: #1f2937; }
   .pag .n { position: absolute; bottom: 12px; font-size: 11px; color: #6b7280; }
   .pag.izq .n, .cara.verso .n { left: 26px; } .pag.der .n, .cara.recto .n { right: 26px; }
-  .pag .l { height: 7px; margin: 5px 0; background: #b9b3a3; border-radius: 2px; opacity: .55; }
+  .pag pre, .cara pre { margin: 0; font: inherit; white-space: pre; color: #4b4740; }
   /* La hoja: dos caras, eje en el lomo. Solo ella lleva preserve-3d y will-change. */
   .hoja { position: absolute; left: 50%; top: 8px; width: var(--PW); height: var(--PH); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
   .cara { position: absolute; inset: 0; backface-visibility: hidden; background: var(--papel); color: var(--tinta); padding: 22px 26px; font: 12px/1.6 "JetBrains Mono", monospace; overflow: hidden; }
@@ -39,18 +39,19 @@
 <body>
 
 <h1>animejs 16 · pasar página y hojear <small>la transición 7 del libro, anexo Q</small></h1>
-<p>Una hoja con dos caras (recto = la página derecha de ahora, verso = la izquierda siguiente), <code>transform-origin</code> en el lomo, <code>backface-visibility: hidden</code>, y debajo la doble página siguiente ya en el DOM. La hoja gira con <code>waapi.animate(hoja, { transform: 'rotateY(-180deg)' })</code>: la propiedad entera en string, que es lo que va al compositor (lab 09). El muelle del papel es <code>spring({ duration: 320, bounce: .1 })</code>, convertido a <code>linear()</code> por <code>waapi.js:85</code>; la <code>Animation</code> nativa dura su <code>settlingDuration</code> (680 ms para ese muelle), aunque lo visible acaba a los 320: el resto es el asentamiento. Hojear: hasta 3, una a una con <code>stagger(45)</code>; más, un bloque grueso y las seis páginas más cercanas al destino con <code>stagger(45, { ease: 'inQuad' })</code>, así la cascada frena.</p>
+<p>Una hoja con dos caras (recto = la página derecha de ahora, verso = la izquierda siguiente), <code>transform-origin</code> en el lomo, <code>backface-visibility: hidden</code>, y debajo la doble página siguiente ya en el DOM. La hoja gira con <code>waapi.animate(hoja, { transform: 'rotateY(-180deg)' })</code>: la propiedad entera en string, que es lo que va al compositor (lab 09). La curva propuesta (corregida el 20/09 a las 22:45) es la <b>standard</b> de Material, <code>cubicBezier(.2,0,0,1)</code>: arranque corto (el dedo empuja) y caída larga. <b>Sin rebote</b>: una hoja que aterriza sobre otra no puede pasar de plano, y un muelle con <code>bounce</code> hace justo eso (gira más de 180° y atraviesa la página de abajo un instante); queda como opción para verlo. Si se usa muelle, <code>waapi</code> lo convierte a <code>linear()</code> (<code>waapi.js:85</code>) y la <code>Animation</code> nativa dura la <code>settlingDuration</code>, no los 320. Hojear: hasta 3, una a una con <code>stagger(45)</code>; más, un bloque grueso y las seis páginas más cercanas al destino con <code>stagger(45, { ease: 'inQuad' })</code>, así la cascada frena.</p>
 
-<div class="pregunta"><b>Pregunta aislada:</b> ¿320 ms con el muelle se lee como papel (y no como una máquina, ni como un flap)? ¿La cascada de seis para volver al índice orienta o marea? Ocupa el hilo y pasa página: tiene que seguir fluida.</div>
+<div class="pregunta"><b>Pregunta aislada:</b> ¿320 ms con la standard se lee como papel (y no como una máquina, ni como un flap)? ¿La cascada de seis para volver al índice orienta o marea? Ocupa el hilo y pasa página: tiene que seguir fluida.</div>
 
 <div class="barra">
   <span class="grupo"><button id="ant">← anterior</button><button id="sig">siguiente →</button></span>
   <span class="grupo"><button id="ind">al índice (hojear)</button><button id="p44">a la página 44</button><button id="tres">tres adelante</button></span>
   <span class="grupo"><button id="inv">invertir la hoja en vuelo</button><button id="ocupar">ocupar el hilo 3 s</button></span>
   <label>curva <select id="curva">
-    <option value="spring1" selected>spring 320 · bounce .1 (propuesta)</option>
-    <option value="spring2">spring 320 · bounce .3</option>
-    <option value="emph">emphasized-decelerate</option>
+    <option value="std" selected>Material standard (.2,0,0,1): empuje y caída (propuesta)</option>
+    <option value="spring0">spring · bounce 0: muelle sin rebote</option>
+    <option value="spring1">spring · bounce .1: lo que NO (la hoja atraviesa la página de abajo)</option>
+    <option value="emph">emphasized-decelerate: sale disparada y frena</option>
     <option value="inout">inOutCubic</option>
     <option value="lin">lineal (lo que no)</option>
   </select></label>
@@ -67,7 +68,7 @@
 </div>
 
 <h2>Qué mirar</h2>
-<p class="notas">La hoja tiene que pesar poco y caer con un golpe corto: si rebota visiblemente es demasiado <code>bounce</code>; si llega frenando sin golpe es un ease-out y no papel. Al pasar de 90° el verso tapa la página izquierda y la derecha nueva ya estaba debajo: si hay un parpadeo ahí, la doble página siguiente no estaba renderizada antes de lanzar. «Invertir» a mitad: la hoja vuelve como se apoya, sin salto. Con «ocupar el hilo», la hoja sigue (compositor) aunque el medidor marque perdidos (el medidor vive en el hilo). El taco se mueve solo al hojear, por <code>scaleX</code> de las tiras. Teclado: → ← Inicio Fin.</p>
+<p class="notas">La hoja tiene que pesar poco y caer sin rebotar: si la ves atravesar la página de abajo al llegar, es un muelle con <code>bounce</code>; si llega frenando mucho antes de tocar, es un ease-out puro y no papel. Al pasar de 90° el verso tapa la página izquierda y la derecha nueva ya estaba debajo: si hay un parpadeo ahí, la doble página siguiente no estaba renderizada antes de lanzar. «Invertir» a mitad: la hoja vuelve como se apoya, sin salto. Con «ocupar el hilo», la hoja sigue (compositor) aunque el medidor marque perdidos (el medidor vive en el hilo). El taco se mueve solo al hojear, por <code>scaleX</code> de las tiras. Teclado: → ← Inicio Fin.</p>
 
 <h2>Resultado</h2>
 <p class="notas" id="res">Se rellena con la respuesta de Eneko: curva, ms, y si la cascada orienta.</p>
@@ -84,14 +85,61 @@
   let vivas = [];                     // { anim, hoja, step }
   const titulos = ['ÍNDICE', 'Prólogo', 'Capítulo', 'memory_search', 'memory_add', 'relation_add', 'system_status', 'worker', 'sync'];
 
-  /** Devuelve el HTML de una página falsa: título, líneas de ancho pseudoaleatorio por semilla y número. */
+  // Texto de verdad en cada página (código de Naeth y prosa), no barras: las barras parecían «texto sin cargar».
+  const LINEAS = `async def memory_search(query: str, limit: int = 8, path: str | None = None) -> list[Hit]:
+    """Busca en la memoria por similitud y devuelve los hits con su digest.
+
+    Args:
+        query: texto libre; se embebe con bge-m3 y se compara por coseno.
+        limit: tope de resultados; el visor pide 8 y el MCP 5.
+        path: filtra por proyecto/subtema con LIKE, sin fecha.
+
+    Returns:
+        Lista de Hit ordenada por score, cada uno con id, path, title y digest.
+
+    Notes:
+        El digest sustituye al contenido entero desde el 30/08/2026: es lo que
+        un agente lee para decidir si abre la nota. ⚠ Una nota recién escrita
+        puede no salir aún: su embedding está en cola del worker.
+    """
+    vec = await embed(query)
+    rows = await db.fetch(SQL_SEARCH, vec, limit, path)
+    return [Hit(**r) for r in rows]
+
+
+async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
+    """Escribe una memoria nueva y encola su embedding.
+
+    Raises:
+        DigestMissing: sin digest no se escribe (NAETH_DIGEST_ENFORCE=strict).
+        AuthorshipMissing: sin agent_model tampoco (AUTHORSHIP_ENFORCE=strict).
+    """
+    if not payload.digest:
+        raise DigestMissing()
+    if len(payload.digest) > 300:
+        raise DigestTooLong(len(payload.digest))
+    row = await db.fetchrow(SQL_INSERT, *payload.columns(), agent_model)
+    await queue.put(row["id"])
+    return Memory(**row)
+
+
+def taco(n: int, p: int) -> tuple[float, float]:
+    """Grosor del taco a cada lado de la página p, en px.
+
+    Example:
+        >>> taco(182, 44)
+        (12.2, 39.3)
+    """
+    t = min(6 + 0.25 * n, 80)
+    return round(t * (p - 1) / n, 1), round(t * (n - p) / n, 1)
+`.split(String.fromCharCode(10));
+  /** Devuelve el HTML de una página: título, 18 líneas reales tomadas por desplazamiento y el número. */
   function pagina(p) {
     if (p < 1 || p > 2 * N) return '';
-    let x = p * 9301 + 49297; const rnd = () => { x = (x * 9301 + 49297) % 233280; return x / 233280; };
     const t = p <= 2 ? 'ÍNDICE' : p <= 5 ? 'Prólogo' : titulos[3 + (p % 6)];
-    let h = `<h4>${t}</h4>`;
-    for (let i = 0; i < 16; i++) h += `<div class="l" style="width:${40 + Math.round(rnd() * 55)}%"></div>`;
-    return h + `<span class="n">${p}</span>`;
+    const ini = (p * 7) % (LINEAS.length - 18);
+    const cuerpo = LINEAS.slice(ini, ini + 18).map((l) => l.replace(/&/g, '&amp;').replace(/</g, '&lt;') || ' ').join(String.fromCharCode(10));
+    return `<h4>${t}</h4><pre>${cuerpo}</pre><span class="n">${p}</span>`;
   }
   function pinta() {
     izq.innerHTML = pagina(2 * s); der.innerHTML = pagina(2 * s + 1);
@@ -102,8 +150,8 @@
 
   function curva() {
     const v = document.getElementById('curva').value;
-    return v === 'spring1' ? spring({ duration: dur(), bounce: .1 }) : v === 'spring2' ? spring({ duration: dur(), bounce: .3 })
-      : v === 'emph' ? cubicBezier(.05, .7, .1, 1) : v === 'inout' ? 'inOutCubic' : 'linear';
+    return v === 'spring0' ? spring({ duration: dur(), bounce: 0 }) : v === 'spring1' ? spring({ duration: dur(), bounce: .1 })
+      : v === 'std' ? cubicBezier(.2, 0, 0, 1) : v === 'emph' ? cubicBezier(.05, .7, .1, 1) : v === 'inout' ? 'inOutCubic' : 'linear';
   }
   const dur = () => Number(document.getElementById('dur').value);
   document.getElementById('dur').addEventListener('input', (e) => { document.getElementById('odur').textContent = e.target.value; });
