@@ -13,7 +13,7 @@
   .libro { position: absolute; left: 50%; top: 50%; width: calc(var(--PW) * 2 + 12px); height: calc(var(--PH) + 12px); transform: translate(-50%, -50%); background: var(--tela); border-radius: 4px; transform-style: preserve-3d; }
   .pag, .cara { position: absolute; top: 6px; width: var(--PW); height: var(--PH); background: var(--papel); color: var(--tinta); padding: 20px 24px; font: 11.5px/1.55 "JetBrains Mono", monospace; overflow: hidden; }
   .pag pre, .cara pre { margin: 0; font: inherit; white-space: pre; }
-  .pag { transform: translateZ(.5px); }   /* medio píxel por debajo de la hoja: nunca la misma z */
+  .pag { transform: translateZ(.5px); }   /* la misma z a la que aterriza la hoja (ver ir()): capa compuesta 3D, como la hoja, para que el raster coincida */
   .pag.izq { left: 6px; box-shadow: inset -24px 0 24px -24px rgba(0,0,0,.35); }
   .pag.der { right: 6px; box-shadow: inset 24px 0 24px -24px rgba(0,0,0,.35); }
   .pag .n, .cara .n { position: absolute; bottom: 10px; font-size: 10.5px; color: var(--num); }
@@ -190,7 +190,11 @@ def taco(n: int, p: int) -> tuple[float, float]:
     const fin = steps.map((st, i) => {
       const fwd = st.to > st.from, A = fwd ? 2 * st.from + 1 : 2 * st.to + 1, B = fwd ? 2 * st.to : 2 * st.from;
       const delay = st.bloque ? 0 : (n <= 3 ? i * 45 : 200 + 45 * (k - 2) * Math.pow((i - 1) / Math.max(1, k - 2), 2));
-      return hoja(fwd, A, B, delay, (k - i) * .6 + 1, (i + 1) * .6 + 1, !!st.bloque, p);
+      // La hoja aterriza EXACTAMENTE a la z de la página fija (.5 px): con perspectiva, cualquier diferencia de z
+      // escala el texto (1,1 px de z eran 0,3 px en el borde) y al sustituir la hoja el texto «se reajustaba».
+      // Coplanares, Chromium pinta encima la que va después en el DOM (la hoja): comprobado a 398 ms y al
+      // arrancar hacia atrás. En cascada, cada hoja 0,6 px por encima de la anterior; la primera sale la más alta.
+      return hoja(fwd, A, B, delay, (k - i) * .6 + .5, (i + 1) * .6 - .1, !!st.bloque, p);
     });
     Promise.all(fin).then(() => { pinta(); posadas.splice(0).forEach((h) => h.remove()); vivas = []; Meter.end(); });
   }
