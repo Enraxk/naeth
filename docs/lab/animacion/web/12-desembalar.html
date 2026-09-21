@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 12 · desembalar la biblioteca (Matter.js)</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --spine-ink: #1c2e45; --card: #7a5c38; --card-dark: #5d452a; --card-lid: #8a6a42; }
+  .escena { height: 600px; user-select: none; touch-action: none; }
+  .room { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 55%, #1f2124, #121315 70%); }
+  .floor { position: absolute; left: 0; right: 0; top: 560px; height: 40px; background: linear-gradient(#2b2825, #191715); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 -14px 26px -14px rgba(0,0,0,.9); }
+
+  /* Cada cuerpo del motor (libro, paquete o caja vacía) es un div al que el motor escribe el
+     transform por fotograma. Todo lo que se puede coger con la mano lleva .item. */
+  .item { position: absolute; left: 0; top: 0; will-change: transform; cursor: grab; }
+  body.dragging .escena { cursor: grabbing; }
+
+  .spine { width: 22px; height: 150px; background: var(--spine-ink); border-radius: 2px; box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.08); display: grid; place-items: center; z-index: 3; }
+  .spine span { color: #cfd6e0; font: 600 var(--fs, 10px) Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .04em; white-space: nowrap; pointer-events: none; }
+  .spine.mine { background: #24395a; box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.12), 0 0 0 1px rgba(93,176,255,.35); }
+  .spine.held { box-shadow: 0 8px 18px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.12); z-index: 6; }
+  .spine.gone { opacity: 0; transition: opacity .3s linear; }
+
+  /* Caja de mudanza: cartón, etiqueta y tapa que gira al abrirla. */
+  .box { position: absolute; left: 0; top: 0; background: linear-gradient(#7a5c38, #5d452a); border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 10px 20px -10px rgba(0,0,0,.8); z-index: 2; }
+  .box .inside { position: absolute; left: 7px; right: 7px; top: 5px; bottom: 0; background: linear-gradient(#2c2118, #3a2c1c); border-radius: 2px 2px 0 0; opacity: 0; transition: opacity .3s linear .12s; }
+  .box.open .inside { opacity: 1; }
+  .box .tag { position: absolute; left: 50%; top: 46px; transform: translateX(-50%) rotate(-1.5deg); background: #d9cdb4; color: #3a2c1c; font: 600 9px Inter, sans-serif; letter-spacing: .04em; padding: 3px 8px; border-radius: 1px; box-shadow: 0 2px 4px rgba(0,0,0,.4); pointer-events: none; }
+  .box .lid { position: absolute; left: 0; top: -11px; width: 100%; height: 11px; background: linear-gradient(var(--card-lid), #6d5333); border-radius: 2px 2px 0 0; transform-origin: 0 100%; transition: transform .42s cubic-bezier(.2,.9,.3,1); }
+  .box.open .lid { transform: rotate(-118deg); }
+  .box.empty { opacity: .82; }
+
+  /* Paquete plano: el mueble tal como llega, con su etiqueta. */
+  .pack { background: linear-gradient(#6f5335, #4d3a23); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.4), 0 8px 16px -8px rgba(0,0,0,.8); display: grid; place-items: center; z-index: 4; }
+  .pack span { color: #e8dcc8; font: 600 10px Inter, sans-serif; letter-spacing: .05em; pointer-events: none; }
+  .pack::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0,0,0,.35); }
+  .pack.appear { animation: drop-in .35s ease-out; }
+  @keyframes drop-in { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Mueble montado: baldas, costados (dos o más baldas) o escuadras (tablón suelto). */
+  .unit { position: absolute; z-index: 1; }
+  .unit.mounting { animation: mount-in .35s ease-out; }
+  @keyframes mount-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .shelf { position: absolute; height: 10px; background: linear-gradient(#3a3227, #241f18); border-radius: 2px; box-shadow: 0 12px 24px -8px rgba(0,0,0,.8); }
+  .side { position: absolute; width: 8px; background: linear-gradient(#332c22, #221d16); border-radius: 2px; }
+  .bracket { position: absolute; width: 9px; height: 26px; background: linear-gradient(#2e2a26, #1d1a17); border-radius: 0 0 2px 2px; }
+
+  /* Papelera: una U abierta arriba, en la esquina. */
+  .bin { position: absolute; border: 3px solid #4a4038; border-top: none; border-radius: 0 0 8px 8px; background: rgba(255,255,255,.025); z-index: 0; }
+  .bin span { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; color: var(--dim2); font: 10px "JetBrains Mono", monospace; }
+
+  /* La zona de pared donde se monta un mueble: solo se ve mientras llevas un paquete. */
+  .wallzone { position: absolute; border: 1px dashed rgba(93,176,255,.35); background: rgba(93,176,255,.05); border-radius: 6px; opacity: 0; transition: opacity .2s linear; pointer-events: none; z-index: 0; }
+  .wallzone.on { opacity: 1; }
+  .wallzone b { position: absolute; left: 10px; top: 6px; color: rgba(93,176,255,.6); font: 400 10px "JetBrains Mono", monospace; }
+
+  /* La sombra de dónde va a caer lo que llevo. */
+  #drop-shadow { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: rgba(0,0,0,.7); filter: blur(3px); opacity: 0; pointer-events: none; transform-origin: 0 0; z-index: 5; }
+
+  .hud { position: absolute; left: 12px; bottom: 10px; color: var(--dim); font: 11px/1.6 "JetBrains Mono", monospace; pointer-events: none; z-index: 7; }
+  .hud b { color: var(--ink); font-weight: 500; }
+  .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+
+<h1>web 12 · desembalar la biblioteca <small>la familia 1: la biblioteca crece, no se desbloquea (21/09/2026)</small></h1>
+
+<p>Prueba de la hipótesis de la ronda 1 de <code>docs/discovery/cda-biblioteca-espacio-2026-09-21.md</code>: <b>el primer libro es el primero que sacas de la caja</b>. La habitación empieza vacía, sin ninguna estantería: solo el suelo, cinco cajas de mudanza con quince libros dentro (los repos) y un paquete plano etiquetado «tablón». Pulsa una caja para abrirla, saca los libros con la mano y déjalos donde quieras, en el suelo incluido. <b>La estantería la montas tú</b>: coge el paquete y suéltalo en la pared, y el mueble aparece ahí. Cuando los libros que están en balda ocupan más del 85 % del ancho montado, aparece en el suelo el siguiente paquete (primero un mueble pequeño de dos baldas, luego una estantería de tres, y después módulos iguales sin límite): no se desbloquea nada, es que ya no caben. Y el libro es tuyo: no desaparece por borrar un repo, solo si lo tiras a la papelera de la esquina, con un «deshacer» por si fue sin querer. Todo va con el motor del lab 11 tal cual (Matter.js 0.20, paso fijo de 1/120 s, cuerda blanda al puntero, la mano que sujeta, ajustar al dormir y la sombra de caída), con los mismos nueve tamaños y grosores de libro. <b>Aquí no hay arte</b>: son cajas de cartón dibujadas con dos gradientes para poder jugar con el mecanismo; la estética la pone Tania.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ¿desembalar tiene sentido como primera vez en la biblioteca, o es un peaje? ¿Montar el mueble tú, o que aparezca solo? ¿El siguiente mueble llega en el momento justo (al 85 %), tarde o pronto? ¿Y la papelera?</div>
+
+<div class="barra">
+  <span class="grupo"><button id="reset">volver a embalar todo</button><button id="undo">deshacer último tirado</button><button id="hog">ocupar el hilo 3 s</button></span>
+  <label>gravedad <input type="range" id="gravity" min=".2" max="3" step=".1" value="1.6"> <output id="o-gravity">1.6</output></label>
+  <label>cuerda <input type="range" id="rope" min=".02" max="1" step=".02" value=".2"> <output id="o-rope">0.20</output></label>
+  <label>firmeza de la mano <input type="range" id="grip" min="0" max="1" step=".05" value=".6"> <output id="o-grip">0.60</output></label>
+</div>
+
+<div class="escena" id="escena">
+  <div class="room"></div>
+  <div class="floor"></div>
+  <div class="wallzone" id="wallzone"><b>suelta aquí para montarlo</b></div>
+  <div class="bin" id="bin"><span>papelera</span></div>
+  <div id="drop-shadow"></div>
+  <div class="hud" id="hud"></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Debería sentirse bien esto: abrir una caja y que los tres lomos estén <b>de pie dentro</b>, listos para cogerlos por arriba; que el primer libro se pueda dejar en el suelo sin que pase nada malo; que el tablón se monte <b>donde lo sueltas</b> y aguante los libros al primer intento; y que el siguiente paquete aparezca cuando de verdad estorba la falta de sitio, no antes. Delataría un fallo: un libro que <b>atraviesa</b> una balda recién montada o la empuja, un paquete que se suelta en la pared y no se monta (o se monta encima de otro mueble), una caja vacía que se queda clavada en el aire, un libro que la papelera se traga sin haber entrado, y el contador de ocupación moviéndose cuando nadie toca nada. Fotogramas perdidos arriba a la derecha: el motor va en el hilo principal, como en el 11.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">Se rellena con la respuesta de Eneko.</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  /**
+   * @fileoverview Lab web 12: desembalar la biblioteca (familia 1 de la discovery del 21/09/2026).
+   *
+   * Reutiliza el motor del lab 11 sin tocarlo (Matter.js 0.20, paso fijo de 1/120 s, un cuerpo
+   * rectángulo por libro con el transform escrito por fotograma, cuerda blanda al puntero, par de la
+   * mano hacia el ángulo recto, ajustar al dormir y sombra de caída) y le añade lo que prueba esta
+   * familia: cajas de mudanza que se abren, muebles que llegan embalados y se montan donde los
+   * sueltas, la regla del 85 % para pedir el siguiente, y una papelera con deshacer.
+   *
+   * @module lab12
+   */
+  lab.init({ speed: false });
+  const { Engine, Bodies, Body, Composite, Constraint, Events, Sleeping, Vector } = Matter;
+
+  const scene = document.getElementById('escena');
+  const hud = document.getElementById('hud');
+  const dropShadow = document.getElementById('drop-shadow');
+  const wallzone = document.getElementById('wallzone');
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // ---- Medidas de la habitación ---------------------------------------------------------------
+  const WIDTH = Math.max(scene.clientWidth, 900);   // por debajo de 900 se recorta por la derecha
+  const FLOOR_Y = 560;                              // cara superior del suelo
+  const WALL_TOP = 120, WALL_BOTTOM = 480;          // zona donde se monta un mueble
+  const BIN = { x0: WIDTH - 108, x1: WIDTH - 24, top: 460 };
+  const PACK_X = BIN.x0 - 110;                      // sitio del paquete que espera en el suelo
+  const BOX_W = 104, BOX_H = 100, BOX_WALL = 7;
+  const BOX_STEP = clamp((PACK_X - 90 - 24 - BOX_W) / 4, 108, 150);
+
+  const engine = Engine.create({ enableSleeping: true, positionIterations: 8, velocityIterations: 6 });
+  engine.gravity.y = 1.6;
+  const world = engine.world;
+  const STATIC = { isStatic: true, friction: .9 };
+  // Los mismos valores del lab 11 con peso 1 y rozamiento 0,7 (aquí fijos, no hay deslizador).
+  const bodyOpts = () => ({ friction: .7, frictionStatic: 1, restitution: 0, density: .006, frictionAir: .02, sleepThreshold: 40, chamfer: { radius: 1 } });
+
+  Composite.add(world, [
+    Bodies.rectangle(WIDTH / 2, FLOOR_Y + 12, WIDTH + 40, 24, STATIC),   // suelo
+    Bodies.rectangle(8, 300, 16, 640, STATIC),                           // pared izquierda
+    Bodies.rectangle(WIDTH - 8, 300, 16, 640, STATIC),                   // pared derecha
+    Bodies.rectangle(BIN.x0 + 2, 510, 6, 100, STATIC),                   // papelera, costado izquierdo
+    Bodies.rectangle(BIN.x1 - 2, 510, 6, 100, STATIC),                   // papelera, costado derecho
+  ]);
+
+  document.getElementById('bin').style.cssText += `left:${BIN.x0}px;top:${BIN.top}px;width:${BIN.x1 - BIN.x0}px;height:${FLOOR_Y - BIN.top}px`;
+  wallzone.style.cssText += `left:20px;top:${WALL_TOP}px;width:${WIDTH - 40}px;height:${WALL_BOTTOM - WALL_TOP}px`;
+
+  // ---- Los quince libros (nombres de repos) y los nueve tamaños del lab 11 ---------------------
+  const NAMES = ['Naeth', 'CENIT', 'GridWatch', 'Yogin', 'Inkerlum', 'Whisper', 'Doctor', 'CDA', 'Sanas', 'Formación', 'Promting', 'Diagramas', 'FreeCAD', 'GTFU', 'UCraft'];
+  const SIZES = [[150, 22], [170, 30], [130, 16], [160, 26], [140, 18], [150, 34], [176, 24], [136, 20], [156, 28]];
+  const bookSpec = (i) => ({ name: NAMES[i], size: SIZES[i % SIZES.length], mine: i === 0 });
+
+  // Los muebles, en el orden en que llegan. El último se repite sin límite (módulos iguales).
+  const PACKS = [
+    { type: 'tablon', label: 'tablón', w: 140, h: 18, shelves: [{ dy: 0, w: 260 }] },
+    { type: 'mueble', label: 'mueble pequeño', w: 150, h: 24, shelves: [{ dy: 0, w: 300 }, { dy: -180, w: 300 }] },
+    { type: 'estanteria', label: 'estantería', w: 160, h: 28, shelves: [{ dy: 0, w: 420 }, { dy: -160, w: 420 }, { dy: -320, w: 420 }] },
+    { type: 'modulo', label: 'módulo', w: 160, h: 28, shelves: [{ dy: 0, w: 420 }, { dy: -160, w: 420 }, { dy: -320, w: 420 }] },
+  ];
+  const FILL = .85;          // cuando los libros en balda pasan de este ancho, llega el siguiente
+  const CLEARANCE = 175;     // alto que se le reserva a una balda para sus libros
+
+  const items = [];          // todo lo que tiene cuerpo dinámico: libros, paquetes y cajas vacías
+  const boxes = [];          // las cajas de mudanza (abiertas o no)
+  const units = [];          // los muebles montados
+  const shelves = [];        // todas las baldas montadas, en plano
+  let packIndex = 0, waiting = null, discarded = 0, lastDiscarded = null;
+
+  // ---- Piezas -----------------------------------------------------------------------------------
+  /**
+   * Crea un libro de pie (cuerpo + div) y lo registra como cogible.
+   *
+   * Args:
+   *   spec: `{ name, size: [alto, grosor], mine }` del libro.
+   *   x: borde izquierdo en px.
+   *   y: cota donde se apoya (la cara de arriba del suelo o de la balda).
+   *
+   * Returns:
+   *   El item creado.
+   */
+  function createBook(spec, x, y) {
+    const [h, g] = spec.size;
+    const body = Bodies.rectangle(x + g / 2, y - h / 2 - 2, g, h, bodyOpts());
+    const el = document.createElement('div');
+    el.className = 'item spine' + (spec.mine ? ' mine' : '');
+    el.innerHTML = `<span>${spec.name}</span>`;
+    el.style.width = g + 'px'; el.style.height = h + 'px';
+    el.style.setProperty('--fs', Math.round(7 + g / 4) + 'px');
+    scene.appendChild(el);
+    const it = { el, body, w: g, h, g, kind: 'libro', name: spec.name, spec };
+    items.push(it); Composite.add(world, body);
+    return it;
+  }
+
+  /** Crea el paquete plano que espera en el suelo, con su etiqueta. */
+  function createPack(pack) {
+    const body = Bodies.rectangle(PACK_X, FLOOR_Y - pack.h / 2 - 2, pack.w, pack.h, bodyOpts());
+    const el = document.createElement('div');
+    el.className = 'item pack appear';
+    el.innerHTML = `<span>${pack.label}</span>`;
+    el.style.width = pack.w + 'px'; el.style.height = pack.h + 'px';
+    scene.appendChild(el);
+    const it = { el, body, w: pack.w, h: pack.h, kind: 'paquete', name: pack.label, pack };
+    items.push(it); Composite.add(world, body);
+    waiting = it;
+    return it;
+  }
+
+  /** Pide el siguiente paquete de la lista (el último se repite sin límite). */
+  function nextPack() {
+    const pack = PACKS[Math.min(packIndex, PACKS.length - 1)];
+    packIndex += 1;
+    return createPack(pack);
+  }
+
+  /** Crea una caja de mudanza cerrada con sus tres libros dentro, todavía sin cuerpo. */
+  function createBox(n, x, pending) {
+    const y = FLOOR_Y - BOX_H;
+    const el = document.createElement('div');
+    el.className = 'box';
+    el.innerHTML = `<div class="inside"></div><div class="lid"></div><div class="tag">mudanza ${n}</div>`;
+    el.style.width = BOX_W + 'px'; el.style.height = BOX_H + 'px';
+    el.style.transform = `translate(${x}px, ${y}px)`;
+    scene.appendChild(el);
+    const walls = [
+      Bodies.rectangle(x + BOX_WALL / 2, y + BOX_H / 2, BOX_WALL, BOX_H, STATIC),
+      Bodies.rectangle(x + BOX_W - BOX_WALL / 2, y + BOX_H / 2, BOX_WALL, BOX_H, STATIC),
+    ];
+    const lid = Bodies.rectangle(x + BOX_W / 2, y - 5, BOX_W, 11, STATIC);
+    Composite.add(world, [...walls, lid]);
+    const box = { el, x, y, walls, lid, pending, books: [], open: false };
+    boxes.push(box);
+    return box;
+  }
+
+  /** Abre una caja: la tapa gira, se retira su cuerpo y los tres libros aparecen de pie dentro. */
+  function openBox(box) {
+    if (box.open) return;
+    box.open = true;
+    box.el.classList.add('open');
+    if (box.lid) { Composite.remove(world, box.lid); box.lid = null; }
+    let x = box.x + BOX_WALL + 2;
+    for (const spec of box.pending) {
+      const it = createBook(spec, x, FLOOR_Y);
+      it.box = box; box.books.push(it);
+      x += spec.size[1] + 2;
+    }
+    box.pending = [];
+  }
+
+  /** Una caja sin libros deja de ser mobiliario: pasa a cuerpo dinámico ligero y se puede apartar. */
+  function emptyBox(box) {
+    for (const w of box.walls) Composite.remove(world, w);
+    box.walls = [];
+    const body = Bodies.rectangle(box.x + BOX_W / 2, box.y + BOX_H / 2, BOX_W, BOX_H, { ...bodyOpts(), density: .0009 });
+    Composite.add(world, body);
+    box.el.classList.add('item', 'empty');
+    const it = { el: box.el, body, w: BOX_W, h: BOX_H, kind: 'caja', name: 'caja vacía' };
+    items.push(it); box.item = it;
+  }
+
+  // ---- Montar un mueble -------------------------------------------------------------------------
+  const overlaps = (a, b) => a.x0 < b.x1 + 8 && a.x1 > b.x0 - 8 && a.y0 < b.y1 + 8 && a.y1 > b.y0 - 8;
+
+  /**
+   * Monta un mueble en el sitio donde se ha soltado su paquete, apartándolo si pisa a otro.
+   *
+   * Args:
+   *   pack: la entrada de `PACKS` que se estaba llevando.
+   *   x: centro en x del paquete al soltarlo.
+   *   y: cota de la balda de abajo (el centro en y del paquete al soltarlo).
+   *
+   * Returns:
+   *   El mueble montado.
+   *
+   * Notes:
+   *   La cota se recorta para que la balda de arriba no se salga por el techo de la escena (70 px):
+   *   con tres baldas a 160 px eso deja una ventana estrecha, y por eso la regla de apartarse (a la
+   *   derecha si cabe, si no debajo) hace casi todo el trabajo a partir del tercer mueble.
+   */
+  function mountUnit(pack, x, y) {
+    const topDy = Math.min(...pack.shelves.map((s) => s.dy));
+    const width = Math.max(...pack.shelves.map((s) => s.w));
+    const baseY = clamp(y, 70 - topDy, WALL_BOTTOM);
+    let rect = { x0: clamp(x - width / 2, 16, WIDTH - 16 - width), y0: baseY + topDy - CLEARANCE, y1: baseY + 12 };
+    rect.x1 = rect.x0 + width;
+    const wanted = rect.x0;
+    for (let i = 0; i < 24; i += 1) {
+      const hit = units.find((u) => overlaps(rect, u.rect));
+      if (!hit) break;
+      if (hit.rect.x1 + 16 + width <= WIDTH - 16) {
+        rect.x0 = hit.rect.x1 + 16; rect.x1 = rect.x0 + width;   // pegado a su derecha
+      } else {
+        const shift = hit.rect.y1 + 24 - rect.y0;                 // si no cabe, debajo
+        rect.y0 += shift; rect.y1 += shift;
+        rect.x0 = wanted; rect.x1 = wanted + width;
+        if (rect.y1 > FLOOR_Y - 6) { rect.y1 = FLOOR_Y - 6; rect.y0 = rect.y1 - CLEARANCE - (baseY + topDy - rect.y1); break; }
+      }
+    }
+    const bottomY = rect.y1 - 12;
+    const topY = bottomY + topDy;
+    const el = document.createElement('div');
+    el.className = 'unit mounting';
+    el.style.cssText = `left:${rect.x0}px;top:${topY}px;width:${width}px;height:${bottomY - topY + 10}px`;
+    const mine = [];
+    for (const s of pack.shelves) {
+      const sy = bottomY + s.dy, sx0 = rect.x0 + (width - s.w) / 2;
+      const board = document.createElement('div');
+      board.className = 'shelf';
+      board.style.cssText = `left:${sx0 - rect.x0}px;top:${sy - topY}px;width:${s.w}px`;
+      el.appendChild(board);
+      const body = Bodies.rectangle(sx0 + s.w / 2, sy + 5, s.w, 10, STATIC);
+      Composite.add(world, body);
+      const shelf = { x0: sx0, x1: sx0 + s.w, y: sy, body };
+      shelves.push(shelf); mine.push(shelf);
+    }
+    if (pack.shelves.length > 1) {
+      for (const side of ['left:-8px', 'right:-8px']) {
+        const d = document.createElement('div');
+        d.className = 'side'; d.style.cssText = `${side};top:0;height:${bottomY - topY + 10}px`;
+        el.appendChild(d);
+      }
+    } else {
+      for (const side of ['left:16px', 'right:16px']) {
+        const d = document.createElement('div');
+        d.className = 'bracket'; d.style.cssText = `${side};top:10px`;
+        el.appendChild(d);
+      }
+    }
+    scene.appendChild(el);
+    const unit = { el, rect, shelves: mine, pack };
+    units.push(unit);
+    return unit;
+  }
+
+  // ---- La mano: una cuerda blanda entre el punto de agarre y el puntero ------------------------
+  let hand = null;
+  const toPointer = (e) => { const r = scene.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+
+  function grab(it, p) {
+    const off = Vector.rotate(Vector.sub(p, it.body.position), -it.body.angle);
+    const rope = Constraint.create({ bodyA: it.body, pointA: off, pointB: p, stiffness: Number(document.getElementById('rope').value), damping: .08, length: 0 });
+    Composite.add(world, rope); Sleeping.set(it.body, false);
+    hand = { it, rope, off, ang: Math.round(it.body.angle / (Math.PI / 2)) * (Math.PI / 2) };
+    it.el.classList.add('held'); document.body.classList.add('dragging');
+    if (it.kind === 'paquete') wallzone.classList.add('on');
+    if (it.box) {                                   // sacarlo de la caja la vacía del todo
+      it.box.books = it.box.books.filter((b) => b !== it);
+      if (!it.box.books.length && !it.box.pending.length && !it.box.item) emptyBox(it.box);
+      it.box = null;
+    }
+    Meter.begin('llevar');
+  }
+
+  function release() {
+    if (!hand) return;
+    const { it, rope } = hand;
+    Composite.remove(world, rope);
+    it.el.classList.remove('held'); document.body.classList.remove('dragging');
+    dropShadow.style.opacity = 0; wallzone.classList.remove('on');
+    hand = null; Meter.end();
+    if (it.kind === 'paquete') {
+      const { x, y } = it.body.position;
+      if (y > WALL_TOP && y < WALL_BOTTOM && x > 20 && x < WIDTH - 20) {
+        Composite.remove(world, it.body); it.el.remove();
+        items.splice(items.indexOf(it), 1);
+        if (waiting === it) waiting = null;
+        mountUnit(it.pack, x, y);
+      }
+    }
+  }
+
+  scene.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    const el = e.target.closest('.item');
+    if (el) {
+      const it = items.find((i) => i.el === el);
+      if (!it) return;
+      try { scene.setPointerCapture(e.pointerId); } catch (err) { /* puntero sintético: da igual */ }
+      grab(it, toPointer(e));
+      return;
+    }
+    const box = e.target.closest('.box');
+    if (box) { const b = boxes.find((x) => x.el === box); if (b) openBox(b); }
+  });
+  scene.addEventListener('pointermove', (e) => { if (hand) hand.rope.pointB = toPointer(e); });
+  scene.addEventListener('pointerup', release);
+  scene.addEventListener('pointercancel', release);
+  document.addEventListener('keydown', (e) => {
+    if (!hand) return;
+    if (e.key === '1') hand.ang = 0;
+    if (e.key === '3') hand.ang = Math.PI / 2;
+  });
+  scene.addEventListener('wheel', (e) => { if (!hand) return; e.preventDefault(); hand.ang += (e.deltaY > 0 ? 1 : -1) * Math.PI / 2; }, { passive: false });
+
+  // ---- La mano sujeta (par hacia el ángulo objetivo) -------------------------------------------
+  Events.on(engine, 'beforeUpdate', () => {
+    if (!hand) return;
+    const b = hand.it.body, k = Number(document.getElementById('grip').value);
+    let err = b.angle - hand.ang; err = Math.atan2(Math.sin(err), Math.cos(err));
+    Body.setAngularVelocity(b, b.angularVelocity * (1 - .35 * k) - err * .12 * k);
+  });
+
+  /** Proyecta lo que llevo hacia abajo hasta la primera superficie (suelo, balda u otra pieza). */
+  function paintDropShadow() {
+    if (!hand) { dropShadow.style.opacity = 0; return; }
+    const b = hand.it.body, x0 = b.bounds.min.x, x1 = b.bounds.max.x, bottom = b.bounds.max.y;
+    let top = Infinity;
+    if (FLOOR_Y >= bottom - 6) top = FLOOR_Y;
+    for (const s of shelves) if (s.x1 - 6 > x0 && s.x0 + 6 < x1 && s.y >= bottom - 6) top = Math.min(top, s.y);
+    for (const o of items) {
+      if (o === hand.it) continue;
+      const ob = o.body.bounds;
+      if (ob.max.x - 6 > x0 && ob.min.x + 6 < x1 && ob.min.y >= bottom - 6) top = Math.min(top, ob.min.y);
+    }
+    if (!isFinite(top)) { dropShadow.style.opacity = 0; return; }
+    dropShadow.style.width = (x1 - x0) + 'px';
+    dropShadow.style.transform = `translate(${x0}px, ${top - 4}px)`;
+    dropShadow.style.opacity = String(clamp(.65 - (top - bottom) / 500, .12, .65));
+  }
+
+  // ---- Reglas del mundo, en afterUpdate para que corran aunque no haya fotogramas ---------------
+  /** Devuelve la balda sobre la que descansa un libro (directamente o encima de otros), o null. */
+  function shelfOf(it) {
+    const b = it.body, x = b.position.x, bottom = b.bounds.max.y;
+    let best = null, bd = Infinity;
+    for (const s of shelves) {
+      if (x < s.x0 - 8 || x > s.x1 + 8) continue;
+      const d = s.y - bottom;
+      if (d < -8 || d > CLEARANCE) continue;
+      if (d < bd) { bd = d; best = s; }
+    }
+    return best;
+  }
+
+  /** Cuenta ancho montado, ancho ocupado por los lomos en balda y libros por sitio. */
+  function census() {
+    let total = 0;
+    for (const s of shelves) total += s.x1 - s.x0;
+    let used = 0, onShelf = 0, onFloor = 0;
+    for (const it of items) {
+      if (it.kind !== 'libro') continue;
+      if (hand && hand.it === it) continue;          // el que llevo no está en ningún sitio todavía
+      if (shelfOf(it)) { used += it.g; onShelf += 1; } else onFloor += 1;
+    }
+    return { total, used, onShelf, onFloor };
+  }
+
+  /** Tira un libro a la papelera: el div se desvanece 300 ms y el cuerpo se quita. */
+  function discard(it) {
+    Composite.remove(world, it.body);
+    items.splice(items.indexOf(it), 1);
+    it.el.classList.add('gone');
+    setTimeout(() => it.el.remove(), 320);
+    lastDiscarded = it.spec; discarded += 1;
+  }
+
+  let ticks = 0, report = { total: 0, used: 0, onShelf: 0, onFloor: 0 };
+  Events.on(engine, 'afterUpdate', () => {
+    // Ajustar al dormir: un cuerpo casi recto se endereza del todo (0° o 90°).
+    for (const it of items) {
+      const b = it.body;
+      if (!b.isSleeping) { it._snap = false; continue; }
+      if (it._snap) continue;
+      const q = Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2), d = Math.abs(b.angle - q);
+      if (d > 0 && d < .14) Body.setAngle(b, q);
+      it._snap = true;
+    }
+    ticks += 1;
+    if (ticks % 10) return;
+    // La papelera: un libro cuyo centro está dentro y cuyo canto de abajo ha entrado, se retira.
+    for (const it of [...items]) {
+      if (it.kind !== 'libro' || (hand && hand.it === it)) continue;
+      const p = it.body.position;
+      if (p.x > BIN.x0 + 6 && p.x < BIN.x1 - 6 && it.body.bounds.max.y > BIN.top + 40) discard(it);
+    }
+    // La regla del 85 %: si lo que hay en balda ya no cabe, llega el siguiente paquete al suelo.
+    report = census();
+    if (!waiting && report.total > 0 && report.used > FILL * report.total) nextPack();
+  });
+
+  // ---- Bucle a paso fijo (1/120 s): el motor escribe los transform ------------------------------
+  let acc = 0, prev = performance.now();
+  const STEP = 1000 / 120;
+  function tick(now) {
+    acc += Math.min(50, now - prev); prev = now;
+    engine.gravity.y = Number(document.getElementById('gravity').value);
+    while (acc >= STEP) { Engine.update(engine, STEP); acc -= STEP; }
+    paint();
+    requestAnimationFrame(tick);
+  }
+
+  /** Escribe los transform de todas las piezas con cuerpo y refresca el HUD. */
+  function paint() {
+    for (const it of items) {
+      const b = it.body;
+      it.el.style.transform = `translate(${(b.position.x - it.w / 2).toFixed(2)}px, ${(b.position.y - it.h / 2).toFixed(2)}px) rotate(${b.angle.toFixed(4)}rad)`;
+    }
+    paintDropShadow();
+    const closed = boxes.filter((b) => !b.open).length;
+    const pct = report.total ? Math.round(100 * report.used / report.total) : 0;
+    hud.innerHTML =
+      `cajas por abrir: <b>${closed}</b> de ${boxes.length}<br>` +
+      `libros: <b>${report.onShelf}</b> en balda · <b>${report.onFloor}</b> en el suelo · <b>${discarded}</b> tirados<br>` +
+      `balda ocupada: <b>${Math.round(report.used)}</b> de ${report.total} px (${pct} %, el siguiente al ${FILL * 100} %)<br>` +
+      `en el suelo espera: <b>${waiting ? waiting.name : 'nada'}</b>${hand ? ' · en la mano: ' + hand.it.name : ''}`;
+  }
+  requestAnimationFrame(tick);
+
+  // ---- Montaje inicial y botones ---------------------------------------------------------------
+  /** Deja la habitación como el primer día: cinco cajas cerradas y el tablón en el suelo. */
+  function build() {
+    for (let i = 0; i < 5; i += 1) {
+      createBox(i + 1, Math.round(24 + i * BOX_STEP), [0, 1, 2].map((k) => bookSpec(i * 3 + k)));
+    }
+    packIndex = 0; nextPack();
+  }
+
+  /** Vuelve a embalarlo todo: quita piezas, cajas y muebles, y reconstruye el estado inicial. */
+  function reset() {
+    release();
+    for (const it of items) { Composite.remove(world, it.body); it.el.remove(); }
+    items.length = 0;
+    for (const b of boxes) {
+      for (const w of b.walls) Composite.remove(world, w);
+      if (b.lid) Composite.remove(world, b.lid);
+      b.el.remove();
+    }
+    boxes.length = 0;
+    for (const u of units) { for (const s of u.shelves) Composite.remove(world, s.body); u.el.remove(); }
+    units.length = 0; shelves.length = 0;
+    waiting = null; discarded = 0; lastDiscarded = null;
+    report = { total: 0, used: 0, onShelf: 0, onFloor: 0 };
+    build();
+  }
+  build();
+
+  document.getElementById('reset').addEventListener('click', reset);
+  document.getElementById('undo').addEventListener('click', () => {
+    if (!lastDiscarded) return;
+    createBook(lastDiscarded, BIN.x0 - 70, FLOOR_Y);
+    lastDiscarded = null; discarded = Math.max(0, discarded - 1);
+  });
+  for (const [id, out, f] of [['gravity', 'o-gravity', (v) => Number(v).toFixed(1)], ['rope', 'o-rope', (v) => Number(v).toFixed(2)], ['grip', 'o-grip', (v) => Number(v).toFixed(2)]]) {
+    document.getElementById(id).addEventListener('input', (e) => {
+      document.getElementById(out).textContent = f(e.target.value);
+      if (id === 'rope' && hand) hand.rope.stiffness = Number(e.target.value);
+    });
+  }
+  document.getElementById('hog').addEventListener('click', () => {
+    const end = performance.now() + 3000;
+    const block = () => { const t = performance.now() + 40; while (performance.now() < t) { /* ocupado */ } if (performance.now() < end) setTimeout(block, 10); };
+    block();
+  });
+
+  // Ventana al estado para las comprobaciones automáticas desde la consola (no lo usa la página).
+  window.lab12 = { engine, items, boxes, units, shelves, census, get hand() { return hand; }, get waiting() { return waiting; }, geom: { WIDTH, FLOOR_Y, WALL_TOP, WALL_BOTTOM, BIN, PACK_X } };
+</script>
+</body>
+</html>
