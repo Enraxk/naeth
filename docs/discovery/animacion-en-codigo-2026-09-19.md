@@ -830,6 +830,94 @@ estaba abierto al cerrar la fase (el MCP no conecta). Queda para la próxima ses
 «5 · sacar el libro: investigado (19/09, `animacion-en-codigo-2026-09-19.md`, anexo O); v3 pendiente de
 lo que Eneko decida en los labs 03, 04, 05, 07, 09, 13 y 15».
 
+## 9 · La página que se dobla: el page curl (21/09; estimado 1 h con base en el anexo N; real: ver el commit de cierre)
+
+Sale de la respuesta de Eneko al lab `animejs/16` el 20/09 a las 22:40: «me sigue pareciendo raro»,
+con el texto ya real y sin rebote. El diagnóstico es que **una lámina rígida girando no es papel**:
+el papel se dobla, la esquina libre va por delante y la hoja se aplana al caer. Y la pregunta que
+faltaba: ¿está resuelto ya? Sí, tiene nombre (*page curl* o *page flip*) y tres familias. Lab
+comparado sobre la misma página con texto real: `web/07-page-curl.html`.
+
+### 9.1 Las tres familias, con evidencia
+
+**Librerías de libro en DOM. StPageFlip (`page-flip` en npm).** MIT; versión 2.0.7; **último
+commit el 18/04/2021** (API de GitHub, `commits?per_page=1`); 44,3 KB minificado y **10,5 KB gzip**
+(jsDelivr `dist/js/page-flip.browser.min.js`, `gzip -9`, 21/09/2026). Es lo que envuelve
+`react-pageflip`. Leído en `src/`:
+
+- Modo HTML: cada página es un elemento real (vale nuestro DOM). El pliegue se pinta con un
+  **`clip-path: polygon(...)` recalculado por JS en cada fotograma** más `transform: translate3d()
+  rotate()` en la parte doblada (`Page/HTMLPage.ts:103-129`), y dos sombras con otro `clip-path`
+  (`Render/HTMLRender.ts:153-258`). Es un **pliegue recto**: la hoja se dobla por una línea, como
+  una servilleta, no en arco.
+- Un bucle `requestAnimationFrame` **que no para nunca** mientras el libro existe
+  (`Render/Render.ts:137-147`: `start()` encadena `loop` sin condición) y la animación es una lista
+  de fotogramas precalculados que se indexan por tiempo (`:117-131`). Hilo principal, siempre.
+- `flippingTime` (1000 por defecto), `drawShadow`, `maxShadowOpacity`, `showPageCorners`,
+  `usePortrait` (clona las páginas), `useMouseEvents` (arrastre de la esquina con el ratón, que es
+  lo que hace bonito el demo). Sin easing configurable.
+- Veredicto: **no para 144 Hz** (JS por fotograma, `clip-path` cambiado a mano) y cinco años sin
+  mantenimiento; sirve como **referencia de lo que es un pliegue recto** y de la interacción de
+  arrastrar la esquina. Otras de la familia, descartadas sin probar: turn.js (jQuery, 2012,
+  licencia comercial fuera de uso personal), los «flipbook» comerciales (PDF a canvas).
+
+**La hoja en tiras anidadas, CSS puro.** La técnica clásica del «CSS 3D bending» (el pen de
+`_fbrz`, `codepen.io/_fbrz/pen/eYrNeW`; ⚠ Cloudflare bloqueó la descarga, la técnica se ha
+reconstruido, no leído): la hoja se parte en N tiras verticales, cada una **anidada dentro de la
+anterior** con `transform-origin` en su borde izquierdo y un `rotateY` pequeño; las rotaciones se
+acumulan y el conjunto es un arco. Lo nuestro (lab `web/07`, vía B): la tira 0 lleva el giro base
+(0 → −180 con la curva del papel) y las otras N − 1 reparten un arco que crece y se apaga con
+`sin(πt)` (0° al salir, máximo a mitad, 0° al llegar, para que la hoja caiga plana); cada tira tiene
+dos caras (`backface-visibility: hidden`) y dentro de cada cara **una copia de la página desplazada**
+`−i·ancho/N` y recortada con `overflow: hidden`; cada tira es **una `Animation` nativa sobre
+`transform`** con 26 keyframes (el easing va dentro de los keyframes, muestreado de la bezier).
+Coste: 2N capas y N copias del DOM de la página (con N = 10, veinte caras y diez copias de una página
+con código). Comprobado en el panel integrado con las animaciones pausadas a mitad: la esquina libre
+va por delante (la última tira a 200 px del lomo cuando la primera está a 90°), y el texto se curva
+con la hoja. ⚠ Que las 2N capas sigan fluidas con el hilo bloqueado y que diez tiras basten para
+que no se vea el polígono lo dice Eneko en Helium (lab `web/07`, botón «ocupar el hilo»).
+
+**3D real. Three.js con la hoja como malla con huesos.** El tutorial de Wawa Sensei («3D Book
+Slider», React Three Fiber): la hoja es un `BoxGeometry` con segmentos y un `SkinnedMesh` con un
+hueso por segmento; el giro rota el primer hueso y cada hueso siguiente añade una fracción con tres
+fuerzas de curva (interior, exterior y de giro). Es el arco de las tiras, en malla. **La página es
+una textura**: en CDA la página es HTML vivo (código con enlaces, selección, anotaciones, minimapa)
+y no vive dentro de un canvas. Solo cabría un híbrido: el DOM cuando la página está quieta y una
+**foto** de la página como textura durante el giro; el navegador no da esa foto (no hay API de
+captura del DOM; `html2canvas` es un re-render lento, ⚠ no medido), así que habría que mantener un
+render paralelo de cada página. Además el 18/09 se descartaron los shaders para el aspecto. **Queda
+como coste escrito, no como opción**: cambiaría la arquitectura de la vista entera por una
+transición de 320 ms.
+
+### 9.2 Lo que decide el compositor
+
+- Las tiras van por `transform` en `Animation` nativas: compositor, como la hoja rígida (lab `09`).
+- **`clip-path` animado**: Chromium lo anunció como «pronto en el compositor» en el blog de
+  aceleración por hardware y la lista de `paint-dev` («Moving clip-path to the compositor»); ⚠ no
+  se ha comprobado en Chromium 153 si una `Animation` nativa sobre `clip-path: polygon()` sigue con
+  el hilo bloqueado. Da igual para StPageFlip (lo escribe JS por fotograma), pero sería la vía para
+  un **pliegue recto propio** sin JS por fotograma: keyframes de `clip-path` precalculados. Es un
+  lab de 30 min si Eneko prefiere el pliegue recto de C al arco de B.
+
+### 9.3 Qué se propone
+
+1. **B** (tiras anidadas) es la candidata para la 7: papel que se dobla, compositor, 0 KB, el DOM
+   real dentro. Pendiente de que Eneko diga que se lee como papel y de la cifra con el hilo ocupado.
+2. Si prefiere el pliegue recto de C: se hace propio con `clip-path` en keyframes, no con la
+   librería (§9.2).
+3. Si ninguna convence, la hoja rígida A con la standard sigue siendo la alternativa barata, y el
+   fundido cruzado es la de reduced-motion y móvil; el 3D real no entra.
+4. El anexo Q se corrige cuando haya respuesta: la 7 pasa de «hoja de dos caras» a «hoja en N
+   tiras» y el hojeo de seis hojas a 2N capas por hoja (hay que mirar si seis hojas en tiras a la
+   vez son demasiadas capas: sesenta caras).
+
+Fuentes: [StPageFlip en GitHub](https://github.com/Nodlik/StPageFlip) y su `src/`;
+[page-flip en npm](https://www.npmjs.com/package/page-flip); [react-pageflip](https://www.npmjs.com/package/react-pageflip);
+[CSS 3D Bending Effect, pen de _fbrz](https://codepen.io/_fbrz/pen/eYrNeW) (⚠ bloqueado);
+[3D Book Slider, Wawa Sensei](https://wawasensei.dev/tuto/3d-book-slider-landing-page-threejs-and-react);
+[Updates in hardware-accelerated animation capabilities, Chrome](https://developer.chrome.com/blog/hardware-accelerated-animations);
+[Moving clip-path to the compositor, paint-dev](https://groups.google.com/a/chromium.org/g/paint-dev/c/3bXUo0X3C5I).
+
 ## Lo que no se ha podido comprobar
 
 1. ~~Que las custom properties de `waapi.animate` (`x`, `rotateY`) no van al compositor.~~
@@ -852,3 +940,4 @@ lo que Eneko decida en los labs 03, 04, 05, 07, 09, 13 y 15».
    El ojo es de Eneko en Helium.
 8. **`adapters/three`**: citado, no probado (no hay Three.js en ningún proyecto hoy).
 9. Val Head y Rachel Nabors citados de memoria en §1, sin cita textual.
+10. **§9**: que 2N capas de tiras sigan fluidas con el hilo bloqueado, que diez tiras no dejen ver el polígono, y si `clip-path` animado por `Animation` nativa va al compositor en Chromium 153.

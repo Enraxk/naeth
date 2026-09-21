@@ -24,7 +24,7 @@
 </style>
 </head>
 <body>
-<h1>Lab de animación <small>19/09/2026 · 25 páginas · las nueve con ★ deciden algo del libro</small></h1>
+<h1>Lab de animación <small>19/09/2026 · 26 páginas · las diez con ★ deciden algo del libro</small></h1>
 <p>Cada página tiene arriba su pregunta de sí o no. Ábrela, pulsa, mira, y apunta aquí lo que decidas: las respuestas se guardan en este navegador (localStorage) y con «copiar respuestas» salen como texto para pegarlas en el chat y que vayan al anexo O.</p>
 <div class="aviso">Ábrelo en <b>Helium</b> en la pantalla principal (144 Hz). Con la pestaña en segundo plano las animaciones se pausan: vuelve a pulsar. El medidor cuenta fotogramas perdidos arriba a la derecha; la velocidad a 0,25× enseña la forma de las curvas. En el lab 09 (y en web/05), pulsa primero «ocupar el hilo» y luego «lanzar».</div>
 
@@ -41,6 +41,10 @@
 <div class="grupo"><h2>Los de la 6 y la 7 (20/09, anexo Q)</h2>
   <div class="lab decide"><span class="n">16</span><a href="animejs/16-pasar-pagina.html">Pasar página y hojear</a><span class="q">Pasa una, invierte a mitad, vuelve al índice con la cascada, ocupa el hilo. ¿320 ms con muelle se lee como papel? ¿La cascada de seis orienta o marea?</span><div class="r"><textarea data-k="16" placeholder="curva: … · ms: … · cascada: …"></textarea></div></div>
   <div class="lab decide"><span class="n">17</span><a href="animejs/17-dejar-en-estanteria.html">Cerrar y dejar en la estantería</a><span class="q">Coge el libro por la tela, llévalo, suéltalo en huecos distintos; prueba la rueda y Esc. ¿Cerrar y encoger se siente como coger un libro? ¿La estantería que hace sitio mientras llevas ayuda? ¿La regla del hueco acierta?</span><div class="r"><textarea data-k="17" placeholder="cierre: … · hace sitio: … · regla del hueco: …"></textarea></div></div>
+</div>
+
+<div class="grupo"><h2>El page curl (21/09, §9 del doc)</h2>
+  <div class="lab decide"><span class="n">w07</span><a href="web/07-page-curl.html">La página que se dobla: rígida, tiras anidadas, StPageFlip</a><span class="q">Pasa página en las tres, juega con tiras y arco, ocupa el hilo. ¿B se lee como papel? ¿Prefieres el arco de B o el pliegue recto de C? ¿Cuántas tiras y cuánto arco?</span><div class="r"><textarea data-k="w07" placeholder="A / B / C · tiras: … · arco: … · con el hilo ocupado: …"></textarea></div></div>
 </div>
 
 <div class="grupo"><h2>El medio (web/)</h2>
@@ -64,7 +68,7 @@
   <div class="lab"><span class="n">14</span><a href="animejs/14-layout.html">createLayout: la pila con cambio de padre</a><span class="q">¿Merece frente a animate:flip de Svelte?</span></div>
 </div>
 
-<div class="acciones"><button class="btn" id="abrir7">abrir las nueve en pestañas</button><button class="btn" id="copiar">copiar respuestas</button><button class="btn" id="borrar">borrar respuestas</button><span class="notas" id="estado"></span></div>
+<div class="acciones"><button class="btn" id="abrir7">abrir las diez en pestañas</button><button class="btn" id="copiar">copiar respuestas</button><button class="btn" id="borrar">borrar respuestas</button><span class="notas" id="estado"></span></div>
 <pre id="salida" hidden></pre>
 
 <script>

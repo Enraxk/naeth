@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 07 · la página que se dobla (page curl)</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --PW: 260px; --PH: 340px; --papel: #f1ece0; --tinta: #4b4740; --tela: #2b3340; }
+  .fila { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .celda { background: var(--mesa); border-radius: 10px; padding: 12px; }
+  .celda h3 { margin: 0 0 8px; font-size: 12px; color: var(--dim); font-weight: 500; }
+  .escena { height: 380px; min-height: 0; margin: 0; perspective: 1400px; perspective-origin: 50% 50%; background: radial-gradient(ellipse at 50% 70%, #1f2124, #121315 70%); }
+  .libro { position: absolute; left: 50%; top: 20px; width: calc(var(--PW) * 2 + 12px); height: calc(var(--PH) + 12px); transform: translateX(-50%); background: var(--tela); border-radius: 4px; transform-style: preserve-3d; }
+  .pag { position: absolute; top: 6px; width: var(--PW); height: var(--PH); background: var(--papel); color: var(--tinta); padding: 16px 18px; font: 10.5px/1.5 "JetBrains Mono", monospace; overflow: hidden; }
+  .pag pre { margin: 0; font: inherit; white-space: pre; }
+  .pag.izq { left: 6px; box-shadow: inset -20px 0 20px -20px rgba(0,0,0,.35); }
+  .pag.der { right: 6px; box-shadow: inset 20px 0 20px -20px rgba(0,0,0,.35); }
+  .pag .n { position: absolute; bottom: 8px; right: 18px; font-size: 10px; color: #6b7280; }
+  /* A · la hoja rígida del lab 16, como referencia. */
+  .hoja { position: absolute; left: 50%; top: 6px; width: var(--PW); height: var(--PH); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
+  .cara { position: absolute; inset: 0; backface-visibility: hidden; background: var(--papel); color: var(--tinta); padding: 16px 18px; font: 10.5px/1.5 "JetBrains Mono", monospace; overflow: hidden; }
+  .cara.verso { transform: rotateY(180deg); }
+  /* B · la hoja en tiras anidadas: cada tira gira un poco sobre su borde izquierdo y la rotación se acumula (arco). */
+  .tira { position: absolute; left: 0; top: 0; height: var(--PH); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
+  .tiras > .cara, .tira > .cara { width: 100%; padding: 0; overflow: visible; background: none; }
+  .tiras > .cara > .clip, .tira > .cara > .clip { position: absolute; top: 0; left: 0; height: 100%; overflow: hidden; background: var(--papel); }
+  .tiras > .cara > .clip > .contenido, .tira > .cara > .clip > .contenido { position: absolute; top: 0; width: var(--PW); height: var(--PH); padding: 16px 18px; color: var(--tinta); font: 10.5px/1.5 "JetBrains Mono", monospace; }
+  /* C · StPageFlip en modo HTML. */
+  #pf { position: absolute; left: 50%; top: 20px; transform: translateX(-50%); }
+  .pf-page { background: var(--papel); color: var(--tinta); padding: 16px 18px; font: 10.5px/1.5 "JetBrains Mono", monospace; overflow: hidden; }
+  .pf-page pre { margin: 0; font: inherit; white-space: pre; }
+  .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
+  .barra select { background: #2a2d31; color: var(--ink); border: 1px solid #3a3e44; border-radius: 6px; padding: 4px 8px; font: inherit; }
+</style>
+</head>
+<body>
+
+<h1>web 07 · la página que se dobla <small>page curl: tres vías sobre la misma página con texto real (21/09/2026)</small></h1>
+<p>Sale de la respuesta de Eneko al lab 16 (20/09): una lámina rígida girando no es papel. Tres vías, comparadas con la misma página: <b>A</b> la hoja rígida del lab 16 (referencia); <b>B</b> la hoja partida en <span id="nTiras">10</span> tiras anidadas, cada una girada un poco sobre su borde izquierdo (la rotación se acumula y sale un arco; el arco crece a mitad del giro y se aplana al llegar), cada tira con su propia <code>Animation</code> por <code>el.animate</code> sobre <code>transform</code> (compositor; el contenido es una copia de la página desplazada dentro de cada tira); <b>C</b> <a href="https://github.com/Nodlik/StPageFlip">StPageFlip</a> 2.0.7 (MIT, último commit abril de 2021, 10,5 KB gzip) en modo HTML: pliegue recto por <code>clip-path: polygon()</code> y <code>rotate</code> escritos por JS en cada fotograma desde un bucle <code>requestAnimationFrame</code> que no para nunca (<code>Render.ts:137-147</code>). Three.js (hoja como malla con huesos, tutorial de Wawa Sensei) no está aquí: la página sería una textura y en CDA es HTML vivo; queda escrito como coste en §9 del doc.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ¿B se lee como papel donde A se leía como una tarjeta? ¿C (el pliegue recto de StPageFlip) es lo que tenías en la cabeza, o es el arco de B? Ocupa el hilo y pasa página en las tres: la que se atasque no vale para 144 Hz.</div>
+
+<div class="barra">
+  <span class="grupo"><button id="sig">siguiente en las tres →</button><button id="ant">← anterior</button><button id="ocupar">ocupar el hilo 3 s</button></span>
+  <label>tiras <input type="range" id="tiras" min="4" max="16" step="2" value="10"> <output id="otiras">10</output></label>
+  <label>arco <input type="range" id="arco" min="0" max="80" step="5" value="40"> <output id="oarco">40°</output></label>
+  <label>ms <input type="range" id="dur" min="200" max="800" step="20" value="420"> <output id="odur">420</output></label>
+</div>
+
+<div class="fila">
+  <div class="celda"><h3>A · hoja rígida (lab 16)</h3><div class="escena" id="escA"><div class="libro" id="libA"><div class="pag izq"></div><div class="pag der"></div></div></div></div>
+  <div class="celda"><h3>B · tiras anidadas (arco por acumulación)</h3><div class="escena" id="escB"><div class="libro" id="libB"><div class="pag izq"></div><div class="pag der"></div></div></div></div>
+  <div class="celda"><h3>C · StPageFlip, modo HTML</h3><div class="escena" id="escC"><div id="pf"></div></div></div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">En B la esquina libre va por delante del lomo a mitad del giro y la hoja se aplana al caer; con «arco 0» B es A (sirve para ver qué aporta la curva). Las tiras se notan si son pocas (4) y desaparecen a partir de 10: el coste son 2 caras × tiras capas y una copia del DOM de la página por tira. En C el pliegue es recto (la hoja se dobla por una línea, como una servilleta), con sombra; el corte de <code>clip-path</code> cambia cada fotograma desde JS. Con el hilo ocupado: A y B siguen (compositor); C se congela (rAF). Fotogramas perdidos arriba a la derecha (miden el hilo, no las cajas).</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">Se rellena con la respuesta de Eneko: A, B o C, cuántas tiras, cuánto arco, y si hace falta el pliegue recto.</p>
+
+<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const LINEAS = `async def memory_search(query: str, limit: int = 8, path: str | None = None) -> list[Hit]:
+    """Busca en la memoria por similitud y devuelve los hits con su digest.
+
+    Args:
+        query: texto libre; se embebe con bge-m3 y se compara por coseno.
+        limit: tope de resultados; el visor pide 8 y el MCP 5.
+        path: filtra por proyecto/subtema con LIKE, sin fecha.
+
+    Returns:
+        Lista de Hit ordenada por score, cada uno con id, path, title y digest.
+
+    Notes:
+        El digest sustituye al contenido entero desde el 30/08/2026: es lo que
+        un agente lee para decidir si abre la nota. ⚠ Una nota recién escrita
+        puede no salir aún: su embedding está en cola del worker.
+    """
+    vec = await embed(query)
+    rows = await db.fetch(SQL_SEARCH, vec, limit, path)
+    return [Hit(**r) for r in rows]
+
+
+async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
+    """Escribe una memoria nueva y encola su embedding.
+
+    Raises:
+        DigestMissing: sin digest no se escribe (NAETH_DIGEST_ENFORCE=strict).
+        AuthorshipMissing: sin agent_model tampoco (AUTHORSHIP_ENFORCE=strict).
+    """
+    if not payload.digest:
+        raise DigestMissing()
+    if len(payload.digest) > 300:
+        raise DigestTooLong(len(payload.digest))
+    row = await db.fetchrow(SQL_INSERT, *payload.columns(), agent_model)
+    await queue.put(row["id"])
+    return Memory(**row)
+
+
+def taco(n: int, p: int) -> tuple[float, float]:
+    """Grosor del taco a cada lado de la página p, en px."""
+    t = min(6 + 0.25 * n, 80)
+    return round(t * (p - 1) / n, 1), round(t * (n - p) / n, 1)
+`.split(String.fromCharCode(10));
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  function pagina(p) { const ini = (p * 7) % (LINEAS.length - 16); return `<pre>${LINEAS.slice(ini, ini + 16).map(esc).join(String.fromCharCode(10))}</pre><span class="n">${p}</span>`; }
+  const PW = 260, PH = 340;
+  const dur = () => Number(document.getElementById('dur').value);
+  const EASE = 'cubic-bezier(.2,0,0,1)';
+  let s = 22;
+  const libA = document.getElementById('libA'), libB = document.getElementById('libB');
+  function pintaEstaticas() { for (const lib of [libA, libB]) { lib.querySelector('.izq').innerHTML = pagina(2 * s); lib.querySelector('.der').innerHTML = pagina(2 * s + 1); } }
+  pintaEstaticas();
+  let vivas = [];
+
+  // A · una hoja rígida: dos caras, una Animation.
+  function hojaRigida(lib, fwd, A, B) {
+    const h = document.createElement('div'); h.className = 'hoja';
+    h.innerHTML = `<div class="cara recto">${pagina(A)}</div><div class="cara verso">${pagina(B)}</div>`;
+    lib.appendChild(h);
+    const a = h.animate([{ transform: `rotateY(${fwd ? 0 : -180}deg)` }, { transform: `rotateY(${fwd ? -180 : 0}deg)` }], { duration: dur(), easing: EASE, fill: 'forwards' });
+    a.playbackRate = lab.speed; vivas.push(a);
+    return a.finished.then(() => h.remove()).catch(() => {});
+  }
+
+  // B · la hoja en N tiras anidadas. La tira 0 lleva el giro base; las demás reparten el arco, que crece y se apaga con sin(πt).
+  function hojaTiras(lib, fwd, A, B) {
+    const N = Number(document.getElementById('tiras').value), ARCO = Number(document.getElementById('arco').value), w = PW / N;
+    const raiz = document.createElement('div'); raiz.className = 'hoja tiras'; raiz.style.width = w + 'px';
+    let padre = raiz; const tiras = [];
+    for (let i = 0; i < N; i++) {
+      const t = i === 0 ? raiz : document.createElement('div');
+      if (i > 0) { t.className = 'tira'; t.style.left = w + 'px'; t.style.width = w + 'px'; padre.appendChild(t); }
+      // Dos caras por tira, cada una con un recorte de la página entera desplazado a su tira.
+      t.insertAdjacentHTML('afterbegin', `<div class="cara recto"><div class="clip" style="width:${w}px"><div class="contenido" style="left:${-i * w}px">${pagina(A)}</div></div></div><div class="cara verso"><div class="clip" style="width:${w}px"><div class="contenido" style="left:${-(N - 1 - i) * w}px">${pagina(B)}</div></div></div>`);
+      tiras.push(t); padre = t;
+    }
+    lib.appendChild(raiz);
+    // Muestreo de la curva en 25 puntos: el easing va dentro de los keyframes; el arco es sin(πt) repartido entre las N−1 tiras.
+    const K = 25, curva = bezier(.2, 0, 0, 1);
+    const fin = [];
+    for (let i = 0; i < N; i++) {
+      const kf = [];
+      for (let k = 0; k <= K; k++) {
+        const t = k / K, e = curva(t), base = fwd ? -180 * e : -180 * (1 - e);
+        const arco = ARCO * Math.sin(Math.PI * t) * (fwd ? -1 : 1);
+        const ang = i === 0 ? base - arco / 2 : arco / (N - 1);
+        kf.push({ transform: `rotateY(${ang}deg)`, offset: t });
+      }
+      const a = tiras[i].animate(kf, { duration: dur(), easing: 'linear', fill: 'forwards' });
+      a.playbackRate = lab.speed; vivas.push(a); fin.push(a.finished);
+    }
+    return Promise.all(fin).then(() => raiz.remove()).catch(() => {});
+  }
+  /** Bezier cúbica como función t → progreso (Newton sobre x), para meter el easing en los keyframes. */
+  function bezier(x1, y1, x2, y2) {
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t, DX = (t) => (3 * ax * t + 2 * bx) * t + cx;
+    return (x) => { let t = x; for (let i = 0; i < 6; i++) { const d = DX(t); if (!d) break; t -= (X(t) - x) / d; } return Y(t); };
+  }
+
+  function pasa(fwd) {
+    const target = s + (fwd ? 1 : -1); if (target < 1 || target > 90) return;
+    Meter.begin('curl');
+    const A = fwd ? 2 * s + 1 : 2 * target + 1, B = fwd ? 2 * target : 2 * s;
+    for (const lib of [libA, libB]) { if (fwd) lib.querySelector('.der').innerHTML = pagina(2 * target + 1); else lib.querySelector('.izq').innerHTML = pagina(2 * target); }
+    s = target;
+    Promise.all([hojaRigida(libA, fwd, A, B), hojaTiras(libB, fwd, A, B)]).then(() => { pintaEstaticas(); Meter.end(); });
+    if (fwd) pf.flipNext(); else pf.flipPrev();
+  }
+
+  // C · StPageFlip con seis páginas de nuestro texto.
+  const pfEl = document.getElementById('pf');
+  for (let p = 44; p < 50; p++) pfEl.insertAdjacentHTML('beforeend', `<div class="pf-page" data-density="soft">${pagina(p)}</div>`);
+  const pf = new St.PageFlip(pfEl, { width: PW, height: PH, size: 'fixed', showCover: false, usePortrait: false, flippingTime: dur(), maxShadowOpacity: .5, drawShadow: true, showPageCorners: false, useMouseEvents: true, mobileScrollSupport: false });
+  pf.loadFromHTML(document.querySelectorAll('.pf-page'));
+
+  document.getElementById('sig').addEventListener('click', () => pasa(true));
+  document.getElementById('ant').addEventListener('click', () => pasa(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') pasa(true); if (e.key === 'ArrowLeft') pasa(false); });
+  for (const [id, out, suf] of [['tiras', 'otiras', ''], ['arco', 'oarco', '°'], ['dur', 'odur', '']]) document.getElementById(id).addEventListener('input', (e) => { document.getElementById(out).textContent = e.target.value + suf; if (id === 'tiras') document.getElementById('nTiras').textContent = e.target.value; });
+  lab.onSpeed((v) => vivas.forEach((a) => { a.playbackRate = v; }));
+  document.getElementById('ocupar').addEventListener('click', () => {
+    const fin = performance.now() + 3000;
+    const bloquea = () => { const t = performance.now() + 40; while (performance.now() < t) {} if (performance.now() < fin) setTimeout(bloquea, 10); };
+    bloquea();
+  });
+</script>
+</body>
+</html>
