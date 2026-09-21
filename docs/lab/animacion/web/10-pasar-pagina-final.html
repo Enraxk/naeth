@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 10 · pasar página, la hoja final: una función con pesos sortea cada giro</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --PW: 300px; --PH: 400px; --papel: #f1ece0; --tinta: #4b4740; --num: #6b7280; --tela: #2b3340; }
+  html[data-oscuro] { --papel: #22262c; --tinta: #c9d1d9; --num: #8a929e; }
+  .doble { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+  .escena { height: 520px; perspective: 1400px; perspective-origin: 50% 50%; background: radial-gradient(ellipse at 50% 70%, #1f2124, #121315 70%); }
+  .libro { position: absolute; left: 50%; top: 50%; width: calc(var(--PW) * 2 + 12px); height: calc(var(--PH) + 12px); transform: translate(-50%, -50%); background: var(--tela); border-radius: 4px; transform-style: preserve-3d; }
+  .pag, .cara { position: absolute; top: 6px; width: var(--PW); height: var(--PH); background: var(--papel); color: var(--tinta); padding: 20px 24px; font: 11.5px/1.55 "JetBrains Mono", monospace; overflow: hidden; }
+  .pag pre, .cara pre { margin: 0; font: inherit; white-space: pre; }
+  .pag { transform: translateZ(.5px); }   /* medio píxel por debajo de la hoja: nunca la misma z */
+  .pag.izq { left: 6px; box-shadow: inset -24px 0 24px -24px rgba(0,0,0,.35); }
+  .pag.der { right: 6px; box-shadow: inset 24px 0 24px -24px rgba(0,0,0,.35); }
+  .pag .n, .cara .n { position: absolute; bottom: 10px; font-size: 10.5px; color: var(--num); }
+  .pag.izq .n, .cara.verso .n { left: 24px; } .pag.der .n, .cara.recto .n { right: 24px; }
+  .hoja { position: absolute; left: 50%; top: 6px; width: var(--PW); height: var(--PH); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
+  .cara { top: 0; inset: 0; backface-visibility: hidden; }
+  .cara.recto { box-shadow: inset 24px 0 24px -24px rgba(0,0,0,.35); }
+  .cara.verso { transform: rotateY(180deg); box-shadow: inset -24px 0 24px -24px rgba(0,0,0,.35); }
+  .velo { position: absolute; inset: 0; background: rgba(0,0,0,.5); opacity: 0; pointer-events: none; }
+  .som { position: absolute; top: 6px; width: var(--PW); height: var(--PH); opacity: 0; pointer-events: none; }
+  .som.i { left: 6px; background: linear-gradient(90deg, transparent, rgba(0,0,0,.6)); }
+  .som.d { right: 6px; background: linear-gradient(270deg, transparent, rgba(0,0,0,.6)); }
+  html[data-oscuro] .som.i { background: linear-gradient(90deg, transparent, rgba(0,0,0,.85)); }
+  html[data-oscuro] .som.d { background: linear-gradient(270deg, transparent, rgba(0,0,0,.85)); }
+  .panel { background: var(--mesa); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--dim); }
+  .panel h3 { margin: 0 0 8px; font-size: 12px; color: var(--ink); font-weight: 500; }
+  .panel table { border-collapse: collapse; width: 100%; }
+  .panel td { padding: 3px 4px; border-bottom: 1px solid #2a2d31; }
+  .panel td:last-child { text-align: right; }
+  .panel input[type=number] { width: 58px; background: #16181b; color: var(--ink); border: 1px solid #2a2d31; border-radius: 4px; padding: 2px 4px; font: inherit; text-align: right; }
+  .sorteo { margin-top: 12px; font-family: "JetBrains Mono", monospace; color: var(--ink); white-space: pre-line; }
+  .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+
+<h1>web 10 · pasar página, la hoja final <small>una función con pesos sortea cada giro (21/09/2026, 12:03)</small></h1>
+<p>Cierra las rondas del 08 y el 09: todas las hojas llevan sombra móvil, la elevación con su sombra proporcional, a veces el velo de canto, y <b>cada giro se sortea</b> con una función de pesos: la curva (standard o inOutCubic), la elevación (baja, media o alta, y luego un poco de desvío continuo), el velo (sí o no) y el tiempo (400 ms ± un porcentaje). Los pesos se editan a la derecha y el sorteo de cada giro se enseña debajo. En el hojeo (varias hojas), cada hoja sortea la suya: por eso una cascada nunca es una copia de la anterior.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> con estos pesos, ¿veinte giros seguidos se sienten como un libro (parecidos, nunca iguales) o como una tómbola? Si algún sorteo concreto te chirría, el panel dice qué salió: se ajusta el peso, no la sensación.</div>
+
+<div class="barra">
+  <span class="grupo"><button id="sig">siguiente →</button><button id="ant">← anterior</button><button id="hojear">al índice (hojear)</button><button id="ocupar">ocupar el hilo 3 s</button><button id="modo">papel oscuro</button></span>
+</div>
+
+<div class="doble">
+  <div class="escena"><div class="libro" id="libro"><div class="pag izq" id="izq"></div><div class="pag der" id="der"></div><div class="som i" id="somI"></div><div class="som d" id="somD"></div></div></div>
+  <div class="panel">
+    <h3>Pesos del sorteo</h3>
+    <table id="pesos"></table>
+    <div class="sorteo" id="sorteo">todavía no se ha pasado ninguna página</div>
+  </div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Cada giro es distinto y ninguno llama la atención por sí mismo: si uno lo hace, el panel dice cuál fue el sorteo (curva, elevación, velo, ms) y se toca ese peso. La sombra móvil escala con la elevación (.3 a los 12 px, .55 a los 40): una hoja que sube más proyecta más. El velo de canto solo la mitad de las veces por defecto. En papel oscuro las sombras son un 40 % más densas (ya visto en el 09). Con «ocupar el hilo» la hoja sigue.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">Se rellena con la respuesta de Eneko: los pesos que se quedan.</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const LINEAS = `async def memory_search(query: str, limit: int = 8, path: str | None = None) -> list[Hit]:
+    """Busca en la memoria por similitud y devuelve los hits con su digest.
+
+    Args:
+        query: texto libre; se embebe con bge-m3 y se compara por coseno.
+        limit: tope de resultados; el visor pide 8 y el MCP 5.
+        path: filtra por proyecto/subtema con LIKE, sin fecha.
+
+    Returns:
+        Lista de Hit ordenada por score, cada uno con id, path, title y digest.
+
+    Notes:
+        El digest sustituye al contenido entero desde el 30/08/2026: es lo que
+        un agente lee para decidir si abre la nota. ⚠ Una nota recién escrita
+        puede no salir aún: su embedding está en cola del worker.
+    """
+    vec = await embed(query)
+    rows = await db.fetch(SQL_SEARCH, vec, limit, path)
+    return [Hit(**r) for r in rows]
+
+
+async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
+    """Escribe una memoria nueva y encola su embedding.
+
+    Raises:
+        DigestMissing: sin digest no se escribe (NAETH_DIGEST_ENFORCE=strict).
+        AuthorshipMissing: sin agent_model tampoco (AUTHORSHIP_ENFORCE=strict).
+    """
+    if not payload.digest:
+        raise DigestMissing()
+    if len(payload.digest) > 300:
+        raise DigestTooLong(len(payload.digest))
+    row = await db.fetchrow(SQL_INSERT, *payload.columns(), agent_model)
+    await queue.put(row["id"])
+    return Memory(**row)
+
+
+def taco(n: int, p: int) -> tuple[float, float]:
+    """Grosor del taco a cada lado de la página p, en px."""
+    t = min(6 + 0.25 * n, 80)
+    return round(t * (p - 1) / n, 1), round(t * (n - p) / n, 1)
+`.split(String.fromCharCode(10));
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  function pagina(p) { const ini = (p * 7) % (LINEAS.length - 20); return `<pre>${LINEAS.slice(ini, ini + 20).map(esc).join(String.fromCharCode(10))}</pre><span class="n">${p}</span>`; }
+
+  // ---- La función de pesos -------------------------------------------------------------------
+  // Editable en el panel. Es lo que pasa al anexo Q como especificación de la 7.
+  const PESOS = {
+    'curva standard (.2,0,0,1)': 60, 'curva inOutCubic': 40,
+    'elevación baja (12 px)': 25, 'elevación media (24 px)': 50, 'elevación alta (40 px)': 25,
+    'desvío de la elevación ±%': 25,
+    'velo de canto (% de las veces)': 50,
+    'tiempo base (ms)': 400, 'desvío del tiempo ±%': 6,
+  };
+  const CURVAS = { 'curva standard (.2,0,0,1)': [.2, 0, 0, 1], 'curva inOutCubic': [.65, 0, .35, 1] };
+  const ELEV = { 'elevación baja (12 px)': 12, 'elevación media (24 px)': 24, 'elevación alta (40 px)': 40 };
+  const tabla = document.getElementById('pesos');
+  for (const k in PESOS) tabla.insertAdjacentHTML('beforeend', `<tr><td>${k}</td><td><input type="number" data-k="${k}" value="${PESOS[k]}" min="0" step="1"></td></tr>`);
+  tabla.addEventListener('input', (e) => { const k = e.target.dataset.k; if (k) PESOS[k] = Number(e.target.value); });
+  /** Elige una clave según sus pesos. */
+  function elige(claves) {
+    const total = claves.reduce((m, k) => m + PESOS[k], 0); let r = Math.random() * total;
+    for (const k of claves) { r -= PESOS[k]; if (r < 0) return k; }
+    return claves[claves.length - 1];
+  }
+  const desvia = (v, pct) => v * (1 + (Math.random() * 2 - 1) * pct / 100);
+  /** El sorteo de una hoja: curva, elevación, velo, sombra (proporcional a la elevación) y tiempo. */
+  function sortea() {
+    const kc = elige(Object.keys(CURVAS)), ke = elige(Object.keys(ELEV));
+    const lift = Math.round(desvia(ELEV[ke], PESOS['desvío de la elevación ±%']));
+    const velo = Math.random() * 100 < PESOS['velo de canto (% de las veces)'];
+    const sombra = Math.min(.7, .3 + (lift - 12) * .009);
+    const dur = Math.round(desvia(PESOS['tiempo base (ms)'], PESOS['desvío del tiempo ±%']));
+    return { curva: CURVAS[kc], nombre: kc.replace('curva ', ''), lift, velo, sombra: velo ? sombra * .7 : sombra, veloOp: velo ? .3 : 0, dur };
+  }
+
+  function bezier(x1, y1, x2, y2) {
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t, DX = (t) => (3 * ax * t + 2 * bx) * t + cx;
+    return (x) => { let t = x; for (let i = 0; i < 6; i++) { const d = DX(t); if (!d) break; t -= (X(t) - x) / d; } return Y(t); };
+  }
+
+  const N = 91, libro = document.getElementById('libro'), izq = document.getElementById('izq'), der = document.getElementById('der');
+  let s = 22, vivas = [], posadas = [];
+  function pinta() { izq.innerHTML = pagina(2 * s); der.innerHTML = pagina(2 * s + 1); }
+  pinta();
+
+  /** Una hoja con su sorteo; z en el espacio del libro (antes que rotateY), de salida y de llegada. */
+  function hoja(fwd, A, B, delay, zIni, zFin, bloque) {
+    const p = sortea();
+    const h = document.createElement('div'); h.className = 'hoja';
+    h.innerHTML = `<div class="cara recto">${pagina(A)}<div class="velo"></div></div><div class="cara verso">${pagina(B)}<div class="velo"></div></div>`;
+    libro.appendChild(h);
+    const K = 26, f = bezier(...p.curva), kf = [], kv = [], dur = bloque ? p.dur + 100 : p.dur;
+    for (let k = 0; k <= K; k++) {
+      const t = k / K, e = f(t), a = fwd ? -180 * e : -180 * (1 - e), arco = Math.sin(Math.PI * e);
+      kf.push({ transform: `translateZ(${zIni + (zFin - zIni) * t + p.lift * arco}px) rotateY(${a}deg)`, offset: t });
+      kv.push({ opacity: p.veloOp * arco, offset: t });
+    }
+    const a = h.animate(kf, { duration: dur, delay, easing: 'linear', fill: 'forwards' }); a.playbackRate = lab.speed; vivas.push(a);
+    if (p.veloOp) h.querySelectorAll('.velo').forEach((el) => { const x = el.animate(kv, { duration: dur, delay, easing: 'linear', fill: 'forwards' }); x.playbackRate = lab.speed; vivas.push(x); });
+    const som = document.getElementById(fwd ? 'somI' : 'somD');
+    const x = som.animate([{ opacity: 0 }, { opacity: p.sombra, offset: .5 }, { opacity: 0 }], { duration: dur, delay, easing: 'linear' }); x.playbackRate = lab.speed; vivas.push(x);
+    document.getElementById('sorteo').textContent = `último sorteo: ${p.nombre} · elevación ${p.lift} px · ${p.velo ? 'con velo' : 'sin velo'} · sombra ${p.sombra.toFixed(2)} · ${p.dur} ms`;
+    return a.finished.then(() => { posadas.push(h); }).catch(() => {});
+  }
+  function ir(target) {
+    target = Math.max(1, Math.min(N, target)); if (target === s) return;
+    const dir = Math.sign(target - s), n = Math.abs(target - s);
+    Meter.begin(n === 1 ? 'pasar' : 'hojear');
+    const steps = [];
+    if (n <= 3) for (let i = 1; i <= n; i++) steps.push({ from: s + dir * (i - 1), to: s + dir * i });
+    else { const salto = target - dir * 6; steps.push({ from: s, to: salto, bloque: true }); for (let i = 1; i <= 6; i++) steps.push({ from: salto + dir * (i - 1), to: salto + dir * i }); }
+    if (dir > 0) der.innerHTML = pagina(2 * target + 1); else izq.innerHTML = pagina(2 * target);
+    s = target;
+    const k = steps.length;
+    const fin = steps.map((st, i) => {
+      const fwd = st.to > st.from, A = fwd ? 2 * st.from + 1 : 2 * st.to + 1, B = fwd ? 2 * st.to : 2 * st.from;
+      const delay = st.bloque ? 0 : (n <= 3 ? i * 45 : 200 + 45 * (k - 2) * Math.pow((i - 1) / Math.max(1, k - 2), 2));
+      return hoja(fwd, A, B, delay, (k - i) * .6 + 1, (i + 1) * .6 + 1, !!st.bloque);
+    });
+    Promise.all(fin).then(() => { pinta(); posadas.splice(0).forEach((h) => h.remove()); vivas = []; Meter.end(); });
+  }
+  document.getElementById('sig').addEventListener('click', () => ir(s + 1));
+  document.getElementById('ant').addEventListener('click', () => ir(s - 1));
+  document.getElementById('hojear').addEventListener('click', () => ir(s === 1 ? 22 : 1));
+  document.getElementById('modo').addEventListener('click', (e) => { const on = document.documentElement.toggleAttribute('data-oscuro'); e.target.textContent = on ? 'papel claro' : 'papel oscuro'; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') ir(s + 1); if (e.key === 'ArrowLeft') ir(s - 1); if (e.key === 'Home') ir(1); });
+  lab.onSpeed((v) => vivas.forEach((a) => { a.playbackRate = v; }));
+  document.getElementById('ocupar').addEventListener('click', () => {
+    const fin = performance.now() + 3000;
+    const bloquea = () => { const t = performance.now() + 40; while (performance.now() < t) {} if (performance.now() < fin) setTimeout(bloquea, 10); };
+    bloquea();
+  });
+</script>
+</body>
+</html>

@@ -665,11 +665,22 @@ Solo la hoja lleva `preserve-3d` y `will-change`; las páginas de debajo son pla
 
 | Etiqueta | ms | La hoja | Curva | El resto |
 |---|---|---|---|---|
-| `pasa` | 0 a 320 | ry 0 → −180 (hacia atrás es 0 → 180 desde la izquierda, la misma hoja al revés) | `spring({ duration: 320, bounce: .1 })`: arranca como un dedo que empuja y cae con un golpe seco pequeño, que es lo que hace el papel | sombra móvil sobre las páginas de debajo: un elemento por lado, opacity 0 → .3 → 0 con el pico a los 160 (90°); el degradado del pliegue va fijo en cada cara de la hoja y no cambia |
+| `pasa` | 0 a 400 (± 6 %) | `translateZ(z)` **antes** de `rotateY` (espacio del libro, nunca la misma z que las páginas fijas: ver abajo); ry 0 → −180 (hacia atrás, −180 → 0); la hoja **se eleva** a mitad del giro (`sin(πt)`, 12, 24 o 40 px sorteados, ±25 %) | **sorteada por giro**: standard `(.2,0,0,1)` al 60 % o `inOutCubic` al 40 %. **Sin rebote**: un muelle con `bounce` gira más de 180° y atraviesa la página de abajo | sombra móvil sobre las páginas de debajo, un elemento por lado, opacity 0 → S → 0 con el pico a 90°, con S proporcional a la elevación (.3 a 12 px, .55 a 40); la mitad de las veces, además, un velo de canto en la hoja (opacity 0 → .3 → 0). Sin la esquina (`rotateX`): la hoja está cosida al lomo |
 | `taco` | al acabar | el taco recalcula: T·(p−1)/N a la izquierda y T·(N−p)/N a la derecha. Por una página son 0,28 px (Naeth, N = 182): **se pone, no se anima** | | |
 
-Material `medium` (250 a 400) y la regla del anexo F (< 400 ms). Más corto que 320 y el papel no
-se lee como papel; lo probaron Minecraft y Skyrim, referencias del anexo H.
+**Decidido el 21/09/2026 (11:32 a 12:10, labs `animejs/16` y `web/07` a `web/10`)**: la hoja rígida de
+dos caras se queda (el page curl se buscó y se descartó: las tiras no gustan y el pliegue recto de
+StPageFlip es «funcional y sin más», §9 del doc de animación); **400 ms**, no los 320 de Material
+`medium` (C ganó a A en igualdad de condiciones); **todas las hojas con sombra y elevación**, y
+**cada giro se sortea** con una función de pesos (`web/10`: curva 60/40, elevación 25/50/25 con
+±25 %, velo el 50 %, tiempo ±6 %), porque «no todas las páginas se levantan igual: se nota que ha
+cambiado algo, pero es muy pequeño y no molesta» (el «irregular» de la regla 8). Las sombras negras
+valen también sobre el papel oscuro del modo oscuro (un 40 % más densas). Tres trampas que costaron
+la mañana y van a la skill: (1) la hoja y lo que tiene debajo **nunca a la misma z**, ni al salir ni
+al llegar (z-fighting: la página vieja asoma y el sombreado del lomo «desaparece»); (2) `translateZ`
+**antes** de `rotateY`, o al girar 180° cambia de signo; (3) la hoja y la página fija con **los
+mismos estilos exactos** (en el visor son el mismo componente), y la fija se repinta cuando
+aterriza **su** hoja, no cuando acaban todas.
 
 **Hojear** («volver al índice» desde la p, «seguir por donde ibas» desde el índice, «seguir por
 memory_search, página 21» de la portadilla, «anteportada y créditos» y abrir por atrás desde la
