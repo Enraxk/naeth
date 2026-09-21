@@ -5,6 +5,12 @@ todo lo que se cita: `docs/discovery/cda-vista-diseno-2026-09-15.md` (anexos D a
 `docs/discovery/animacion-en-codigo-2026-09-19.md`. Las imágenes de referencia están en
 `docs/design/exports/` y en la página publicada para Tania (enlace en el informe de Claude).
 
+> **Aviso del 21/09/2026.** La biblioteca puede pasar a tener **etapas** (de una caja de mudanza a
+> una estantería por módulos) y una primera vez en la que los libros llegan **en cajas** y el mueble
+> se monta. Está por ver (`docs/discovery/cda-biblioteca-espacio-2026-09-21.md`, familia 1) y Eneko
+> te lo contará él. **No cambies nada de lo que sigue todavía**: la cámara (encargo 1), el animatic
+> (3) y las texturas (4) valen igual; solo las composiciones del encargo 2 podrían crecer.
+
 ---
 
 ## 1 · Qué es esto, en cinco líneas
