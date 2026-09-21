@@ -83,6 +83,7 @@
   const libro = document.getElementById('libro'), izq = document.getElementById('izq'), der = document.getElementById('der');
   let s = 22;                         // doble página actual: izquierda 2s, derecha 2s+1 (la 44 | 45)
   let vivas = [];                     // { anim, hoja, step }
+  const posadas = [];                 // hojas que ya aterrizaron y esperan a que acabe la tanda
   const titulos = ['ÍNDICE', 'Prólogo', 'Capítulo', 'memory_search', 'memory_add', 'relation_add', 'system_status', 'worker', 'sync'];
 
   // Texto de verdad en cada página (código de Naeth y prosa), no barras: las barras parecían «texto sin cargar».
@@ -184,7 +185,9 @@ def taco(n: int, p: int) -> tuple[float, float]:
     sa.playbackRate = lab.speed;
     const v = { anim, hoja, step, fwd, sa };
     vivas.push(v);
-    anim.then(() => { hoja.remove(); vivas = vivas.filter((w) => w !== v); if (!vivas.length) { pinta(); Meter.end(); } });
+    // La hoja se queda puesta hasta que aterriza la última de la tanda: si se quitara al acabar la suya, la página fija
+    // vieja asomaría hasta pinta() (es lo que pasaba en web/08 con las celdas cortas). Al final se pinta y se quitan todas.
+    anim.then(() => { vivas = vivas.filter((w) => w !== v); posadas.push(hoja); if (!vivas.length) { pinta(); posadas.splice(0).forEach((h) => h.remove()); Meter.end(); } });
     return v;
   }
 
