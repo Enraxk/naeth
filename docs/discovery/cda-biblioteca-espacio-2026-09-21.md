@@ -7,7 +7,7 @@ Eneko: «esto sí se siente como físicas»), y a las 18:38 Eneko propuso conver
 parecido a un juego: «ir desbloqueando mejores estanterías dependiendo de la cantidad de libros que
 voy leyendo». A las 18:50 añadió el contexto que faltaba (ver «Lo que este documento no decide»).
 
-**Alcance.** La biblioteca de CDA (la estantería del anexo P, los libros que hoy son repos) como un
+**Alcance (ampliado a las 20:00, ver Parte II).** La biblioteca de CDA (la estantería del anexo P, los libros que hoy son repos) como un
 espacio que muestra lo que has hecho en vez de contártelo. Cinco familias de mecánicas, las cinco
 aceptadas por Eneko el 21/09 a las 19:00 «pero hay que refinar cada una una a una». Fuera:
 puntos, insignias, rachas, niveles, y cualquier cifra visible de «leídos» fuera de la solapa y de la
@@ -166,3 +166,132 @@ distintos de verdad (`inkerlum` frente a `fiscal`), crecerán solos, y tendrán 
 estantería no puede asumir que los libros son solo repos. Y **el encargo a Tania puede crecer**
 (composiciones con libros de grosores distintos y con la biblioteca en varias etapas): se le dice
 cuando esté decidida la familia 1, no antes.
+
+---
+
+# Parte II · La habitación en 3D (21/09/2026, 20:00 a 20:15, dos rondas de preguntas)
+
+A las 20:00, tras jugar el lab 12, Eneko subió la apuesta: «yo esto ya lo veo más como que hay una
+habitación, vacía, y solo hay unas cajas con libros; te acercas a la caja, la abres y escoges por
+qué libro empezar; cuando te lees el primero desbloqueas una mesa en la que sentarte a leer o
+escribir; siempre puedes leer desde donde quieras, sentado, de pie, tumbado; cuando te hayas leído
+dos o tres, puedes pedir muebles armados y colocarlos, o piezas y montar el mueble a tu gusto».
+Y la pregunta: «dime si se me está yendo la olla o es buena idea para añadirme experiencia y
+porfolio; si hay que usar Unreal o algún motor, se usa; si podemos hacerlo nosotros, lo hacemos».
+
+Respuesta dada y aceptada: no se va la olla, se va el producto en una frase («moverte por el
+entorno 3D»), y **Unreal no**: para web es pixel streaming (una GPU por usuario) o una exportación
+experimental; la lectura es HTML y en un motor sería una textura (lo pagamos con el page curl). Si
+hay habitación es **Three.js en la misma página**, con el DOM del lector delante, y las físicas con
+**Rapier** (3D, wasm). Vale más como porfolio (un producto web en 3D que se abre desde un enlace) y
+lo que Tania modele pasa a usarse de verdad como glTF. **Eneko: «mejor 3D en web».**
+
+## II.1 Lo decidido en las dos rondas (20:04 y 20:10)
+
+| Pregunta | Respuesta de Eneko | Consecuencia |
+|---|---|---|
+| Moverse | **La cámara va a sitios, y además se puede andar libre**; en móvil solo sitios. «Tengo que ver bien los pros y contras, creativos y técnicos» | Dos modos de cámara; el paseo es opcional y llega después (II.2) |
+| Leer | **Según la postura**, tirando a salir a un lector HTML a pantalla completa «con una pequeña animación»; o seguir viendo el entorno con un botón de **modo concentración** que pone el HTML a pantalla completa; **tumbado** se ve el libro normal y el techo; **en móvil, el personaje no está en casa**: lo lee desde su propio móvil (el tuyo) | Tres posturas = tres modos ya diseñados: de pie es hojear delante de la balda (lectura rápida, sin anotar), sentado es la mesa (anexos H a L, el trabajo), tumbado es el móvil (anexo F). Modo concentración = el lector actual; «con entorno» = el lector en un marco con la habitación detrás, desenfocada |
+| Orden | **Se salta la estantería CSS**: CDA v1 es el libro en HTML (ya diseñado) y la biblioteca directamente en 3D | La estantería de los anexos D, F y P no se construye en CSS; los labs 11 y 12 son el diseño de la mecánica, no la implementación; las físicas 2D pasan a Rapier |
+| Cómo lo construye | **Aprende Three.js con ayuda, mixto**: «llevo mucho sin programar a mano; mi experiencia va a ser de lo que nos encontramos los dos» | La base (cámara, físicas, glTF, transición) la monta Claude explicándola; la escena, la luz y la colocación las toca Eneko; cada sesión deja algo que él ha escrito |
+| Arte | **Primitivas ahora, Tania para producción después** (1 y 2) | El motor se construye con cajas grises; Tania entra cuando la mecánica esté probada, con un pipeline 3ds Max → glTF y presupuestos fijados (II.4) |
+| Hardware | **Su PC a 144 Hz y un portátil con gráfica integrada a 60** | Presupuesto de polígonos, texturas y luces desde el día uno; se mide en los dos |
+| La habitación v1 | «Hazme una lista y Tania y yo lo discutimos. Lo mismo con la estética» | II.4 y II.5 |
+| Tiempo | «De momento no tengo límite» | La estimación se da en horas, no en semanas (II.6) |
+
+## II.2 Andar libre: pros y contras, para decidirlo mirando
+
+**Creativos, a favor**: presencia (la habitación es un sitio, no una escena); descubrir (mirar
+detrás de la estantería, la ventana); el camino hasta el mueble hace que «desbloquear» se sienta
+ganado; es lo que hace únicos a Unpacking y a los juegos de casa.
+**Creativos, en contra**: el peaje del uso diario (la vez treinta que quieras mirar una función);
+el mareo (cámara en primera persona a 60 Hz en portátil); «¿dónde dejé el libro?» obliga a tener
+el catálogo desde el principio; y en móvil no existe, así que la experiencia se parte en dos.
+**Técnicos, a favor**: Three.js lo da casi gratis (`PointerLockControls`, un colisionador de
+cápsula contra la malla); el estado del mundo ya es 3D, no cambia nada.
+**Técnicos, en contra**: colisiones y navegación (no atravesar la mesa, no salir por la ventana);
+los atajos de teclado del paseo (WASD) chocan con los del lector; **todo el cuarto tiene que estar
+acabado desde todos los ángulos** (con cámara a sitios, Tania pule lo que la cámara ve; con paseo,
+pule todo: duplica su trabajo); el rendimiento se presupuesta para el peor punto de vista, no para
+tres encuadres; y accesibilidad (`prefers-reduced-motion`: el paseo se sustituye por los sitios).
+**Propuesta**: cámara a sitios como modo por defecto y único de la v1; «modo paseo» como interruptor
+que llega en una versión posterior, cuando la habitación esté acabada por todos los lados. Se decide
+mirando el piloto (II.6, F0), no ahora.
+
+## II.3 Cómo se lee en cada postura (propuesta para dibujar)
+
+- **De pie**, delante de la balda: pulsas un libro, sale y se abre en la mano (la transición 5,
+  anexos O y Q, en 3D), y se **hojea**: índice, pasar página, buscar. Sin anotar, sin minimapa. Es
+  la consulta rápida. Cerrar y dejar es la 6 (con Rapier, la mecánica del lab 11).
+- **Sentado**, en la mesa: el libro va a la mesa, la cámara baja a la silla y aparece **el lector
+  completo** (la doble página de los anexos H a L: anotaciones, minimapa, tira). Dos formas que
+  Eneko quiere ver las dos: (a) el lector en un marco con la habitación detrás, desenfocada, y el
+  botón de **modo concentración** que lo pone a pantalla completa; (b) salir directo a pantalla
+  completa con una pequeña animación. Se dibujan las dos.
+- **Tumbado**: el libro de frente y **el techo** detrás (la lámpara desde abajo). Es la lectura
+  larga sin trabajar: sin tira, sin minimapa, letra más grande. En escritorio es un modo; en móvil
+  es el único modo, y **el personaje no está en casa**: quien entra desde el móvil ve el libro en
+  el móvil, y en la habitación (si alguien mira desde el PC) no hay nadie. Detalle que cuesta cero
+  y cuenta la historia.
+- **Modo concentración** en todas: oculta la habitación entera; es el lector HTML actual, así que
+  no hay dos lectores.
+
+## II.4 La lista para Tania y Eneko (qué hay en la habitación; ellos deciden qué entra en la v1)
+
+Estructura: suelo, tres paredes y **techo** (se ve tumbado), una ventana (la luz de la familia 5),
+una puerta (por donde «llegan» las cajas y los paquetes), un rodapié y un enchufe (los detalles que
+hacen casa). Muebles: **cajas de mudanza** (cerrada, abierta, vacía y aplastada), **paquetes planos**
+de mueble (tablón, mueble pequeño, módulo de estantería), **la estantería por módulos** (un módulo
+que se repite, con sus dos costados y sus baldas), **la mesa** y **la silla**, **la lámpara** de mesa
+y la de techo, **la papelera**, una alfombra (opcional). El libro: el ya encargado (encargos 1 a 4
+del brief), ahora **como malla glTF de producción** y no solo como referencia; libros de nueve
+tamaños y grosores como en el lab 11, con la tela T1 a T4. Piezas del constructor (tablas,
+escuadras, baldas sueltas): **no en la v1**. Props (planta, taza, gato): a discutir; el gato sigue
+en la lista para tacharlo a conciencia. Presupuesto para la integrada a 60 Hz, propuesto y ⚠ sin
+medir: menos de 150k triángulos en escena, texturas de 1024 (2048 solo la tela del libro), una luz
+direccional con sombra y una o dos puntuales sin sombra, y todo lo estático horneado (lightmap) si
+hace falta. Se mide en el piloto y se ajusta.
+
+## II.5 Estética: tres direcciones para empezar la conversación
+
+1. **Biblioteca de noche**: madera oscura, lámpara cálida, sombras largas. Casa con el modo oscuro
+   del visor (la mesa siempre oscura, anexo H) y esconde límites de polígonos en la penumbra.
+2. **Estilizado, a lo Unpacking**: formas simples, colores planos, sin texturas realistas. Es lo más
+   barato de modelar y de mover, y lo más difícil de que parezca «una demo de Three.js».
+3. **Estudio de día**: luz de ventana, madera clara, paredes blancas. Bonito, caro (luz global) y
+   choca con el visor oscuro salvo que el modo claro del anexo H se extienda a la habitación.
+Recomendación para discutir: la 1 como base con la sencillez de formas de la 2. Se decide con Tania
+y con dos o tres renders suyos, como el libro.
+
+## II.6 Alcance y estimación (con base; lo real se apunta al lado)
+
+**Base.** No hay Three.js en ningún proyecto de Eneko: no existe un «real» previo. Lo más parecido
+es el Grafo del visor (motor propio sobre canvas y d3-force, `lib/sim.ts` y `views/graph/`),
+entregado el 05/09/2026 tras unas dos semanas de sesiones con Claude construyendo; y la investigación
+de animación (14 h estimadas, dos tardes reales). Regla de esta casa: lo estimado con Claude
+ejecutando suele sobrar (9 h 45 estimadas, 50 min reales, 15/09); **lo estimado con Eneko
+aprendiendo al teclado se multiplica por dos o tres**, y esa cifra sí es nueva.
+
+| Fase | Qué se entrega | Claude construye | Eneko al teclado, aprendiendo |
+|---|---|---|---|
+| **F0 · Piloto de viabilidad** | Una escena Three.js con Rapier: suelo, una estantería de primitivas, quince libros como cajas con tamaños del lab 11, coger, llevar y dejar con la sensación del 11, cámara a dos sitios, y la transición a un lector HTML de mentira. Medido en la 3070 a 144 y en una integrada a 60. **Decide si se sigue.** | 12 a 16 h | 30 a 40 h |
+| **F1 · La habitación v1** | Cajas y desembalar, paquetes y montar, mesa y silla, cámara a sitios, estado del mundo guardado (posiciones y poses, no una lista), luz por hora, presupuesto de rendimiento cumplido | 40 a 50 h | 90 a 120 h |
+| **F2 · Leer desde la habitación** | Las tres posturas, el lector con entorno y el modo concentración, tumbado con techo, móvil sin casa; las transiciones 5, 6 y 7 en 3D con lo decidido en los anexos O y Q | 20 a 30 h | 40 a 60 h |
+| **F3 · Arte de Tania** | Pipeline 3ds Max → glTF con presupuestos, sustituir primitivas, la estética elegida, iluminación | 15 a 20 h (más el tiempo de Tania) | 30 a 40 h |
+| **F4 · Lo que envejece** | Desgaste, papelera, ficha de préstamo; el constructor por piezas; modo paseo | 30 a 40 h | 60 a 90 h |
+| **Total a una v1 enseñable (F0 a F3)** | | **90 a 115 h** | **190 a 260 h** |
+
+A diez horas semanales, la v1 enseñable son **cinco o seis meses** aprendiendo, o **dos o tres**
+si construye Claude. «Sin límite» no cambia la cifra de horas, solo el calendario. ⚠ El margen es
+del doble en cualquier dirección: la primera semana de F0 lo estrecha.
+
+**Lo que NO cambia respecto a lo decidido**: el libro por dentro (anexos H a L), las transiciones 5,
+6 y 7 (anexos O y Q: pasan a 3D con los mismos números), el motor CDA que genera los libros (punto 9
+del plan), y el orden: **F0 es lo primero**, porque decide si todo esto se hace o si la biblioteca
+vuelve a CSS. Se empieza tras el checkpoint 9.
+
+**Lo que cambia**: el visor entra en **generación 3** (cambia lo que se ve: regla de versiones del
+22/08), la lámina del plan del `.pen` gana el punto «la habitación» en el check de «a Eneko se le ha
+vuelto a ocurrir otra cosa» (se apunta, se numera, no se empieza hasta cerrar el punto en curso: el
+punto en curso es el punto 9, cerrar la discovery, y F0 es su primera tarea), y el encargo de Tania
+se reescribe cuando F0 diga que sí.
