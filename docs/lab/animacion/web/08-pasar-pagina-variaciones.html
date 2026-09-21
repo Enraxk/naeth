@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 08 · pasar página, nueve variaciones sobre la base</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --PW: 190px; --PH: 250px; --papel: #f1ece0; --tinta: #4b4740; --tela: #2b3340; }
+  .rejilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .celda { background: var(--mesa); border-radius: 10px; padding: 10px 12px 12px; }
+  .celda h3 { margin: 0 0 6px; font-size: 12px; color: var(--ink); font-weight: 500; }
+  .celda h3 small { color: var(--dim); font-weight: 400; margin-left: 6px; }
+  .escena { height: 290px; min-height: 0; margin: 0; perspective: var(--persp, 1400px); perspective-origin: 50% 50%; background: radial-gradient(ellipse at 50% 70%, #1f2124, #121315 70%); }
+  .libro { position: absolute; left: 50%; top: 18px; width: calc(var(--PW) * 2 + 12px); height: calc(var(--PH) + 12px); transform: translateX(-50%); background: var(--tela); border-radius: 4px; transform-style: preserve-3d; }
+  .pag, .cara { position: absolute; top: 6px; width: var(--PW); height: var(--PH); background: var(--papel); color: var(--tinta); padding: 12px 14px; font: 9px/1.5 "JetBrains Mono", monospace; overflow: hidden; }
+  .pag pre, .cara pre { margin: 0; font: inherit; white-space: pre; }
+  .pag.izq { left: 6px; box-shadow: inset -18px 0 18px -18px rgba(0,0,0,.35); }
+  .pag.der { right: 6px; box-shadow: inset 18px 0 18px -18px rgba(0,0,0,.35); }
+  .pag .n, .cara .n { position: absolute; bottom: 6px; font-size: 9px; color: #6b7280; }
+  .pag.izq .n, .cara.verso .n { left: 14px; } .pag.der .n, .cara.recto .n { right: 14px; }
+  .hoja { position: absolute; left: 50%; top: 6px; width: var(--PW); height: var(--PH); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
+  .cara { top: 0; inset: 0; backface-visibility: hidden; }
+  .cara.recto { box-shadow: inset 18px 0 18px -18px rgba(0,0,0,.35); }
+  .cara.verso { transform: rotateY(180deg); box-shadow: inset -18px 0 18px -18px rgba(0,0,0,.35); }
+  /* Sombra propia de la hoja: un velo que se oscurece cuando la hoja está de canto (solo opacity). */
+  .velo { position: absolute; inset: 0; background: rgba(0,0,0,.5); opacity: 0; pointer-events: none; }
+  .som { position: absolute; top: 6px; width: var(--PW); height: var(--PH); opacity: 0; pointer-events: none; }
+  .som.i { left: 6px; background: linear-gradient(90deg, transparent, rgba(0,0,0,.6)); }
+  .som.d { right: 6px; background: linear-gradient(270deg, transparent, rgba(0,0,0,.6)); }
+  .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
+</style>
+</head>
+<body>
+
+<h1>web 08 · pasar página, nueve variaciones <small>la base es el lab 16 arreglado (21/09/2026, 11:32: «ahora se siente fino»)</small></h1>
+<p>Misma hoja rígida de dos caras, misma página, nueve libros a la vez. La base (A) es Material standard <code>(.2,0,0,1)</code>, 320 ms, perspectiva 1400, sombra móvil al 30 %, sin elevación. Cada celda cambia <b>una sola cosa</b> respecto a A, para que lo que se sienta distinto tenga nombre. Las curvas van muestreadas en 26 keyframes de <code>transform</code> (compositor); la elevación y la esquina son un <code>translateZ</code> y un <code>rotateX</code> que suben y bajan con <code>sin(πt)</code>.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> pasa página en las nueve (→ y ←, o los botones) y di cuál se siente mejor que A y por qué. Si ninguna, A se queda. Lo que se nombra (más corta, con elevación, con esquina…) es lo que pasa al anexo Q.</div>
+
+<div class="barra">
+  <span class="grupo"><button id="sig">pasar en las nueve →</button><button id="ant">← volver</button><button id="ocupar">ocupar el hilo 3 s</button></span>
+</div>
+
+<div class="rejilla" id="rejilla"></div>
+
+<h2>Qué mirar</h2>
+<p class="notas">B y C solo cambian el tiempo; D y E la curva (D sale disparada y frena, E es simétrica); F acerca la cámara (más 3D, más deformación); G levanta la hoja hasta 24 px a mitad de giro (la hoja «pesa» y proyecta más sombra); H además inclina la hoja 5° para que la esquina inferior vaya por delante; I quita la sombra móvil y le pone a la hoja un velo que se oscurece de canto (la sombra la lleva la hoja, no la página). Con «ocupar el hilo» las nueve tienen que seguir.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">Se rellena con la respuesta de Eneko: la letra elegida y el porqué.</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const LINEAS = `async def memory_search(query: str, limit: int = 8, path: str | None = None) -> list[Hit]:
+    """Busca en la memoria por similitud y devuelve los hits con su digest.
+
+    Args:
+        query: texto libre; se embebe con bge-m3 y se compara por coseno.
+        limit: tope de resultados; el visor pide 8 y el MCP 5.
+        path: filtra por proyecto/subtema con LIKE, sin fecha.
+
+    Returns:
+        Lista de Hit ordenada por score, cada uno con id, path, title y digest.
+
+    Notes:
+        El digest sustituye al contenido entero desde el 30/08/2026: es lo que
+        un agente lee para decidir si abre la nota. ⚠ Una nota recién escrita
+        puede no salir aún: su embedding está en cola del worker.
+    """
+    vec = await embed(query)
+    rows = await db.fetch(SQL_SEARCH, vec, limit, path)
+    return [Hit(**r) for r in rows]
+
+
+async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
+    """Escribe una memoria nueva y encola su embedding.
+
+    Raises:
+        DigestMissing: sin digest no se escribe (NAETH_DIGEST_ENFORCE=strict).
+        AuthorshipMissing: sin agent_model tampoco (AUTHORSHIP_ENFORCE=strict).
+    """
+    if not payload.digest:
+        raise DigestMissing()
+    if len(payload.digest) > 300:
+        raise DigestTooLong(len(payload.digest))
+    row = await db.fetchrow(SQL_INSERT, *payload.columns(), agent_model)
+    await queue.put(row["id"])
+    return Memory(**row)
+`.split(String.fromCharCode(10));
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  function pagina(p) { const ini = (p * 5) % (LINEAS.length - 15); return `<pre>${LINEAS.slice(ini, ini + 15).map(esc).join(String.fromCharCode(10))}</pre><span class="n">${p}</span>`; }
+
+  const STD = [.2, 0, 0, 1], EMPH = [.05, .7, .1, 1], INOUT = [.65, 0, .35, 1];
+  const V = [
+    { k: 'A', t: 'base', d: 'standard · 320 ms · persp 1400 · sombra .3', dur: 320, curva: STD, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0 },
+    { k: 'B', t: 'más corta', d: '260 ms', dur: 260, curva: STD, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0 },
+    { k: 'C', t: 'más larga', d: '400 ms', dur: 400, curva: STD, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0 },
+    { k: 'D', t: 'emphasized-decelerate', d: 'sale disparada y frena', dur: 320, curva: EMPH, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0 },
+    { k: 'E', t: 'inOutCubic', d: 'simétrica', dur: 320, curva: INOUT, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0 },
+    { k: 'F', t: 'cámara cerca', d: 'persp 800', dur: 320, curva: STD, persp: 800, sombra: .3, lift: 0, tilt: 0, velo: 0 },
+    { k: 'G', t: 'con elevación', d: 'sube 24 px a mitad · sombra .45', dur: 320, curva: STD, persp: 1400, sombra: .45, lift: 24, tilt: 0, velo: 0 },
+    { k: 'H', t: 'elevación y esquina', d: '24 px · rotateX 5° · sombra .45', dur: 320, curva: STD, persp: 1400, sombra: .45, lift: 24, tilt: 5, velo: 0 },
+    { k: 'I', t: 'la sombra en la hoja', d: 'sin sombra móvil · velo de canto .35', dur: 320, curva: STD, persp: 1400, sombra: 0, lift: 0, tilt: 0, velo: .35 },
+  ];
+  let s = 22, vivas = [];
+  const rejilla = document.getElementById('rejilla');
+  V.forEach((v) => {
+    rejilla.insertAdjacentHTML('beforeend', `<div class="celda"><h3>${v.k} · ${v.t}<small>${v.d}</small></h3><div class="escena" style="--persp:${v.persp}px"><div class="libro" id="lib${v.k}"><div class="pag izq"></div><div class="pag der"></div><div class="som i"></div><div class="som d"></div></div></div></div>`);
+    v.lib = document.getElementById('lib' + v.k);
+  });
+  function pinta() { V.forEach((v) => { v.lib.querySelector('.izq').innerHTML = pagina(2 * s); v.lib.querySelector('.der').innerHTML = pagina(2 * s + 1); }); }
+  pinta();
+
+  function bezier(x1, y1, x2, y2) {
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t, DX = (t) => (3 * ax * t + 2 * bx) * t + cx;
+    return (x) => { let t = x; for (let i = 0; i < 6; i++) { const d = DX(t); if (!d) break; t -= (X(t) - x) / d; } return Y(t); };
+  }
+
+  /** Una hoja en el libro de la variación v: keyframes muestreados con su curva, elevación y esquina. */
+  function hoja(v, fwd, A, B) {
+    const h = document.createElement('div'); h.className = 'hoja';
+    h.innerHTML = `<div class="cara recto">${pagina(A)}<div class="velo"></div></div><div class="cara verso">${pagina(B)}<div class="velo"></div></div>`;
+    v.lib.appendChild(h);
+    const K = 26, f = bezier(...v.curva), kf = [], kv = [];
+    for (let k = 0; k <= K; k++) {
+      const t = k / K, e = f(t), a = fwd ? -180 * e : -180 * (1 - e), arco = Math.sin(Math.PI * e);
+      kf.push({ transform: `translateZ(${1 + v.lift * arco}px) rotateY(${a}deg) rotateX(${v.tilt * arco}deg)`, offset: t });
+      kv.push({ opacity: v.velo * arco, offset: t });
+    }
+    const a = h.animate(kf, { duration: v.dur, easing: 'linear', fill: 'forwards' }); a.playbackRate = lab.speed; vivas.push(a);
+    if (v.velo) h.querySelectorAll('.velo').forEach((el) => { const x = el.animate(kv, { duration: v.dur, easing: 'linear', fill: 'forwards' }); x.playbackRate = lab.speed; vivas.push(x); });
+    const som = v.lib.querySelector(fwd ? '.som.i' : '.som.d');
+    if (v.sombra) { const x = som.animate([{ opacity: 0 }, { opacity: v.sombra, offset: .5 }, { opacity: 0 }], { duration: v.dur, easing: 'linear' }); x.playbackRate = lab.speed; vivas.push(x); }
+    return a.finished.then(() => h.remove()).catch(() => {});
+  }
+  function pasa(fwd) {
+    const target = s + (fwd ? 1 : -1); if (target < 1 || target > 90) return;
+    Meter.begin('nueve');
+    const A = fwd ? 2 * s + 1 : 2 * target + 1, B = fwd ? 2 * target : 2 * s;
+    V.forEach((v) => { if (fwd) v.lib.querySelector('.der').innerHTML = pagina(2 * target + 1); else v.lib.querySelector('.izq').innerHTML = pagina(2 * target); });
+    s = target;
+    Promise.all(V.map((v) => hoja(v, fwd, A, B))).then(() => { pinta(); Meter.end(); });
+  }
+  document.getElementById('sig').addEventListener('click', () => pasa(true));
+  document.getElementById('ant').addEventListener('click', () => pasa(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') pasa(true); if (e.key === 'ArrowLeft') pasa(false); });
+  lab.onSpeed((v) => vivas.forEach((a) => { a.playbackRate = v; }));
+  document.getElementById('ocupar').addEventListener('click', () => {
+    const fin = performance.now() + 3000;
+    const bloquea = () => { const t = performance.now() + 40; while (performance.now() < t) {} if (performance.now() < fin) setTimeout(bloquea, 10); };
+    bloquea();
+  });
+</script>
+</body>
+</html>
