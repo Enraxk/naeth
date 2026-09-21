@@ -41,7 +41,7 @@
 <body>
 
 <h1>web 10 · pasar página, la hoja final <small>una función con pesos sortea cada giro (21/09/2026, 12:03)</small></h1>
-<p>Cierra las rondas del 08 y el 09: todas las hojas llevan sombra móvil, la elevación con su sombra proporcional, a veces el velo de canto, y <b>cada giro se sortea</b> con una función de pesos: la curva (standard o inOutCubic), la elevación (baja, media o alta, y luego un poco de desvío continuo), el velo (sí o no) y el tiempo (400 ms ± un porcentaje). Los pesos se editan a la derecha y el sorteo de cada giro se enseña debajo. En el hojeo (varias hojas), cada hoja sortea la suya: por eso una cascada nunca es una copia de la anterior.</p>
+<p>Cierra las rondas del 08 y el 09: todas las hojas llevan sombra móvil, la elevación con su sombra proporcional, a veces el velo de canto, y <b>cada giro se sortea</b> con una función de pesos: la curva (standard o inOutCubic), la elevación (baja, media o alta, y luego un poco de desvío continuo), el velo (sí o no) y el tiempo (400 ms ± un porcentaje). Los pesos se editan a la derecha y el sorteo de cada giro se enseña debajo. En el hojeo (varias hojas) el sorteo es <b>por gesto</b>: todas las hojas de la cascada comparten curva, elevación y tiempo y solo se escalonan; si cada una sorteara la suya, la más rápida alcanzaría a la más lenta y la atravesaría (visto a las 12:10).</p>
 
 <div class="pregunta"><b>Pregunta aislada:</b> con estos pesos, ¿veinte giros seguidos se sienten como un libro (parecidos, nunca iguales) o como una tómbola? Si algún sorteo concreto te chirría, el panel dice qué salió: se ajusta el peso, no la sensación.</div>
 
@@ -156,12 +156,11 @@ def taco(n: int, p: int) -> tuple[float, float]:
   pinta();
 
   /** Una hoja con su sorteo; z en el espacio del libro (antes que rotateY), de salida y de llegada. */
-  function hoja(fwd, A, B, delay, zIni, zFin, bloque) {
-    const p = sortea();
+  function hoja(fwd, A, B, delay, zIni, zFin, bloque, p) {
     const h = document.createElement('div'); h.className = 'hoja';
     h.innerHTML = `<div class="cara recto">${pagina(A)}<div class="velo"></div></div><div class="cara verso">${pagina(B)}<div class="velo"></div></div>`;
     libro.appendChild(h);
-    const K = 26, f = bezier(...p.curva), kf = [], kv = [], dur = bloque ? p.dur + 100 : p.dur;
+    const K = 26, f = bezier(...p.curva), kf = [], kv = [], dur = p.dur;   // el bloque NO va más lento: si la que va delante es más lenta, las de detrás la alcanzan y la atraviesan
     for (let k = 0; k <= K; k++) {
       const t = k / K, e = f(t), a = fwd ? -180 * e : -180 * (1 - e), arco = Math.sin(Math.PI * e);
       kf.push({ transform: `translateZ(${zIni + (zFin - zIni) * t + p.lift * arco}px) rotateY(${a}deg)`, offset: t });
@@ -184,10 +183,14 @@ def taco(n: int, p: int) -> tuple[float, float]:
     if (dir > 0) der.innerHTML = pagina(2 * target + 1); else izq.innerHTML = pagina(2 * target);
     s = target;
     const k = steps.length;
+    // Un sorteo por GESTO, no por hoja: en una cascada todas las hojas comparten curva, elevación y tiempo y solo se
+    // escalonan (Eneko, 21/09 12:10: con sorteos distintos «la que es más rápida toca a la más lenta y la atraviesa»).
+    // Con parámetros iguales y retardo, la que va detrás siempre va por debajo de la que va delante, como en un libro.
+    const p = sortea();
     const fin = steps.map((st, i) => {
       const fwd = st.to > st.from, A = fwd ? 2 * st.from + 1 : 2 * st.to + 1, B = fwd ? 2 * st.to : 2 * st.from;
       const delay = st.bloque ? 0 : (n <= 3 ? i * 45 : 200 + 45 * (k - 2) * Math.pow((i - 1) / Math.max(1, k - 2), 2));
-      return hoja(fwd, A, B, delay, (k - i) * .6 + 1, (i + 1) * .6 + 1, !!st.bloque);
+      return hoja(fwd, A, B, delay, (k - i) * .6 + 1, (i + 1) * .6 + 1, !!st.bloque, p);
     });
     Promise.all(fin).then(() => { pinta(); posadas.splice(0).forEach((h) => h.remove()); vivas = []; Meter.end(); });
   }
