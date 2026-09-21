@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab animejs 18 · cerrar y dejar, v2: colocar, no cargar</title>
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  :root { --W: 100px; --H: 150px; --G: 22px; --tela: #2b3340; --lomo: #1c2e45; --papel: #f1ece0; --papel2: #cdc6b2; }
+  .escena { height: 600px; perspective: 1800px; perspective-origin: 50% 45%; user-select: none; touch-action: none; }
+  .fondo { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, #1f2124, #121315 70%); }
+  .balda { position: absolute; left: 20px; right: 20px; height: 10px; background: linear-gradient(#3a3227, #241f18); border-radius: 2px; box-shadow: 0 12px 24px -8px rgba(0,0,0,.8); }
+  .balda::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 190px; background: linear-gradient(transparent, rgba(0,0,0,.25)); pointer-events: none; }
+  /* Los vecinos y el libro colocado: lomos planos. El FLIP de los vecinos es un translateX. */
+  .vec { position: absolute; width: var(--G); height: var(--H); background: var(--lomo); border-radius: 2px; box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.08); display: grid; place-items: center; transform-origin: 50% 100%; }
+  .vec span { color: #cfd6e0; font: 600 10px Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .04em; white-space: nowrap; }
+  .vec.tumbado { width: var(--H); height: var(--G); } .vec.tumbado span { writing-mode: horizontal-tb; transform: none; }
+  #colocado { z-index: 3; visibility: hidden; background: #24395a; }
+  #colocado .sombra { position: absolute; inset: -2px; border-radius: 3px; box-shadow: 0 4px 10px rgba(0,0,0,.6); opacity: 0; pointer-events: none; }
+  .silueta { position: absolute; z-index: 1; border: 2px dashed var(--acc); border-radius: 3px; opacity: 0; transition: opacity 120ms; pointer-events: none; transform-origin: 50% 100%; }
+  .silueta.on { opacity: .45; }
+  /* La caja 3D: solo existe en la mano y al abrir o cerrar. outer = posición, inner = escala y giros con origen en el centro. */
+  .outer { position: absolute; left: 0; top: 0; z-index: 2; transform-style: preserve-3d; will-change: transform; cursor: grab; }
+  .inner { position: absolute; left: calc(var(--W) / -2); top: calc(var(--H) / -2); width: var(--W); height: var(--H); transform-origin: 50% 50%; transform-style: preserve-3d; will-change: transform; }
+  .cara { position: absolute; backface-visibility: hidden; }
+  .paginas { inset: 0; background: var(--tela); transform: translateZ(var(--G)); border-radius: 0 4px 4px 0; padding: 8px 8px 8px 0; }
+  .paginas .pag { width: 100%; height: 100%; background: var(--papel); box-shadow: inset 10px 0 12px -10px rgba(0,0,0,.4); }
+  .contratapa { inset: 0; background: var(--tela); transform: rotateY(180deg); border-radius: 0 4px 4px 0; }
+  .lomo { left: 0; top: 0; width: var(--G); height: 100%; background: var(--lomo); transform-origin: 0 50%; transform: rotateY(-90deg); display: grid; place-items: center; }
+  .lomo span { color: #e6e8eb; font: 600 9px Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); }
+  .canto { right: 0; top: 0; width: var(--G); height: 100%; transform-origin: 100% 50%; transform: rotateY(90deg); background: repeating-linear-gradient(90deg, var(--papel) 0 2px, var(--papel2) 2px 3px); }
+  .cabeza, .pie { left: 0; width: 100%; height: var(--G); background: repeating-linear-gradient(0deg, var(--papel) 0 2px, var(--papel2) 2px 3px); }
+  .cabeza { top: 0; transform-origin: 50% 0; transform: rotateX(90deg); }
+  .pie { bottom: 0; transform-origin: 50% 100%; transform: rotateX(-90deg); }
+  .tapa { position: absolute; inset: 0; transform-origin: 0 50%; transform: translateZ(calc(var(--G) + 1px)) rotateY(-180deg); transform-style: preserve-3d; will-change: transform; }
+  .tela { position: absolute; inset: 0; background: var(--tela); border-radius: 0 4px 4px 0; backface-visibility: hidden; display: grid; place-items: center; color: #e6e8eb; font: 600 11px Inter, sans-serif; }
+  .guarda { position: absolute; inset: 0; background: var(--tela); border-radius: 4px 0 0 4px; backface-visibility: hidden; transform: rotateY(180deg); padding: 8px 0 8px 8px; }
+  .guarda .pag { width: 100%; height: 100%; background: var(--papel); box-shadow: inset -10px 0 12px -10px rgba(0,0,0,.4); }
+  body.mano .escena { cursor: grabbing; }
+  .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
+  .barra select { background: #2a2d31; color: var(--ink); border: 1px solid #3a3e44; border-radius: 6px; padding: 4px 8px; font: inherit; }
+  .hud { position: absolute; left: 12px; bottom: 10px; color: var(--dim); font: 11px "JetBrains Mono", monospace; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<h1>animejs 18 · cerrar y dejar, v2 <small>colocar, no cargar (21/09/2026, 13:05; §10 del doc de animación)</small></h1>
+<p>Lo que hacen Unpacking, A Little to the Left, Los Sims y el arrastrar y soltar de Apple, aplicado al libro: en la mano el libro tiene <b>una sola pose</b> (cerrado, de frente) y sigue al puntero <b>1:1</b>, sin balanceo ni inercia; cuando el puntero entra en un hueco, <b>el propio libro se coloca</b> en su pose final y como un vecino más (un lomo plano), los vecinos hacen sitio en ese momento, y si sales del hueco vuelve a la mano; soltar dentro es «ya está» (un asentamiento corto), soltar fuera es <b>zoomback</b> al hueco anterior. La rueda o 1 2 3 cambian la pose mientras está colocado. La caja 3D solo existe en la mano y al abrir o cerrar: en la balda es un lomo, así que no hay poses intermedias que salgan de la geometría. Cada interruptor pone su contrario para comparar.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ¿ahora el DnD se siente bien? Cambia los interruptores de uno en uno: ¿qué echas de menos del 17 (el balanceo, la silueta, el muelle al soltar) y qué sobra?</div>
+
+<div class="barra">
+  <span class="grupo"><button id="abrir">abrir de nuevo</button><button id="cerrar">cerrar sin mano (Esc)</button></span>
+  <label><input type="checkbox" id="tbal"> balanceo en la mano (el 17)</label>
+  <label><input type="checkbox" id="tsil"> silueta en vez de colocar el libro (el 17)</label>
+  <label><input type="checkbox" id="tvec" checked> los vecinos hacen sitio</label>
+  <label><input type="checkbox" id="tzoom" checked> soltar fuera: zoomback (si no, al hueco más cercano)</label>
+  <label>al soltar <select id="tset"><option value="corto" selected>asentamiento corto (sombra)</option><option value="nada">nada</option><option value="muelle">muelle (el 17)</option></select></label>
+</div>
+
+<div class="escena" id="escena">
+  <div class="fondo"></div>
+  <div class="balda" id="b1" style="top:260px"></div>
+  <div class="balda" id="b2" style="top:520px"></div>
+  <div class="silueta" id="silueta"></div>
+  <div class="vec" id="colocado"><span>NAETH</span><div class="sombra"></div></div>
+  <div class="outer" id="outer"><div class="inner" id="inner">
+    <div class="cara contratapa"></div>
+    <div class="cara lomo"><span>NAETH</span></div>
+    <div class="cara canto"></div>
+    <div class="cara cabeza"></div><div class="cara pie"></div>
+    <div class="cara paginas"><div class="pag"></div></div>
+    <div class="tapa" id="tapa"><div class="tela">NAETH</div><div class="guarda"><div class="pag"></div></div></div>
+  </div></div>
+  <div class="hud" id="hud">abierto</div>
+</div>
+
+<h2>Qué mirar</h2>
+<p class="notas">Al entrar en un hueco el libro debería «hacer clic» en su sitio (150 ms) y quedarse como un vecino más; al salir, volver a la mano en el mismo tiempo. Nunca debería verse el libro de canto en perspectiva ni con el lomo boca abajo: si lo ves, es un fallo. Soltar fuera de las baldas lo devuelve a donde estaba. Con los interruptores del 17 (balanceo, silueta, muelle) se compara lo que se ha quitado.</p>
+
+<h2>Resultado</h2>
+<p class="notas" id="res">Se rellena con la respuesta de Eneko.</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/4.5.0/anime.umd.min.js"></script>
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+  const { waapi, spring, cubicBezier, createAnimatable, utils } = anime;
+  const W = 100, H = 150, G = 22, EMPH = cubicBezier(.05, .7, .1, 1);
+  const escena = document.getElementById('escena'), outer = document.getElementById('outer'), inner = document.getElementById('inner'), tapa = document.getElementById('tapa');
+  const silueta = document.getElementById('silueta'), colocado = document.getElementById('colocado'), hud = document.getElementById('hud');
+  const ANCHO = () => Math.max(escena.clientWidth, 800);
+  const T = { bal: () => document.getElementById('tbal').checked, sil: () => document.getElementById('tsil').checked, vec: () => document.getElementById('tvec').checked, zoom: () => document.getElementById('tzoom').checked, set: () => document.getElementById('tset').value };
+
+  const baldas = [
+    { y: 260, libros: [[40, 0], [68, 0], [96, 0], [124, 0], [420, 0], [448, 0], [476, 0], [504, 0], [532, 0]] },
+    { y: 520, libros: [[40, 0], [68, 0], [96, 0], [190, 0], [218, 0], [300, 1]] },
+  ];
+  const nombres = ['CENIT', 'GridWatch', 'Yogin', 'Inkerlum', 'Whisper', 'Doctor', 'CDA', 'Sanas', 'Formación'];
+  baldas.forEach((b, bi) => b.libros.forEach(([x, t], i) => {
+    const el = document.createElement('div'); el.className = 'vec' + (t ? ' tumbado' : '');
+    el.style.left = x + 'px'; el.style.top = (b.y - (t ? G : H)) + 'px';
+    el.innerHTML = `<span>${nombres[(bi * 4 + i) % nombres.length]}</span>`;
+    escena.appendChild(el); b.libros[i] = { x, w: t ? H : G, el, shift: 0 };
+  }));
+
+  // Poses de la caja: abierto (centro de la escena) y en la mano (cerrado, de frente, un pelo girado para que se lea el volumen).
+  const POSE = { abierto: 'scale(2.4) rotateX(4deg) rotateY(0deg)', mano: (rz = 0) => `scale(1) rotateX(4deg) rotateY(-8deg) rotateZ(${rz}deg)`, canto: 'scale(1) rotateX(0deg) rotateY(90deg)' };
+  const CENTRO = () => ({ x: ANCHO() / 2 + W * 1.2, y: 290 });   // el centro del libro abierto está media página a la derecha del lomo
+  const state = { modo: 'abierto', rz: 0, hueco: null, ultimo: null, forzado: null, vivas: [] };
+  const sway = createAnimatable(state, { rz: { ease: spring({ stiffness: 120, damping: 14 }) }, onUpdate: () => { if (state.modo === 'mano' && T.bal()) inner.style.transform = POSE.mano(state.rz); } });
+  function setOuter(x, y) { outer.style.transform = `translate(${x}px, ${y}px)`; outer.dataset.x = x; outer.dataset.y = y; }
+  const centra = () => { if (state.modo === 'abierto') { const c = CENTRO(); setOuter(c.x, c.y); } };
+  inner.style.transform = POSE.abierto; centra(); requestAnimationFrame(centra); window.addEventListener('resize', centra);
+  function anima(target, params) { const a = waapi.animate(target, params); a.speed = lab.speed; state.vivas.push(a); a.then(() => { state.vivas = state.vivas.filter((v) => v !== a); }); return a; }
+  function cancelaVivas() { state.vivas.forEach((a) => a.cancel && a.cancel()); state.vivas = []; }
+
+  // ---- Huecos y la regla de la pose ----------------------------------------------------------
+  function huecoEn(px, py) {
+    const b = baldas.find((b) => py > b.y - H - 40 && py < b.y + 24); if (!b) return null;
+    const libros = [...b.libros].sort((p, q) => p.x - q.x);
+    const bordes = [{ fin: 20 }, ...libros.map((l) => ({ ini: l.x, fin: l.x + l.w, l })), { ini: ANCHO() - 20 }];
+    let mejor = null;
+    for (let i = 0; i < bordes.length - 1; i++) {
+      const a = bordes[i].fin, c = bordes[i + 1].ini, d = px < a ? a - px : px > c ? px - c : 0;
+      if (!mejor || d < mejor.d) mejor = { d, a, c, izq: bordes[i].l, der: bordes[i + 1].l };
+    }
+    const w = mejor.c - mejor.a, vecino = mejor.izq || mejor.der;
+    let estado = w < 1.4 * G ? 'pie' : (vecino && w < H + 12) ? 'inclinado' : 'tumbado';
+    if (state.forzado) estado = state.forzado;
+    const lado = mejor.izq && (!mejor.der || px - mejor.a < mejor.c - px) ? -1 : 1;
+    return { balda: b, a: mejor.a, c: mejor.c, w, estado, lado, x: utils.clamp(px, mejor.a, mejor.c) };
+  }
+  const NEED = { pie: G + 8, inclinado: G + 44, tumbado: H + 8 };
+  /** Geometría del libro colocado en el hueco h: posición, tamaño y giro del lomo plano. */
+  function geo(h) {
+    const need = NEED[h.estado], falta = Math.max(0, need - h.w);
+    const x0 = h.w >= need ? utils.clamp(h.x - need / 2, h.a, h.c - need) : h.a;
+    const sw = h.estado === 'tumbado' ? H : G, sh = h.estado === 'tumbado' ? G : H;
+    return { falta, x: x0 + 4 + (h.estado === 'inclinado' ? 20 : 0), y: h.balda.y - sh, sw, sh, rz: h.estado === 'inclinado' ? 12 * h.lado : 0 };
+  }
+  function apartaVecinos(h, g) {
+    baldas.forEach((b) => b.libros.forEach((l) => {
+      const shift = (h && T.vec() && b === h.balda && l.x >= h.c) ? g.falta : 0;
+      if (shift !== l.shift) { l.shift = shift; anima(l.el, { transform: `translateX(${shift}px)`, duration: 200, ease: EMPH, delay: h && b === h.balda ? Math.abs(l.x - h.c) / 28 * 45 : 0 }); }
+    }));
+  }
+  /** Pone el lomo plano (o la silueta) en el hueco. */
+  function pintaColocado(h, g, el) {
+    el.style.width = g.sw + 'px'; el.style.height = g.sh + 'px'; el.style.left = g.x + 'px'; el.style.top = g.y + 'px';
+    el.style.transform = g.rz ? `rotateZ(${g.rz}deg)` : ''; el.classList.toggle('tumbado', h.estado === 'tumbado');
+  }
+
+  // ---- Entrar y salir del hueco mientras se lleva ------------------------------------------------
+  function entraEnHueco(h) {
+    const g = geo(h); state.hueco = h; apartaVecinos(h, g);
+    hud.textContent = `en el hueco → ${h.estado}${state.forzado ? ' (a mano)' : ''}`;
+    if (T.sil()) { pintaColocado(h, g, silueta); silueta.classList.add('on'); return; }
+    // El propio libro se coloca: la caja va al hueco y gira de canto (150 ms) y en cuanto llega es un lomo plano.
+    state.modo = 'colocando';
+    pintaColocado(h, g, colocado); colocado.style.visibility = 'hidden';
+    cancelaVivas();
+    const a = anima(outer, { transform: `translate(${g.x + g.sw / 2}px, ${g.y + g.sh / 2}px)`, duration: 150, ease: EMPH });
+    anima(inner, { transform: h.estado === 'tumbado' ? 'scale(1) rotateX(90deg) rotateY(0deg) rotateZ(-90deg)' : `scale(1) rotateX(0deg) rotateY(90deg) rotateZ(${g.rz}deg)`, duration: 150, ease: EMPH });
+    a.then(() => { if (state.modo === 'colocando') { outer.style.visibility = 'hidden'; colocado.style.visibility = 'visible'; state.modo = 'colocado'; } });
+  }
+  function saleDelHueco() {
+    const h = state.hueco; state.hueco = null; apartaVecinos(null, { falta: 0 });
+    silueta.classList.remove('on');
+    if (T.sil() || !h) { state.modo = 'mano'; return; }
+    // De vuelta a la mano: la caja reaparece de canto donde estaba el lomo y gira a la pose de mano mientras alcanza al puntero.
+    colocado.style.visibility = 'hidden'; outer.style.visibility = 'visible';
+    cancelaVivas(); state.modo = 'mano';
+    inner.style.transform = h.estado === 'tumbado' ? 'scale(1) rotateX(90deg) rotateY(0deg) rotateZ(-90deg)' : 'scale(1) rotateX(0deg) rotateY(90deg) rotateZ(0deg)';
+    anima(inner, { transform: POSE.mano(0), duration: 150, ease: EMPH });
+    hud.textContent = 'en la mano';
+  }
+
+  // ---- La mano ---------------------------------------------------------------------------------
+  let ptr = { x: 0, y: 0, t: 0, vx: 0 }, timer = null, clavePend = null;
+  const aPuntero = (e) => { const r = escena.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  escena.addEventListener('pointerdown', (e) => {
+    if (state.modo !== 'abierto' || e.button !== 0 || !e.target.closest('#outer')) return;
+    escena.setPointerCapture(e.pointerId);
+    const p = aPuntero(e); ptr = { ...p, t: performance.now(), vx: 0 };
+    state.modo = 'cierra'; document.body.classList.add('mano'); Meter.begin('cerrar-y-dejar'); cancelaVivas();
+    if (lab.reduced) { state.modo = 'mano'; inner.style.transform = POSE.mano(0); tapa.style.transform = `translateZ(${G + 1}px) rotateY(0deg)`; setOuter(p.x, p.y); return; }
+    anima(tapa, { transform: `translateZ(${G + 1}px) rotateY(0deg)`, duration: 420, ease: 'inOutCubic' });
+    const enc = anima(inner, { transform: POSE.mano(0), duration: 520, delay: 250, ease: EMPH });
+    const desde = { x: Number(outer.dataset.x), y: Number(outer.dataset.y) }, t0 = performance.now();
+    const paso = () => {
+      if (state.modo !== 'cierra') return;
+      const t = utils.clamp((performance.now() - t0) * lab.speed - 250, 0, 520) / 520, k = EMPH(t);
+      setOuter(desde.x + (ptr.x - desde.x) * k, desde.y + (ptr.y - desde.y) * k);
+      if (t < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+    enc.then(() => { if (state.modo === 'cierra') { state.modo = 'mano'; inner.style.transform = POSE.mano(0); setOuter(ptr.x, ptr.y); hud.textContent = 'en la mano'; const h = huecoEn(ptr.x, ptr.y); if (h) entraEnHueco(h); } });
+  });
+  escena.addEventListener('pointermove', (e) => {
+    if (!['mano', 'cierra', 'colocando', 'colocado'].includes(state.modo)) return;
+    const p = aPuntero(e), now = performance.now(), dt = Math.max(1, now - ptr.t);
+    ptr = { x: p.x, y: p.y, t: now, vx: (p.x - ptr.x) / dt * 1000 };
+    if (state.modo === 'mano') { setOuter(p.x, p.y); if (T.bal()) sway.rz(utils.clamp(ptr.vx / 120, -8, 8)); }
+    const h = huecoEn(p.x, p.y), clave = h ? `${h.balda.y}:${h.a}:${h.estado}` : '';
+    if (clave !== clavePend) { clavePend = clave; clearTimeout(timer); timer = setTimeout(() => { if (state.modo === 'cierra') return; if (state.hueco) saleDelHueco(); if (h) entraEnHueco(h); }, 80); }
+  });
+  escena.addEventListener('pointerup', () => {
+    if (!['mano', 'cierra', 'colocando', 'colocado'].includes(state.modo)) return;
+    clearTimeout(timer); clavePend = null; document.body.classList.remove('mano');
+    if (state.modo === 'cierra') { cancelaVivas(); tapa.style.transform = `translateZ(${G + 1}px) rotateY(0deg)`; inner.style.transform = POSE.mano(0); state.modo = 'mano'; }   // soltar antes de que acabe el cierre: se cierra de golpe y se sigue
+    if (state.hueco) { suelta(state.hueco); return; }
+    if (T.zoom() && state.ultimo) { zoomback(state.ultimo); return; }
+    const b = baldas.reduce((m, b) => Math.abs(b.y - ptr.y) < Math.abs(m.y - ptr.y) ? b : m);
+    const h = huecoEn(ptr.x, b.y - 10) || huecoPorDefecto(); entraEnHueco(h); setTimeout(() => suelta(h), 160);
+  });
+  function huecoPorDefecto() { const fin = baldas[0].libros.reduce((m, l) => Math.max(m, l.x + l.w), 0); const h = huecoEn(fin + 40, baldas[0].y - 10); h.estado = 'pie'; return h; }
+
+  /** Soltar dentro del hueco: ya está colocado; solo el asentamiento que diga el interruptor. */
+  function suelta(h) {
+    const g = geo(h);
+    // Pase lo que pase con la animación de colocar (puede no haber acabado), al soltar el libro ES el lomo plano.
+    cancelaVivas(); silueta.classList.remove('on'); pintaColocado(h, g, colocado); colocado.style.visibility = 'visible'; outer.style.visibility = 'hidden'; apartaVecinos(h, g);
+    state.modo = 'balda'; state.hueco = null; state.ultimo = { h, g };
+    const set = T.set(), sombra = colocado.querySelector('.sombra');
+    if (set === 'corto') { sombra.animate([{ opacity: .8 }, { opacity: 0 }], { duration: 160, easing: 'ease-out' }); colocado.animate([{ transform: (g.rz ? `rotateZ(${g.rz}deg) ` : '') + 'scale(1.03)' }, { transform: (g.rz ? `rotateZ(${g.rz}deg) ` : '') + 'scale(1)' }], { duration: 120, easing: 'ease-out' }); }
+    else if (set === 'muelle') { const a = colocado.animate([{ transform: (g.rz ? `rotateZ(${g.rz}deg) ` : '') + 'translateY(-10px)' }, { transform: (g.rz ? `rotateZ(${g.rz}deg) ` : '') + 'translateY(0)' }], { duration: 420, easing: waapi.convertEase(spring({ duration: 420, bounce: .25 })) }); }
+    hud.textContent = `colocado → ${h.estado}`; Meter.end();
+  }
+  /** Soltar fuera (o Esc): vuelve solo a su hueco anterior (zoomback de Apple), 300 ms. */
+  function zoomback(u) {
+    state.modo = 'zoomback'; state.hueco = null; apartaVecinos(u.h, u.g);
+    silueta.classList.remove('on'); outer.style.visibility = 'visible';
+    cancelaVivas();
+    const a = anima(outer, { transform: `translate(${u.g.x + u.g.sw / 2}px, ${u.g.y + u.g.sh / 2}px)`, duration: 300, ease: EMPH });
+    anima(inner, { transform: u.h.estado === 'tumbado' ? 'scale(1) rotateX(90deg) rotateY(0deg) rotateZ(-90deg)' : `scale(1) rotateX(0deg) rotateY(90deg) rotateZ(${u.g.rz}deg)`, duration: 300, ease: EMPH });
+    a.then(() => { pintaColocado(u.h, u.g, colocado); outer.style.visibility = 'hidden'; colocado.style.visibility = 'visible'; state.modo = 'balda'; hud.textContent = `de vuelta → ${u.h.estado}`; Meter.end(); });
+  }
+
+  // ---- Abrir de nuevo, cerrar sin mano, pose a mano ------------------------------------------
+  document.getElementById('abrir').addEventListener('click', () => {
+    if (state.modo !== 'balda') return;
+    cancelaVivas(); state.modo = 'abre'; Meter.begin('abrir'); apartaVecinos(null, { falta: 0 });
+    const u = state.ultimo; colocado.style.visibility = 'hidden'; outer.style.visibility = 'visible';
+    setOuter(u.g.x + u.g.sw / 2, u.g.y + u.g.sh / 2); inner.style.transform = u.h.estado === 'tumbado' ? 'scale(1) rotateX(90deg) rotateY(0deg) rotateZ(-90deg)' : 'scale(1) rotateX(0deg) rotateY(90deg) rotateZ(0deg)';
+    const c = CENTRO();
+    anima(outer, { transform: `translate(${c.x}px, ${c.y}px)`, duration: 640, ease: EMPH }); outer.dataset.x = c.x; outer.dataset.y = c.y;
+    anima(inner, { transform: POSE.abierto, duration: 640, ease: EMPH });
+    anima(tapa, { transform: `translateZ(${G + 1}px) rotateY(-180deg)`, duration: 520, delay: 200, ease: 'inOutCubic' }).then(() => { state.modo = 'abierto'; hud.textContent = 'abierto'; Meter.end(); });
+  });
+  function cerrarSinMano() {
+    if (['mano', 'colocando', 'colocado'].includes(state.modo)) { clearTimeout(timer); if (state.hueco) saleDelHueco(); if (state.ultimo) zoomback(state.ultimo); else { const h = huecoPorDefecto(); entraEnHueco(h); setTimeout(() => suelta(h), 160); } document.body.classList.remove('mano'); return; }
+    if (state.modo !== 'abierto') return;
+    cancelaVivas(); state.modo = 'cierra'; Meter.begin('cerrar-sin-mano');
+    const u = state.ultimo || (() => { const h = huecoPorDefecto(); return { h, g: geo(h) }; })();
+    apartaVecinos(u.h, u.g);
+    anima(tapa, { transform: `translateZ(${G + 1}px) rotateY(0deg)`, duration: 420, ease: 'inOutCubic' });
+    anima(inner, { transform: u.h.estado === 'tumbado' ? 'scale(1) rotateX(90deg) rotateY(0deg) rotateZ(-90deg)' : `scale(1) rotateX(0deg) rotateY(90deg) rotateZ(${u.g.rz}deg)`, duration: 560, delay: 250, ease: EMPH });
+    const a = anima(outer, { transform: `translate(${u.g.x + u.g.sw / 2}px, ${u.g.y + u.g.sh / 2}px)`, duration: 560, delay: 250, ease: EMPH });
+    a.then(() => { pintaColocado(u.h, u.g, colocado); outer.style.visibility = 'hidden'; colocado.style.visibility = 'visible'; state.modo = 'balda'; state.ultimo = u; hud.textContent = 'en la balda'; Meter.end(); });
+  }
+  document.getElementById('cerrar').addEventListener('click', cerrarSinMano);
+  function cambiaPose(estado) {
+    state.forzado = estado;
+    if (['colocado', 'colocando', 'mano'].includes(state.modo)) { const h = huecoEn(ptr.x, ptr.y); if (h) { if (state.hueco) { const g = geo(h); state.hueco = h; apartaVecinos(h, g); pintaColocado(h, g, T.sil() ? silueta : colocado); hud.textContent = `en el hueco → ${h.estado} (a mano)`; } else entraEnHueco(h); } }
+  }
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarSinMano(); const n = { 1: 'pie', 2: 'inclinado', 3: 'tumbado' }[e.key]; if (n) cambiaPose(n); });
+  escena.addEventListener('wheel', (e) => { if (!['colocado', 'colocando', 'mano'].includes(state.modo)) return; e.preventDefault(); const orden = ['pie', 'inclinado', 'tumbado']; const cur = state.forzado || state.hueco?.estado || 'pie'; cambiaPose(orden[(orden.indexOf(cur) + (e.deltaY > 0 ? 1 : 2)) % 3]); }, { passive: false });
+  lab.onSpeed((v) => state.vivas.forEach((a) => { a.speed = v; }));
+</script>
+</body>
+</html>

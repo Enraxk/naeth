@@ -929,6 +929,66 @@ Fuentes: [StPageFlip en GitHub](https://github.com/Nodlik/StPageFlip) y su `src/
 [Updates in hardware-accelerated animation capabilities, Chrome](https://developer.chrome.com/blog/hardware-accelerated-animations);
 [Moving clip-path to the compositor, paint-dev](https://groups.google.com/a/chromium.org/g/paint-dev/c/3bXUo0X3C5I).
 
+## 10 · Coger, llevar y dejar un objeto en un sitio: cómo lo resuelven los juegos (21/09; estimado 1 h; real: ver el commit de cierre)
+
+Sale de la respuesta de Eneko al lab `animejs/17` (21/09, 12:53): «el DnD no se siente bien y las
+partes intermedias y colocaciones no tienen sentido», con seis capturas de poses intermedias absurdas
+(el libro inclinado de canto, dos lomos a la vez, el tumbado con el texto boca abajo). Y su pregunta:
+cómo lo han resuelto otros, sobre todo en videojuegos y 3D.
+
+### 10.1 Dos paradigmas, y el 17 mezclaba los dos
+
+**Colocar** (Unpacking, A Little to the Left, el modo construir de Los Sims y de Animal Crossing,
+las herramientas de «ghost preview» de Unity, y el arrastrar y soltar de Apple). El objeto que llevas
+tiene **una pose canónica en la mano**, sigue al puntero **1:1** (sin retardo, sin balanceo), y
+**cuando pasa por un sitio válido es el propio objeto el que se coloca** en su pose final, no una
+silueta aparte: en Unpacking «se ve cambiar de dirección para encajar automáticamente, o en el caso
+de los libros, meterse entre varios libros» ([Big Boss Battle](https://bigbossbattle.com/unpacking-has-you-moving-into-spaces-putting-your-life-together/));
+los propios autores: «los objetos ahora rotan cuando hace falta para caber en un hueco o apilarse; ya
+se siente tan natural que no podemos imaginar volver atrás» ([tuit de Witch Beam, abril 2021](https://x.com/UnpackingALife/status/1381046570951483393),
+⚠ leído en el resumen del buscador). En A Little to the Left los objetos «encajan cuando están dentro
+del objetivo, sin marcadores visuales» ([itch.io](https://maxinferno.itch.io/a-little-to-the-left/comments?before=23),
+⚠ ídem). Al soltar no hay física: un asentamiento corto; si el sitio no vale, **vuelve solo a donde
+estaba** («zoomback», [HIG de Apple](https://developer.apple.com/design/human-interface-guidelines/drag-and-drop):
+el elemento «zooma desde el puntero de vuelta a su sitio original»; y las pistas de destino solo
+mientras el contenido está encima). Rotar es una tecla, no un gesto. Lo mal colocado, en Unpacking,
+**parpadea** hasta que lo mueves; no bloquea.
+
+**Cargar con física** (la pistola de gravedad de Half-Life 2, Amnesia, la realidad virtual): el
+objeto cuelga de un muelle, se balancea, choca y al soltar cae con física. Se siente pesado y es
+divertido, pero **colocar con precisión es frustrante**: por eso ningún juego de ordenar lo usa. ⚠
+Sin fuente que lo diga así; es la lectura de la lista de arriba.
+
+El lab 17 del 20/09 era una mezcla: balanceo con muelle e inercia al soltar (cargar), más una
+silueta aparte, vecinos que se apartan y una regla de estados por hueco (colocar), y además el libro
+era una caja 3D en todo momento, con lo que las poses intermedias (de pie en perspectiva desde el
+lado, tumbado con el lomo boca abajo) salían de la geometría y no de una decisión. Lo que dijo
+Eneko es exactamente lo que se ve cuando se mezclan.
+
+### 10.2 Lo que pasa a la 6
+
+1. **Colocar, no cargar.** En la mano el libro es **una sola pose**, cerrado y de frente (la captura
+   1 del 21/09, la única que no molestaba), y sigue al puntero 1:1. Sin balanceo, sin muelle, sin
+   inercia al soltar. El «peso» que gustó en el lab 13 se guarda para otra cosa.
+2. **El propio libro se coloca al pasar por el hueco**: cuando el puntero entra en un sitio válido,
+   el libro pasa a su pose final en ese hueco (de pie, inclinado o tumbado, según la regla del
+   hueco) con un tween corto (150 ms) y **como un vecino más**: en la balda el libro es su lomo
+   plano, igual que los demás (lo pidió con las capturas img 1 e img 2 del 20/09). Los vecinos hacen
+   sitio en ese mismo momento. Al salir del hueco vuelve a la mano. **Sin silueta.**
+3. **Soltar dentro** = ya está colocado: un asentamiento de 120 ms (una sombra que se apaga). **Soltar
+   fuera** = zoomback a su hueco anterior en 300 ms. Nunca queda en el suelo, nunca «se coloca» en
+   un sitio que no era un hueco.
+4. **La rueda (o 1, 2, 3) cambia la pose** mientras está colocado en el hueco, como la R de rotar en
+   Unpacking; la regla del hueco es solo el defecto.
+5. **La caja 3D existe solo en la mano** y en cerrar y abrir (que ya están decididos). En cuanto
+   toca balda es un lomo. Se acabaron las poses intermedias por geometría.
+6. Lo que se mide después con los ojos, no ahora: si con el 1:1 y sin física «falta peso», la
+   palanca es la sombra (como en la 7), no el muelle.
+
+Lab: `animejs/18-dejar-v2.html`, con interruptores para comparar cada decisión con su contrario
+(1:1 contra balanceo; el libro se coloca contra silueta; vecinos que hacen sitio sí o no; zoomback
+contra quedarse; asentamiento ninguno, corto o muelle).
+
 ## Lo que no se ha podido comprobar
 
 1. ~~Que las custom properties de `waapi.animate` (`x`, `rotateY`) no van al compositor.~~
