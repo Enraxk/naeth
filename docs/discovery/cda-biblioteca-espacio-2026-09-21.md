@@ -297,6 +297,14 @@ discovery de la vista y sin esperar a la conversación con Tania (el piloto va c
 checkpoint 9 de Naeth se hace en cuanto esté el deck para Tania (`https://claude.ai/artifact/1UCRxu5Xty2ABvPNnZ8V96`,
 privado hasta que Eneko lo comparta).
 
+**Decidido a las 21:50**: Tania tiene 3ds Max con **licencia educativa**, y Autodesk prohíbe cualquier
+uso comercial con ella (incluidos renders de referencia para un producto); Naeth va a ser producto. Así
+que **Blender para todo, desde ya**, aceptando que el encargo 1 tarde algo más; ella parte de cero en
+Blender y sus modelos de producción entran en F3, con meses por delante. Carpeta de trabajo compartida en
+Drive, «CDA · Tania» (`https://drive.google.com/drive/folders/1U5Ws4wJ42dppngQx7D3WElp-Z8fwU9IC`): Léeme,
+brief vigente, pipeline de Blender a glTF con presupuestos, diario de decisiones, referencias y una
+subcarpeta de entregables por encargo.
+
 **Lo que cambia**: el visor entra en **generación 3** (cambia lo que se ve: regla de versiones del
 22/08), la lámina del plan del `.pen` gana el punto «la habitación» en el check de «a Eneko se le ha
 vuelto a ocurrir otra cosa» (se apunta, se numera, no se empieza hasta cerrar el punto en curso: el

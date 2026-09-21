@@ -10,6 +10,14 @@ todo lo que se cita: `docs/discovery/cda-vista-diseno-2026-09-15.md` (anexos D a
 > se monta. Está por ver (`docs/discovery/cda-biblioteca-espacio-2026-09-21.md`, familia 1) y Eneko
 > te lo contará él. **No cambies nada de lo que sigue todavía**: la cámara (encargo 1), el animatic
 > (3) y las texturas (4) valen igual; solo las composiciones del encargo 2 podrían crecer.
+>
+> **Segundo aviso, 21/09 a las 21:50.** Dos cosas más, decididas con Eneko: (1) **tu modelo sí se
+> exporta a la web** (la biblioteca será una habitación 3D en el navegador; lo del 20/09 sobre «no se
+> exporta nunca» queda anulado), y (2) **Blender en vez de 3ds Max, para todo**: tu licencia de Max es
+> educativa y Autodesk prohíbe usarla para nada comercial, incluidos renders de referencia; Naeth va a
+> ser producto. Se acepta que vaya un poco más lento. La versión vigente de este brief, reescrita con
+> todo esto y legible sin conocer el código, está en la carpeta de Drive «CDA · Tania», junto con el
+> pipeline de Blender a glTF y el diario de decisiones. Este fichero queda como registro del 20/09.
 
 ---
 
