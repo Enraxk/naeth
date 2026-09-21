@@ -899,17 +899,28 @@ transición de 320 ms.
   un **pliegue recto propio** sin JS por fotograma: keyframes de `clip-path` precalculados. Es un
   lab de 30 min si Eneko prefiere el pliegue recto de C al arco de B.
 
-### 9.3 Qué se propone
+### 9.3 Lo que dijo Eneko (21/09, 11:25) y lo que era de verdad
 
-1. **B** (tiras anidadas) es la candidata para la 7: papel que se dobla, compositor, 0 KB, el DOM
-   real dentro. Pendiente de que Eneko diga que se lee como papel y de la cifra con el hilo ocupado.
-2. Si prefiere el pliegue recto de C: se hace propio con `clip-path` en keyframes, no con la
-   librería (§9.2).
-3. Si ninguna convence, la hoja rígida A con la standard sigue siendo la alternativa barata, y el
-   fundido cruzado es la de reduced-motion y móvil; el 3D real no entra.
-4. El anexo Q se corrige cuando haya respuesta: la 7 pasa de «hoja de dos caras» a «hoja en N
-   tiras» y el hojeo de seis hojas a 2N capas por hoja (hay que mirar si seis hojas en tiras a la
-   vez son demasiadas capas: sesenta caras).
+**B y C no convencen**: «la C es funcional y sin más» y «las tiras de B no me gustan». Y lo que le
+escamaba del lab 16 no era la rigidez: **el sombreado del lomo desaparecía durante el giro y
+reaparecía al final**. Reproducido en el panel pausando la animación: a partir de los 305 ms (a
+menos de 0,2° de plano) `elementFromPoint` sobre la página izquierda devolvía la página fija vieja,
+no el verso de la hoja. Causa: la hoja llevaba `rotateY(a) translateZ(0,6px)`, y con ese orden el
+`translateZ` va en el espacio de la hoja, así que al girar 180° cambia de signo y la hoja aterriza
+**0,6 px por detrás** de la página fija: z-fighting, la vieja se ve a través los últimos 15 ms (sin
+el sombreado del lomo, con el número viejo) y al pintar la nueva todo «vuelve». Arreglo: `translateZ`
+**antes** de `rotateY` (espacio del libro), con una z de salida (alto del montón derecho) y otra de
+llegada (fondo del izquierdo) animadas a la vez; comprobado: el verso queda encima de 5 a 319 ms.
+Mismo arreglo en la vía A del lab `web/07`. Regla nueva para la skill y la guía: **en una hoja que
+gira 180°, el `translateZ` que la separa de lo que hay debajo va antes que la rotación**.
+
+### 9.4 Qué se propone
+
+1. **La hoja rígida A, arreglada, sigue siendo la 7** tal y como está en el anexo Q (hoja de dos
+   caras, 320 ms, standard, compositor). Pendiente de que Eneko la vuelva a mirar sin el z-fighting.
+2. B (tiras) y C (StPageFlip) quedan descartadas el 21/09 con motivo: las tiras no gustan y el
+   pliegue recto es «funcional y sin más». Quedan en el lab `web/07` como referencia.
+3. El 3D real no entra; el fundido cruzado es la vía de reduced-motion y móvil.
 
 Fuentes: [StPageFlip en GitHub](https://github.com/Nodlik/StPageFlip) y su `src/`;
 [page-flip en npm](https://www.npmjs.com/package/page-flip); [react-pageflip](https://www.npmjs.com/package/react-pageflip);

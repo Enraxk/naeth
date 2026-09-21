@@ -123,7 +123,7 @@ def taco(n: int, p: int) -> tuple[float, float]:
     const h = document.createElement('div'); h.className = 'hoja';
     h.innerHTML = `<div class="cara recto">${pagina(A)}</div><div class="cara verso">${pagina(B)}</div>`;
     lib.appendChild(h);
-    const a = h.animate([{ transform: `rotateY(${fwd ? 0 : -180}deg)` }, { transform: `rotateY(${fwd ? -180 : 0}deg)` }], { duration: dur(), easing: EASE, fill: 'forwards' });
+    const a = h.animate([{ transform: `translateZ(1px) rotateY(${fwd ? 0 : -180}deg)` }, { transform: `translateZ(1px) rotateY(${fwd ? -180 : 0}deg)` }], { duration: dur(), easing: EASE, fill: 'forwards' });   // 1 px por encima de las páginas: sin z-fighting al aterrizar
     a.playbackRate = lab.speed; vivas.push(a);
     return a.finished.then(() => h.remove()).catch(() => {});
   }
@@ -131,7 +131,7 @@ def taco(n: int, p: int) -> tuple[float, float]:
   // B · la hoja en N tiras anidadas. La tira 0 lleva el giro base; las demás reparten el arco, que crece y se apaga con sin(πt).
   function hojaTiras(lib, fwd, A, B) {
     const N = Number(document.getElementById('tiras').value), ARCO = Number(document.getElementById('arco').value), w = PW / N;
-    const raiz = document.createElement('div'); raiz.className = 'hoja tiras'; raiz.style.width = w + 'px';
+    const raiz = document.createElement('div'); raiz.className = 'hoja tiras'; raiz.style.width = w + 'px'; raiz.style.transform = 'translateZ(1px)';
     let padre = raiz; const tiras = [];
     for (let i = 0; i < N; i++) {
       const t = i === 0 ? raiz : document.createElement('div');
@@ -150,7 +150,7 @@ def taco(n: int, p: int) -> tuple[float, float]:
         const t = k / K, e = curva(t), base = fwd ? -180 * e : -180 * (1 - e);
         const arco = ARCO * Math.sin(Math.PI * t) * (fwd ? -1 : 1);
         const ang = i === 0 ? base - arco / 2 : arco / (N - 1);
-        kf.push({ transform: `rotateY(${ang}deg)`, offset: t });
+        kf.push({ transform: (i === 0 ? 'translateZ(1px) ' : '') + `rotateY(${ang}deg)`, offset: t });
       }
       const a = tiras[i].animate(kf, { duration: dur(), easing: 'linear', fill: 'forwards' });
       a.playbackRate = lab.speed; vivas.push(a); fin.push(a.finished);

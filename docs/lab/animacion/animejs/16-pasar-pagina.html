@@ -159,7 +159,11 @@ def taco(n: int, p: int) -> tuple[float, float]:
   /**
    * Crea una hoja para un paso (de la doble `from` a la `to`) y la lanza con retardo.
    * Hacia delante gira 0 → −180; hacia atrás nace tumbada a la izquierda (−180) y vuelve a 0.
-   * `z` separa las hojas en vuelo (rotateY antes que translateZ: al aterrizar cambia de signo solo).
+   * `z` separa las hojas en vuelo y las mantiene SIEMPRE por encima de las páginas fijas: translateZ va antes que
+   * rotateY (espacio del libro, no de la hoja). Con el orden inverso, al aterrizar la hoja quedaba 0,6 px por detrás
+   * de la página izquierda y esta se veía a través (z-fighting): el sombreado del lomo y el número «desaparecían»
+   * los últimos 15 ms y volvían al pintar. Es lo que le escamaba a Eneko el 21/09. La primera en girar sale de
+   * lo alto del taco derecho (z grande) y cae al fondo del izquierdo (z pequeño): la z también se anima.
    */
   function lanza(step, delay, z, bloque) {
     const fwd = step.to > step.from;
@@ -168,7 +172,7 @@ def taco(n: int, p: int) -> tuple[float, float]:
     const hoja = document.createElement('div');
     hoja.className = 'hoja' + (bloque ? ' bloque' : '');
     hoja.innerHTML = `<div class="cara recto">${pagina(A)}</div><div class="cara verso">${pagina(B)}</div>`;
-    const desde = `rotateY(${fwd ? 0 : -180}deg) translateZ(${z}px)`, hasta = `rotateY(${fwd ? -180 : 0}deg) translateZ(${z}px)`;
+    const desde = `translateZ(${z.ini}px) rotateY(${fwd ? 0 : -180}deg)`, hasta = `translateZ(${z.fin}px) rotateY(${fwd ? -180 : 0}deg)`;
     hoja.style.transform = desde;
     libro.appendChild(hoja);
     const D = bloque ? dur() + 100 : dur();
@@ -203,7 +207,7 @@ def taco(n: int, p: int) -> tuple[float, float]:
     const lista = new Array(n <= 3 ? k : k - 1).fill(null);
     steps.forEach((st, i) => {
       const delay = st.bloque ? 0 : (n <= 3 ? esc(null, i, lista) : 200 + esc(null, i - 1, lista));
-      const z = dir > 0 ? (k - i) * .6 : (i + 1) * .6;
+      const z = { ini: (k - i) * .6 + .6, fin: (i + 1) * .6 + .6 };   // arriba del montón de salida, abajo del de llegada
       lanza(st, delay, z, !!st.bloque);
     });
   }
