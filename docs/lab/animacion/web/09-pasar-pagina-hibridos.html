@@ -15,8 +15,10 @@
   .libro { position: absolute; left: 50%; top: 18px; width: calc(var(--PW) * 2 + 12px); height: calc(var(--PH) + 12px); transform: translateX(-50%); background: var(--tela); border-radius: 4px; transform-style: preserve-3d; }
   .pag, .cara { position: absolute; top: 6px; width: var(--PW); height: var(--PH); background: var(--papel); color: var(--tinta); padding: 12px 14px; font: 9px/1.5 "JetBrains Mono", monospace; overflow: hidden; }
   .pag pre, .cara pre { margin: 0; font: inherit; white-space: pre; }
-  /* Las páginas fijas a la misma z que la hoja al aterrizar (1 px), para que el raster coincida al sustituirla (a 0 habría un 0,07 % de escala de diferencia por la perspectiva). */
-  .pag { transform: translateZ(1px); }
+  /* Las páginas fijas medio píxel por debajo de la hoja (que sale y aterriza a 1 px): casi la misma z para que el raster
+     coincida al sustituirla, pero NUNCA la misma. A la misma z (1 px, 21/09 11:35) la hoja que salía hacia atrás
+     peleaba con la página fija recién pintada y se veía el texto viejo hasta que la hoja se levantaba. */
+  .pag { transform: translateZ(.5px); }
   .pag.izq { left: 6px; box-shadow: inset -18px 0 18px -18px rgba(0,0,0,.35); }
   .pag.der { right: 6px; box-shadow: inset 18px 0 18px -18px rgba(0,0,0,.35); }
   .pag .n, .cara .n { position: absolute; bottom: 6px; font-size: 9px; color: #6b7280; }
@@ -37,9 +39,9 @@
 <body>
 
 <h1>web 09 · pasar página, híbridos sobre E y C <small>segunda ronda (21/09/2026, 11:40): «las que más me gustan de base son la E y C; G, H, I sobre ellas, y azar en H»</small></h1>
-<p>Dos bases: <b>E</b> (inOutCubic, 320 ms) y <b>C</b> (standard, 400 ms). Sobre cada una, tres capas acumuladas: <b>+G</b> elevación de 24 px con sombra al 45 %, <b>+H</b> además la esquina (rotateX 5°), <b>+GHI</b> además el velo de canto en la hoja. La tercera fila lleva <b>azar por giro</b>: cada vez que pasas página se sortean la elevación (14 a 30 px), la inclinación (2 a 8°, y hacia qué esquina) y el tiempo (±8 %); los valores sorteados salen debajo de cada libro para relacionar lo que sientes con el número. Es el «irregular» de la regla 8 del doc (§1): dos hojas nunca iguales, como en un libro de verdad.</p>
+<p>Dos bases: <b>E</b> (inOutCubic, 320 ms) y <b>C</b> (standard, 400 ms). Sobre cada una: <b>+G</b> elevación de 24 px con sombra al 45 %, <b>+GI</b> además el velo de canto en la hoja, y <b>~</b> con <b>azar por giro</b>: cada vez que pasas página se sortean la elevación (14 a 30 px) y el tiempo (±8 %); abajo, una con más elevación (40 px) y las dos «todo con azar». La esquina (rotateX) se quitó a las 11:46: la hoja está cosida al lomo y la inclinación movía la esquina interna, que no puede moverse; los valores sorteados salen debajo de cada libro para relacionar lo que sientes con el número. Es el «irregular» de la regla 8 del doc (§1): dos hojas nunca iguales, como en un libro de verdad.</p>
 
-<div class="pregunta"><b>Pregunta aislada:</b> pasa varias páginas seguidas en las nueve (el azar solo se nota con varias). ¿Cuál se siente mejor? ¿El azar suma o distrae? ¿Prefieres E o C debajo?</div>
+<div class="pregunta"><b>Pregunta aislada:</b> pasa varias páginas seguidas en las nueve (el azar solo se nota con varias). ¿Cuál se siente mejor? ¿El azar suma o distrae? ¿Prefieres E o C debajo? ¿24 o 40 px de elevación?</div>
 
 <div class="barra">
   <span class="grupo"><button id="sig">pasar en las nueve →</button><button id="ant">← volver</button><button id="ocupar">ocupar el hilo 3 s</button></span>
@@ -48,7 +50,7 @@
 <div class="rejilla" id="rejilla"></div>
 
 <h2>Qué mirar</h2>
-<p class="notas">Las tres columnas acumulan (G, luego H, luego I): entre columnas cambia una sola capa. Entre filas cambia la base (E arriba, C en medio) y el azar (abajo). La esquina «inferior» es la que va por delante cuando rotateX es positivo; «superior», al revés. Con «ocupar el hilo» las nueve tienen que seguir.</p>
+<p class="notas">Entre celdas vecinas cambia una sola cosa: la base (E arriba, C en medio), el velo, el azar, o la altura de la elevación. Con «ocupar el hilo» las nueve tienen que seguir.</p>
 
 <h2>Resultado</h2>
 <p class="notas" id="res">Se rellena con la respuesta de Eneko: la letra elegida y el porqué.</p>
@@ -99,16 +101,18 @@ async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
   const STD = [.2, 0, 0, 1], EMPH = [.05, .7, .1, 1], INOUT = [.65, 0, .35, 1];
   const base = (k, t, d, extra) => Object.assign({ k, t, d, dur: 320, curva: INOUT, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0, rand: null }, extra);
   const E = { dur: 320, curva: INOUT }, C = { dur: 400, curva: STD };
+  // Sin esquina (rotateX): la hoja está cosida al lomo y con el origen en el lomo la inclinación movía también las
+  // esquinas del lado del lomo; Eneko, 21/09 11:46: «todas las que mueven la esquina interna no me cuadran».
   const V = [
     base('E+G', 'E con elevación', 'inOutCubic 320 · sube 24 px · sombra .45', { ...E, lift: 24, sombra: .45 }),
-    base('E+H', 'E, elevación y esquina', '24 px · rotateX 5°', { ...E, lift: 24, tilt: 5, sombra: .45 }),
-    base('E+GHI', 'E, todo', '24 px · 5° · velo de canto .35 · sombra .3', { ...E, lift: 24, tilt: 5, velo: .35, sombra: .3 }),
+    base('E+GI', 'E, elevación y velo', '24 px · velo de canto .35 · sombra .3', { ...E, lift: 24, velo: .35, sombra: .3 }),
+    base('E+G~', 'E, elevación con azar', 'elevación 14 a 30 · ±8 % de tiempo', { ...E, lift: 24, sombra: .45, rand: true }),
     base('C+G', 'C con elevación', 'standard 400 · sube 24 px · sombra .45', { ...C, lift: 24, sombra: .45 }),
-    base('C+H', 'C, elevación y esquina', '24 px · rotateX 5°', { ...C, lift: 24, tilt: 5, sombra: .45 }),
-    base('C+GHI', 'C, todo', '24 px · 5° · velo de canto .35 · sombra .3', { ...C, lift: 24, tilt: 5, velo: .35, sombra: .3 }),
-    base('E+H~', 'E, esquina con azar', 'elevación 14 a 30 · 2 a 8° a cualquier esquina · ±8 % de tiempo', { ...E, lift: 24, tilt: 5, sombra: .45, rand: true }),
-    base('C+H~', 'C, esquina con azar', 'idem sobre C', { ...C, lift: 24, tilt: 5, sombra: .45, rand: true }),
-    base('C+GHI~', 'C, todo con azar', 'idem, con el velo', { ...C, lift: 24, tilt: 5, velo: .35, sombra: .3, rand: true }),
+    base('C+GI', 'C, elevación y velo', '24 px · velo de canto .35 · sombra .3', { ...C, lift: 24, velo: .35, sombra: .3 }),
+    base('C+G~', 'C, elevación con azar', 'elevación 14 a 30 · ±8 % de tiempo', { ...C, lift: 24, sombra: .45, rand: true }),
+    base('C+G40', 'C, más elevación', 'sube 40 px · sombra .55', { ...C, lift: 40, sombra: .55 }),
+    base('C+GI~', 'C, elevación y velo con azar', 'idem, con el velo', { ...C, lift: 24, velo: .35, sombra: .3, rand: true }),
+    base('E+GI~', 'E, elevación y velo con azar', 'idem sobre E', { ...E, lift: 24, velo: .35, sombra: .3, rand: true }),
   ];
   const azar = (a, b) => a + Math.random() * (b - a);
   let s = 22, vivas = [];
@@ -135,8 +139,8 @@ async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
     // Azar por giro: elevación, inclinación (y su esquina) y tiempo, sorteados aquí y enseñados en el hud.
     let lift = v.lift, tilt = v.tilt, dur = v.dur;
     if (v.rand) {
-      lift = Math.round(azar(14, 30)); tilt = +(azar(2, 8) * (Math.random() < .5 ? -1 : 1)).toFixed(1); dur = Math.round(v.dur * azar(.92, 1.08));
-      document.getElementById('hud' + v.k).textContent = `elevación ${lift} px · esquina ${tilt > 0 ? 'inferior' : 'superior'} ${Math.abs(tilt)}° · ${dur} ms`;
+      lift = Math.round(azar(14, 30)); dur = Math.round(v.dur * azar(.92, 1.08));
+      document.getElementById('hud' + v.k).textContent = `elevación ${lift} px · ${dur} ms`;
     }
     const K = 26, f = bezier(...v.curva), kf = [], kv = [];
     for (let k = 0; k <= K; k++) {
