@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lab web 09 · pasar página, híbridos sobre E y C a 400 ms, con azar</title>
+<title>Lab web 09 · pasar página, híbridos a 400 ms, con azar sutil y papel claro u oscuro</title>
 <link rel="stylesheet" href="../00-lab.css">
 <style>
-  :root { --PW: 190px; --PH: 250px; --papel: #f1ece0; --tinta: #4b4740; --tela: #2b3340; }
+  :root { --PW: 190px; --PH: 250px; --papel: #f1ece0; --tinta: #4b4740; --num: #6b7280; --tela: #2b3340; --sombra-k: 1; }
+  /* Papel oscuro: el libro en modo oscuro del visor (anexo H: en oscuro el papel va en grises). Las sombras siguen siendo negras: es lo que se prueba. */
+  html[data-oscuro] { --papel: #22262c; --tinta: #c9d1d9; --num: #8a929e; }
   .rejilla { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .celda { background: var(--mesa); border-radius: 10px; padding: 10px 12px 12px; }
   .celda h3 { margin: 0 0 6px; font-size: 12px; color: var(--ink); font-weight: 500; }
@@ -21,7 +23,7 @@
   .pag { transform: translateZ(.5px); }
   .pag.izq { left: 6px; box-shadow: inset -18px 0 18px -18px rgba(0,0,0,.35); }
   .pag.der { right: 6px; box-shadow: inset 18px 0 18px -18px rgba(0,0,0,.35); }
-  .pag .n, .cara .n { position: absolute; bottom: 6px; font-size: 9px; color: #6b7280; }
+  .pag .n, .cara .n { position: absolute; bottom: 6px; font-size: 9px; color: var(--num); }
   .pag.izq .n, .cara.verso .n { left: 14px; } .pag.der .n, .cara.recto .n { right: 14px; }
   .hoja { position: absolute; left: 50%; top: 6px; width: var(--PW); height: var(--PH); transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
   .cara { top: 0; inset: 0; backface-visibility: hidden; }
@@ -30,6 +32,8 @@
   /* Sombra propia de la hoja: un velo que se oscurece cuando la hoja está de canto (solo opacity). */
   .velo { position: absolute; inset: 0; background: rgba(0,0,0,.5); opacity: 0; pointer-events: none; }
   .som { position: absolute; top: 6px; width: var(--PW); height: var(--PH); opacity: 0; pointer-events: none; }
+  html[data-oscuro] .som.i { background: linear-gradient(90deg, transparent, rgba(0,0,0,.85)); }
+  html[data-oscuro] .som.d { background: linear-gradient(270deg, transparent, rgba(0,0,0,.85)); }
   .som.i { left: 6px; background: linear-gradient(90deg, transparent, rgba(0,0,0,.6)); }
   .som.d { right: 6px; background: linear-gradient(270deg, transparent, rgba(0,0,0,.6)); }
   .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
@@ -39,18 +43,20 @@
 <body>
 
 <h1>web 09 · pasar página, híbridos sobre E y C <small>segunda ronda (21/09/2026, 11:40): «las que más me gustan de base son la E y C; G, H, I sobre ellas, y azar en H»</small></h1>
-<p>Dos bases, <b>las dos a 400 ms</b> desde las 11:51: <b>E</b> (inOutCubic) y <b>C</b> (standard); entre filas solo cambia la curva. Sobre cada una: <b>+G</b> elevación de 24 px con sombra al 45 %, <b>+GI</b> además el velo de canto en la hoja, y <b>~</b> con <b>azar por giro</b>: cada vez que pasas página se sortean la elevación (14 a 30 px) y el tiempo (±8 %); abajo, una con más elevación (40 px) y las dos «todo con azar». La esquina (rotateX) se quitó a las 11:46: la hoja está cosida al lomo y la inclinación movía la esquina interna, que no puede moverse; los valores sorteados salen debajo de cada libro para relacionar lo que sientes con el número. Es el «irregular» de la regla 8 del doc (§1): dos hojas nunca iguales, como en un libro de verdad.</p>
+<p>Dos bases, las dos a 400 ms: <b>E</b> (inOutCubic) y <b>C</b> (standard); entre filas solo cambia la curva. Sobre cada una: <b>+G</b> elevación con sombra al 45 %, <b>+GI</b> además el velo de canto en la hoja, y la elevación a 12, 24 o 40 px. <b>Todas llevan azar sutil</b> desde las 11:56 («no todas las páginas se levantan igual; se nota que ha cambiado algo, pero es muy pequeño y no molesta»): en cada giro la elevación y el tiempo se desvían un poco, lo que diga el deslizador de azar (al 35 %, la elevación ±10 % y el tiempo ±3 %; a 0 no hay azar; a 100, ±30 % y ±8 %). Los valores sorteados salen debajo de cada libro. <b>Papel oscuro</b> pone el libro como en el modo oscuro del visor, para ver qué hacen las sombras negras sobre papel gris; el deslizador de sombras las multiplica.</p>
 
-<div class="pregunta"><b>Pregunta aislada:</b> pasa varias páginas seguidas en las nueve (el azar solo se nota con varias). ¿Cuál se siente mejor? ¿El azar suma o distrae? ¿Prefieres E o C debajo? ¿24 o 40 px de elevación?</div>
+<div class="pregunta"><b>Pregunta aislada:</b> pasa varias páginas seguidas en las nueve (el azar solo se nota con varias). ¿Qué azar es «se nota pero no molesta»? En papel oscuro, ¿las sombras negras siguen contando la altura o hay que multiplicarlas (o cambiarlas por luz)? ¿12, 24 o 40 px?</div>
 
 <div class="barra">
-  <span class="grupo"><button id="sig">pasar en las nueve →</button><button id="ant">← volver</button><button id="ocupar">ocupar el hilo 3 s</button></span>
+  <span class="grupo"><button id="sig">pasar en las nueve →</button><button id="ant">← volver</button><button id="ocupar">ocupar el hilo 3 s</button><button id="modo">papel oscuro</button></span>
+  <label>azar <input type="range" id="azar" min="0" max="100" step="5" value="35"> <output id="oazar">35 %</output></label>
+  <label>sombras × <input type="range" id="sk" min="0" max="2" step=".1" value="1"> <output id="osk">1.0</output></label>
 </div>
 
 <div class="rejilla" id="rejilla"></div>
 
 <h2>Qué mirar</h2>
-<p class="notas">Entre celdas vecinas cambia una sola cosa: la base (E arriba, C en medio), el velo, el azar, o la altura de la elevación. Con «ocupar el hilo» las nueve tienen que seguir.</p>
+<p class="notas">Con el azar al 35 % dos giros seguidos no son iguales pero nadie diría por qué: es lo que se busca. En papel oscuro, la sombra móvil es negra sobre gris oscuro: si deja de contar la altura de la hoja, o se multiplica (deslizador) o la sombra pasa a ser un velo de luz en la hoja (lo que hace I al revés), y eso se decide mirando. Entre celdas vecinas cambia una sola cosa. Con «ocupar el hilo» las nueve tienen que seguir.</p>
 
 <h2>Resultado</h2>
 <p class="notas" id="res">Se rellena con la respuesta de Eneko: la letra elegida y el porqué.</p>
@@ -99,26 +105,26 @@ async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
   function pagina(p) { const ini = (p * 5) % (LINEAS.length - 15); return `<pre>${LINEAS.slice(ini, ini + 15).map(esc).join(String.fromCharCode(10))}</pre><span class="n">${p}</span>`; }
 
   const STD = [.2, 0, 0, 1], EMPH = [.05, .7, .1, 1], INOUT = [.65, 0, .35, 1];
-  const base = (k, t, d, extra) => Object.assign({ k, t, d, dur: 320, curva: INOUT, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0, rand: null }, extra);
+  const base = (k, t, d, extra) => Object.assign({ k, t, d, dur: 320, curva: INOUT, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0 }, extra);
   const E = { dur: 400, curva: INOUT }, C = { dur: 400, curva: STD };   // las dos a 400 ms (Eneko, 21/09 11:51): solo cambia la curva
   // Sin esquina (rotateX): la hoja está cosida al lomo y con el origen en el lomo la inclinación movía también las
   // esquinas del lado del lomo; Eneko, 21/09 11:46: «todas las que mueven la esquina interna no me cuadran».
   const V = [
-    base('E+G', 'E con elevación', 'inOutCubic 400 · sube 24 px · sombra .45', { ...E, lift: 24, sombra: .45 }),
-    base('E+GI', 'E, elevación y velo', '24 px · velo de canto .35 · sombra .3', { ...E, lift: 24, velo: .35, sombra: .3 }),
-    base('E+G~', 'E, elevación con azar', 'elevación 14 a 30 · ±8 % de tiempo', { ...E, lift: 24, sombra: .45, rand: true }),
-    base('C+G', 'C con elevación', 'standard 400 · sube 24 px · sombra .45', { ...C, lift: 24, sombra: .45 }),
-    base('C+GI', 'C, elevación y velo', '24 px · velo de canto .35 · sombra .3', { ...C, lift: 24, velo: .35, sombra: .3 }),
-    base('C+G~', 'C, elevación con azar', 'elevación 14 a 30 · ±8 % de tiempo', { ...C, lift: 24, sombra: .45, rand: true }),
-    base('C+G40', 'C, más elevación', 'sube 40 px · sombra .55', { ...C, lift: 40, sombra: .55 }),
-    base('C+GI~', 'C, elevación y velo con azar', 'idem, con el velo', { ...C, lift: 24, velo: .35, sombra: .3, rand: true }),
-    base('E+GI~', 'E, elevación y velo con azar', 'idem sobre E', { ...E, lift: 24, velo: .35, sombra: .3, rand: true }),
+    base('E+G', 'E con elevación', 'inOutCubic 400 · 24 px · sombra .45', { ...E, lift: 24, sombra: .45 }),
+    base('E+GI', 'E, elevación y velo', '24 px · velo .35 · sombra .3', { ...E, lift: 24, velo: .35, sombra: .3 }),
+    base('E+G40', 'E, más elevación', '40 px · sombra .55', { ...E, lift: 40, sombra: .55 }),
+    base('C+G', 'C con elevación', 'standard 400 · 24 px · sombra .45', { ...C, lift: 24, sombra: .45 }),
+    base('C+GI', 'C, elevación y velo', '24 px · velo .35 · sombra .3', { ...C, lift: 24, velo: .35, sombra: .3 }),
+    base('C+G40', 'C, más elevación', '40 px · sombra .55', { ...C, lift: 40, sombra: .55 }),
+    base('E+GI40', 'E, velo y más elevación', '40 px · velo .35 · sombra .4', { ...E, lift: 40, velo: .35, sombra: .4 }),
+    base('C+GI40', 'C, velo y más elevación', '40 px · velo .35 · sombra .4', { ...C, lift: 40, velo: .35, sombra: .4 }),
+    base('C+G12', 'C, poca elevación', '12 px · sombra .35', { ...C, lift: 12, sombra: .35 }),
   ];
   const azar = (a, b) => a + Math.random() * (b - a);
   let s = 22, vivas = [];
   const rejilla = document.getElementById('rejilla');
   V.forEach((v) => {
-    rejilla.insertAdjacentHTML('beforeend', `<div class="celda"><h3>${v.k} · ${v.t}<small>${v.d}</small></h3><div class="escena" style="--persp:${v.persp}px"><div class="libro" id="lib${v.k}"><div class="pag izq"></div><div class="pag der"></div><div class="som i"></div><div class="som d"></div></div></div><div class="hud" id="hud${v.k}">${v.rand ? "se sortea al pasar" : ""}</div></div>`);
+    rejilla.insertAdjacentHTML('beforeend', `<div class="celda"><h3>${v.k} · ${v.t}<small>${v.d}</small></h3><div class="escena" style="--persp:${v.persp}px"><div class="libro" id="lib${v.k}"><div class="pag izq"></div><div class="pag der"></div><div class="som i"></div><div class="som d"></div></div></div><div class="hud" id="hud${v.k}"></div></div>`);
     v.lib = document.getElementById('lib' + v.k);
   });
   function pintaCelda(v) { v.lib.querySelector('.izq').innerHTML = pagina(2 * s); v.lib.querySelector('.der').innerHTML = pagina(2 * s + 1); }
@@ -136,22 +142,20 @@ async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
     const h = document.createElement('div'); h.className = 'hoja';
     h.innerHTML = `<div class="cara recto">${pagina(A)}<div class="velo"></div></div><div class="cara verso">${pagina(B)}<div class="velo"></div></div>`;
     v.lib.appendChild(h);
-    // Azar por giro: elevación, inclinación (y su esquina) y tiempo, sorteados aquí y enseñados en el hud.
-    let lift = v.lift, tilt = v.tilt, dur = v.dur;
-    if (v.rand) {
-      lift = Math.round(azar(14, 30)); dur = Math.round(v.dur * azar(.92, 1.08));
-      document.getElementById('hud' + v.k).textContent = `elevación ${lift} px · ${dur} ms`;
-    }
+    // Azar sutil por giro: elevación y tiempo se desvían según el deslizador (k de 0 a 1): ±30 %·k y ±8 %·k.
+    const k = Number(document.getElementById('azar').value) / 100, sk = Number(document.getElementById('sk').value);
+    const lift = Math.round(v.lift * (1 + (Math.random() - .5) * 2 * .3 * k)), dur = Math.round(v.dur * (1 + (Math.random() - .5) * 2 * .08 * k));
+    document.getElementById('hud' + v.k).textContent = k ? `elevación ${lift} px · ${dur} ms` : '';
     const K = 26, f = bezier(...v.curva), kf = [], kv = [];
     for (let k = 0; k <= K; k++) {
       const t = k / K, e = f(t), a = fwd ? -180 * e : -180 * (1 - e), arco = Math.sin(Math.PI * e);
-      kf.push({ transform: `translateZ(${1 + lift * arco}px) rotateY(${a}deg) rotateX(${tilt * arco}deg)`, offset: t });
-      kv.push({ opacity: v.velo * arco, offset: t });
+      kf.push({ transform: `translateZ(${1 + lift * arco}px) rotateY(${a}deg)`, offset: t });
+      kv.push({ opacity: v.velo * sk * arco, offset: t });
     }
     const a = h.animate(kf, { duration: dur, easing: 'linear', fill: 'forwards' }); a.playbackRate = lab.speed; vivas.push(a);
     if (v.velo) h.querySelectorAll('.velo').forEach((el) => { const x = el.animate(kv, { duration: dur, easing: 'linear', fill: 'forwards' }); x.playbackRate = lab.speed; vivas.push(x); });
     const som = v.lib.querySelector(fwd ? '.som.i' : '.som.d');
-    if (v.sombra) { const x = som.animate([{ opacity: 0 }, { opacity: v.sombra, offset: .5 }, { opacity: 0 }], { duration: dur, easing: 'linear' }); x.playbackRate = lab.speed; vivas.push(x); }
+    if (v.sombra && sk) { const x = som.animate([{ opacity: 0 }, { opacity: Math.min(1, v.sombra * sk), offset: .5 }, { opacity: 0 }], { duration: dur, easing: 'linear' }); x.playbackRate = lab.speed; vivas.push(x); }
     // La página fija de ESTA celda se pinta al aterrizar su hoja, no cuando acaban las nueve: si no, las cortas
     // enseñaban la página vieja hasta que terminaba la de 400 ms (lo que Eneko vio como «el texto se recoloca», 21/09 11:35).
     return a.finished.then(() => { pintaCelda(v); h.remove(); }).catch(() => {});
@@ -164,6 +168,9 @@ async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
     s = target;
     Promise.all(V.map((v) => hoja(v, fwd, A, B))).then(() => { pinta(); Meter.end(); });
   }
+  document.getElementById('modo').addEventListener('click', (e) => { const on = document.documentElement.toggleAttribute('data-oscuro'); e.target.textContent = on ? 'papel claro' : 'papel oscuro'; });
+  document.getElementById('azar').addEventListener('input', (e) => { document.getElementById('oazar').textContent = e.target.value + ' %'; });
+  document.getElementById('sk').addEventListener('input', (e) => { document.getElementById('osk').textContent = Number(e.target.value).toFixed(1); });
   document.getElementById('sig').addEventListener('click', () => pasa(true));
   document.getElementById('ant').addEventListener('click', () => pasa(false));
   document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') pasa(true); if (e.key === 'ArrowLeft') pasa(false); });
