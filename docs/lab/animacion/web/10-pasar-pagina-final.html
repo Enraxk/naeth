@@ -13,7 +13,12 @@
   .libro { position: absolute; left: 50%; top: 50%; width: calc(var(--PW) * 2 + 12px); height: calc(var(--PH) + 12px); transform: translate(-50%, -50%); background: var(--tela); border-radius: 4px; transform-style: preserve-3d; }
   .pag, .cara { position: absolute; top: 6px; width: var(--PW); height: var(--PH); background: var(--papel); color: var(--tinta); padding: 20px 24px; font: 11.5px/1.55 "JetBrains Mono", monospace; overflow: hidden; }
   .pag pre, .cara pre { margin: 0; font: inherit; white-space: pre; }
-  .pag { transform: translateZ(.5px); }   /* la misma z a la que aterriza la hoja (ver ir()): capa compuesta 3D, como la hoja, para que el raster coincida */
+  /* La misma z a la que aterriza la hoja (ver ir()). Y las páginas fijas se rasterizan IGUAL que la hoja: capa compuesta
+     con will-change, así el texto va en escala de grises (sin subpíxel LCD) también en reposo. Sin esto, en reposo el
+     texto iba con antialiasing LCD (más negro, más nítido) y en vuelo en escala de grises (más claro): al posarse la
+     hoja el texto «se oscurecía de golpe» y la línea del lomo aparecía (Eneko, 21/09 12:22). No es el monitor: es que
+     Chromium solo usa LCD en capas opacas sin transformar. Coste: el texto del libro es siempre el de escala de grises. */
+  .pag { transform: translateZ(.5px); will-change: transform; backface-visibility: hidden; }
   .pag.izq { left: 6px; box-shadow: inset -24px 0 24px -24px rgba(0,0,0,.35); }
   .pag.der { right: 6px; box-shadow: inset 24px 0 24px -24px rgba(0,0,0,.35); }
   .pag .n, .cara .n { position: absolute; bottom: 10px; font-size: 10.5px; color: var(--num); }
