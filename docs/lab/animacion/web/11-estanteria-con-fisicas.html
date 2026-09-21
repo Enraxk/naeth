@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lab web 11 · la estantería con físicas de verdad (Matter.js)</title>
+<title>Lab web 11 · la estantería con físicas de verdad (Matter.js), pulida</title>
 <link rel="stylesheet" href="../00-lab.css">
 <style>
   :root { --H: 150px; --G: 22px; --lomo: #1c2e45; }
@@ -12,12 +12,14 @@
   .balda { position: absolute; left: 20px; right: 20px; height: 10px; background: linear-gradient(#3a3227, #241f18); border-radius: 2px; box-shadow: 0 12px 24px -8px rgba(0,0,0,.8); }
   .balda::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 190px; background: linear-gradient(transparent, rgba(0,0,0,.25)); pointer-events: none; }
   /* Cada cuerpo del motor es un lomo plano. La posición y el ángulo los escribe el motor por fotograma (transform). */
-  .vec { position: absolute; left: 0; top: 0; width: var(--G); height: var(--H); background: var(--lomo); border-radius: 2px; box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.08); display: grid; place-items: center; will-change: transform; cursor: grab; }
-  .vec span { color: #cfd6e0; font: 600 10px Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .04em; white-space: nowrap; pointer-events: none; }
+  .vec { position: absolute; left: 0; top: 0; width: var(--G); height: var(--H); background: var(--lomo, #1c2e45); border-radius: 2px; box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.08); display: grid; place-items: center; will-change: transform; cursor: grab; }
+  .vec span { color: #cfd6e0; font: 600 var(--fs, 10px) Inter, sans-serif; writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .04em; white-space: nowrap; pointer-events: none; }
   .vec.mio { background: #24395a; box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.12), 0 0 0 1px rgba(93,176,255,.35); }
   .vec.dormido { box-shadow: inset -3px 0 6px -3px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.08); }
   .vec.mano { box-shadow: 0 8px 18px rgba(0,0,0,.6), inset 2px 0 2px -1px rgba(255,255,255,.12); z-index: 5; }
   body.arrastra .escena { cursor: grabbing; }
+  /* La sombra de donde va a caer: se proyecta el libro hacia abajo hasta la primera superficie. */
+  #caida { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: rgba(0,0,0,.7); filter: blur(3px); opacity: 0; pointer-events: none; transform-origin: 0 0; }
   .hud { position: absolute; left: 12px; bottom: 10px; color: var(--dim); font: 11px "JetBrains Mono", monospace; pointer-events: none; }
   .barra .grupo { display: inline-flex; gap: 6px; align-items: center; }
 </style>
@@ -25,15 +27,18 @@
 <body>
 
 <h1>web 11 · la estantería con físicas de verdad <small>Matter.js 0.20 (MIT, 25,8 KB gzip), 21/09/2026, 13:15</small></h1>
-<p>Respuesta a «esto no se siente como si tuviera físicas» (lab 18, 13:11). Aquí las hay: cada lomo es un cuerpo rígido en el plano de la estantería, las baldas son suelo, hay gravedad, rozamiento y sueño. <b>Coge cualquier libro</b> (el tuyo es el azul, pero todos se cogen): cuelga del puntero por donde lo agarras con una cuerda blanda (un <code>Constraint</code> de Matter: el balanceo sale solo, es un péndulo) y al soltar <b>cae</b>: se queda de pie si hay quien lo sujete, se apoya en el vecino si hay hueco, se tumba si no, y se puede <b>apilar</b> encima de otro tumbado o dejar tumbado encima de los de pie. Teclas mientras lo llevas: <b>1</b> lo endereza, <b>3</b> lo tumba; la rueda lo gira. «Ajustar al dormir» endereza a 0° o 90° exactos al cuerpo que se duerme casi recto, para que la estantería no acabe con libros a 3°. El motor escribe los <code>transform</code> por fotograma desde JS (hilo principal, paso fijo de 1/120 s): cuando todos duermen no escribe nada.</p>
+<p>Respuesta a «esto no se siente como si tuviera físicas» (lab 18, 13:11). Aquí las hay: cada lomo es un cuerpo rígido en el plano de la estantería, las baldas son suelo, hay gravedad, rozamiento y sueño. <b>Coge cualquier libro</b> (el tuyo es el azul, pero todos se cogen): cuelga del puntero por donde lo agarras con una cuerda blanda (un <code>Constraint</code> de Matter: el balanceo sale solo, es un péndulo) y al soltar <b>cae</b>: se queda de pie si hay quien lo sujete, se apoya en el vecino si hay hueco, se tumba si no, y se puede <b>apilar</b> encima de otro tumbado o dejar tumbado encima de los de pie. Teclas mientras lo llevas: <b>1</b> lo endereza, <b>3</b> lo tumba; la rueda lo gira. «Ajustar al dormir» endereza a 0° o 90° exactos al cuerpo que se duerme casi recto, para que la estantería no acabe con libros a 3°. El motor escribe los <code>transform</code> por fotograma desde JS (hilo principal, paso fijo de 1/120 s): cuando todos duermen no escribe nada. Pulido a las 13:45: densidad ×3 y gravedad 1,6 con aire (peso), nueve tamaños y grosores, la mano sujeta el libro con un par hacia el ángulo recto más cercano (cogerlo por el final ya no lo voltea), y la sombra de dónde va a caer (el libro proyectado hacia abajo hasta la primera superficie que solape).</p>
 
-<div class="pregunta"><b>Pregunta aislada:</b> ¿esto es «tener físicas»? ¿Se puede vivir con lo que decide la gravedad (un libro que cae de canto, uno que se tumba solo), o hay que ayudarla (ajustar al dormir, más rozamiento)? ¿Qué gravedad y qué cuerda se sienten bien?</div>
+<div class="pregunta"><b>Pregunta aislada:</b> pulido el 21/09 a las 13:45 con tu lista: más peso (densidad y gravedad, y aire para que no oscilen), libros de tamaños y grosores distintos, la sombra de dónde va a caer, y la mano <b>sujeta</b> el libro (un par que lo mantiene recto, o tumbado si pulsas 3), así cogerlo por el final ya no lo voltea. ¿Qué peso, firmeza y gravedad se sienten bien? ¿La sombra de caída ayuda? ¿Qué sigue verde?</div>
 
 <div class="barra">
   <span class="grupo"><button id="reset">colocar como al principio</button><button id="ocupar">ocupar el hilo 3 s</button></span>
-  <label>gravedad <input type="range" id="grav" min=".2" max="2.5" step=".1" value="1"> <output id="ograv">1.0</output></label>
-  <label>cuerda <input type="range" id="cuerda" min=".02" max="1" step=".02" value=".12"> <output id="ocuerda">0.12</output></label>
-  <label>rozamiento <input type="range" id="roz" min="0" max="1" step=".05" value=".6"> <output id="oroz">0.60</output></label>
+  <label>gravedad <input type="range" id="grav" min=".2" max="3" step=".1" value="1.6"> <output id="ograv">1.6</output></label>
+  <label>peso <input type="range" id="peso" min=".2" max="4" step=".1" value="1"> <output id="opeso">1.0</output></label>
+  <label>cuerda <input type="range" id="cuerda" min=".02" max="1" step=".02" value=".2"> <output id="ocuerda">0.20</output></label>
+  <label>firmeza de la mano <input type="range" id="firme" min="0" max="1" step=".05" value=".6"> <output id="ofirme">0.60</output></label>
+  <label>rozamiento <input type="range" id="roz" min="0" max="1" step=".05" value=".7"> <output id="oroz">0.70</output></label>
+  <label><input type="checkbox" id="tcaida" checked> sombra de dónde va a caer</label>
   <label><input type="checkbox" id="snap" checked> ajustar al dormir (0° o 90°)</label>
   <label><input type="checkbox" id="frente"> el que llevo, de frente (100 px)</label>
 </div>
@@ -42,6 +47,7 @@
   <div class="fondo"></div>
   <div class="balda" style="top:260px"></div>
   <div class="balda" style="top:520px"></div>
+  <div id="caida"></div>
   <div class="hud" id="hud"></div>
 </div>
 
@@ -60,9 +66,10 @@
   const escena = document.getElementById('escena'), hud = document.getElementById('hud');
   const H = 150, G = 22, ANCHO = () => Math.max(escena.clientWidth, 800);
   const engine = Engine.create({ enableSleeping: true, positionIterations: 8, velocityIterations: 6 });
-  engine.gravity.y = 1;
+  engine.gravity.y = 1.6;
   const world = engine.world;
-  const opts = () => ({ friction: Number(document.getElementById('roz').value), frictionStatic: 1, restitution: 0, density: .002, sleepThreshold: 40, chamfer: { radius: 1 } });
+  const PESO = () => Number(document.getElementById('peso').value);
+  const opts = () => ({ friction: Number(document.getElementById('roz').value), frictionStatic: 1, restitution: 0, density: .006 * PESO(), frictionAir: .02, sleepThreshold: 40, chamfer: { radius: 1 } });
 
   // Suelo: las dos baldas (superficie superior en y = 260 y 520), paredes y un suelo por debajo de todo.
   const estatico = { isStatic: true, friction: .9 };
@@ -72,21 +79,25 @@
   ]);
 
   const nombres = ['CENIT', 'GridWatch', 'Yogin', 'Inkerlum', 'Whisper', 'Doctor', 'CDA', 'Sanas', 'Formación'];
-  const inicial = [
-    ...[40, 68, 96, 124, 420, 448, 476, 504, 532].map((x, i) => ({ x, y: 260, t: 0, n: nombres[i] })),
-    ...[40, 68, 96, 190, 218].map((x, i) => ({ x, y: 520, t: 0, n: nombres[(i + 4) % 9] })),
-    { x: 300, y: 520, t: 1, n: 'CENIT' },
-    { x: 700, y: 520, t: 0, n: 'NAETH', mio: true },
-  ];
+  // Tamaños y grosores distintos (alto × grosor en px): cada libro es el suyo; la masa sale del área.
+  const TAM = [[150, 22], [170, 30], [130, 16], [160, 26], [140, 18], [150, 34], [176, 24], [136, 20], [156, 28]];
+  const inicial = [];
+  { let x = 40; [0, 1, 2, 3].forEach((i) => { inicial.push({ x, y: 260, t: 0, n: nombres[i], tam: TAM[i] }); x += TAM[i][1] + 6; });
+    x = 420; [4, 5, 6, 7, 8].forEach((i) => { inicial.push({ x, y: 260, t: 0, n: nombres[i], tam: TAM[i] }); x += TAM[i][1] + 6; });
+    x = 40; [3, 0, 6].forEach((i) => { inicial.push({ x, y: 520, t: 0, n: nombres[i], tam: TAM[i] }); x += TAM[i][1] + 6; });
+    x = 190; [2, 5].forEach((i) => { inicial.push({ x, y: 520, t: 0, n: nombres[i], tam: TAM[i] }); x += TAM[i][1] + 6; });
+    inicial.push({ x: 300, y: 520, t: 1, n: 'CENIT', tam: TAM[0] });
+    inicial.push({ x: 700, y: 520, t: 0, n: 'NAETH', mio: true, tam: [158, 24] }); }
   let libros = [];
-  /** Crea un lomo (cuerpo + div). t = 1 tumbado. x es el borde izquierdo, y la balda. */
-  function crea({ x, y, t, n, mio }) {
-    const w = t ? H : G, h = t ? G : H;
-    const body = Bodies.rectangle(x + w / 2, y - h / 2 - 5, G, H, opts());   // el cuerpo siempre es 22×150; tumbado = girado 90°
+  /** Crea un lomo (cuerpo + div) de su tamaño. t = 1 tumbado. x es el borde izquierdo, y la balda. */
+  function crea({ x, y, t, n, mio, tam }) {
+    const [h0, g0] = tam, w = t ? h0 : g0, h = t ? g0 : h0;
+    const body = Bodies.rectangle(x + w / 2, y - h / 2 - 5, g0, h0, opts());   // el cuerpo es grosor × alto; tumbado = girado 90°
     if (t) Body.setAngle(body, Math.PI / 2);
     const el = document.createElement('div'); el.className = 'vec' + (mio ? ' mio' : ''); el.innerHTML = `<span>${n}</span>`;
+    el.style.width = g0 + 'px'; el.style.height = h0 + 'px'; el.style.setProperty('--fs', Math.round(7 + g0 / 4) + 'px');
     escena.appendChild(el);
-    const l = { body, el, n, mio }; libros.push(l); Composite.add(world, body);
+    const l = { body, el, n, mio, g: g0, h: h0 }; libros.push(l); Composite.add(world, body);
     return l;
   }
   function reset() { libros.forEach((l) => { Composite.remove(world, l.body); l.el.remove(); }); libros = []; inicial.forEach(crea); suelta(); }
@@ -99,13 +110,15 @@
     const off = Vector.rotate(Vector.sub(p, l.body.position), -l.body.angle);   // punto de agarre en coordenadas del cuerpo
     const cuerda = Constraint.create({ bodyA: l.body, pointA: off, pointB: p, stiffness: Number(document.getElementById('cuerda').value), damping: .08, length: 0 });
     Composite.add(world, cuerda); Sleeping.set(l.body, false);
-    mano = { l, cuerda, off }; l.el.classList.add('mano'); document.body.classList.add('arrastra'); Meter.begin('llevar');
-    if (document.getElementById('frente').checked) { Body.scale(l.body, 100 / G, 1); l.el.style.width = '100px'; l.el.classList.add('frente'); }
+    // La mano sujeta: el ángulo objetivo es el recto más cercano al que tenía (1 y 3 lo cambian); un par lo mantiene ahí.
+    mano = { l, cuerda, off, ang: Math.round(l.body.angle / (Math.PI / 2)) * (Math.PI / 2) }; l.el.classList.add('mano'); document.body.classList.add('arrastra'); Meter.begin('llevar');
+    if (document.getElementById('frente').checked) { Body.scale(l.body, 100 / l.g, 1); l.el.style.width = '100px'; l.el.classList.add('frente'); }
   }
   function suelta() {
     if (!mano) return;
     const { l, cuerda } = mano;
-    if (l.el.classList.contains('frente')) { Body.scale(l.body, G / 100, 1); l.el.style.width = ''; l.el.classList.remove('frente'); }
+    if (l.el.classList.contains('frente')) { Body.scale(l.body, l.g / 100, 1); l.el.style.width = l.g + 'px'; l.el.classList.remove('frente'); }
+    document.getElementById('caida').style.opacity = 0;
     Composite.remove(world, cuerda); l.el.classList.remove('mano'); document.body.classList.remove('arrastra'); mano = null; Meter.end();
   }
   escena.addEventListener('pointerdown', (e) => {
@@ -118,10 +131,30 @@
   escena.addEventListener('pointerup', suelta);
   document.addEventListener('keydown', (e) => {
     if (!mano) return;
-    if (e.key === '1') Body.setAngle(mano.l.body, 0); if (e.key === '3') Body.setAngle(mano.l.body, Math.PI / 2);
-    if (e.key === '1' || e.key === '3') Body.setAngularVelocity(mano.l.body, 0);
+    if (e.key === '1') mano.ang = 0; if (e.key === '3') mano.ang = Math.PI / 2;
   });
-  escena.addEventListener('wheel', (e) => { if (!mano) return; e.preventDefault(); Body.setAngularVelocity(mano.l.body, (e.deltaY > 0 ? 1 : -1) * .12); }, { passive: false });
+  escena.addEventListener('wheel', (e) => { if (!mano) return; e.preventDefault(); mano.ang += (e.deltaY > 0 ? 1 : -1) * Math.PI / 2; }, { passive: false });
+
+  // ---- La mano sujeta (par hacia el ángulo objetivo) y la sombra de dónde va a caer -----------------
+  Events.on(engine, 'beforeUpdate', () => {
+    if (!mano) return;
+    const b = mano.l.body, k = Number(document.getElementById('firme').value);
+    let err = b.angle - mano.ang; err = Math.atan2(Math.sin(err), Math.cos(err));
+    Body.setAngularVelocity(b, b.angularVelocity * (1 - .35 * k) - err * .12 * k);
+  });
+  /** Proyecta el libro que llevo hacia abajo hasta la primera superficie (balda o libro dormido) que solape en x. */
+  function sombraDeCaida() {
+    const el = document.getElementById('caida');
+    if (!mano || !document.getElementById('tcaida').checked) { el.style.opacity = 0; return; }
+    const b = mano.l.body, x0 = b.bounds.min.x, x1 = b.bounds.max.x, fondo = b.bounds.max.y;
+    let top = Infinity;
+    for (const y of [260, 520]) if (y >= fondo - 6) top = Math.min(top, y);
+    for (const o of libros) { if (o === mano.l) continue; const ob = o.body.bounds; if (ob.max.x - 6 > x0 && ob.min.x + 6 < x1 && ob.min.y >= fondo - 6) top = Math.min(top, ob.min.y); }
+    if (!isFinite(top)) { el.style.opacity = 0; return; }
+    const d = top - fondo;
+    el.style.width = (x1 - x0) + 'px'; el.style.transform = `translate(${x0}px, ${top - 4}px)`; el.style.opacity = String(utils_clamp(.65 - d / 500, .12, .65));
+  }
+  const utils_clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   // ---- Ajustar al dormir: un libro casi recto se endereza del todo ----------------------------
   Events.on(engine, 'afterUpdate', () => {
@@ -144,19 +177,20 @@
     while (acc >= PASO) { Engine.update(engine, PASO); acc -= PASO; }
     let dormidos = 0;
     for (const l of libros) {
-      const b = l.body, w = l.el.classList.contains('frente') ? 100 : G;
-      l.el.style.transform = `translate(${(b.position.x - w / 2).toFixed(2)}px, ${(b.position.y - H / 2).toFixed(2)}px) rotate(${b.angle.toFixed(4)}rad)`;
+      const b = l.body, w = l.el.classList.contains('frente') ? 100 : l.g;
+      l.el.style.transform = `translate(${(b.position.x - w / 2).toFixed(2)}px, ${(b.position.y - l.h / 2).toFixed(2)}px) rotate(${b.angle.toFixed(4)}rad)`;
       if (b.isSleeping) dormidos++; else l._snap = false;
       l.el.classList.toggle('dormido', b.isSleeping);
     }
+    sombraDeCaida();
     hud.textContent = `${libros.length} libros · ${dormidos} dormidos${mano ? ' · en la mano: ' + mano.l.n : ''}`;
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 
   document.getElementById('reset').addEventListener('click', reset);
-  for (const [id, out, f] of [['grav', 'ograv', (v) => Number(v).toFixed(1)], ['cuerda', 'ocuerda', (v) => Number(v).toFixed(2)], ['roz', 'oroz', (v) => Number(v).toFixed(2)]]) {
-    document.getElementById(id).addEventListener('input', (e) => { document.getElementById(out).textContent = f(e.target.value); if (id === 'cuerda' && mano) mano.cuerda.stiffness = Number(e.target.value); if (id === 'roz') libros.forEach((l) => { l.body.friction = Number(e.target.value); }); });
+  for (const [id, out, f] of [['grav', 'ograv', (v) => Number(v).toFixed(1)], ['peso', 'opeso', (v) => Number(v).toFixed(1)], ['cuerda', 'ocuerda', (v) => Number(v).toFixed(2)], ['firme', 'ofirme', (v) => Number(v).toFixed(2)], ['roz', 'oroz', (v) => Number(v).toFixed(2)]]) {
+    document.getElementById(id).addEventListener('input', (e) => { document.getElementById(out).textContent = f(e.target.value); if (id === 'cuerda' && mano) mano.cuerda.stiffness = Number(e.target.value); if (id === 'roz') libros.forEach((l) => { l.body.friction = Number(e.target.value); }); if (id === 'peso') libros.forEach((l) => { Body.setDensity(l.body, .006 * PESO()); }); });
   }
   document.getElementById('ocupar').addEventListener('click', () => {
     const fin = performance.now() + 3000;
