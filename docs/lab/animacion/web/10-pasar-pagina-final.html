@@ -46,7 +46,7 @@
 <body>
 
 <h1>web 10 · pasar página, la hoja final <small>una función con pesos sortea cada giro (21/09/2026, 12:03)</small></h1>
-<p>Cierra las rondas del 08 y el 09: todas las hojas llevan sombra móvil, la elevación con su sombra proporcional, a veces el velo de canto, y <b>cada giro se sortea</b> con una función de pesos: la curva (standard o inOutCubic), la elevación (baja, media o alta, y luego un poco de desvío continuo), el velo (sí o no) y el tiempo (400 ms ± un porcentaje). Los pesos se editan a la derecha y el sorteo de cada giro se enseña debajo. En el hojeo (varias hojas) el sorteo es <b>por gesto</b>: todas las hojas de la cascada comparten curva, elevación y tiempo y solo se escalonan; si cada una sorteara la suya, la más rápida alcanzaría a la más lenta y la atravesaría (visto a las 12:10).</p>
+<p>Cierra las rondas del 08 y el 09: todas las hojas llevan sombra móvil, a veces el velo de canto, y <b>cada giro se sortea</b> con una función de pesos: la curva (standard o inOutCubic), la sombra (baja, media o alta, y un poco de desvío continuo: es lo que sugiere cuánto «sube» la hoja), el velo (sí o no) y el tiempo (400 ms ± un porcentaje). <b>La elevación de la hoja se quitó a las 12:37</b>: una hoja rígida cosida al lomo no puede subir sin levantar el lomo, y se veía; queda como número editable (a 0) para comparar. Los pesos se editan a la derecha y el sorteo de cada giro se enseña debajo. En el hojeo (varias hojas) el sorteo es <b>por gesto</b>: todas las hojas de la cascada comparten curva, elevación y tiempo y solo se escalonan; si cada una sorteara la suya, la más rápida alcanzaría a la más lenta y la atravesaría (visto a las 12:10).</p>
 
 <div class="pregunta"><b>Pregunta aislada:</b> con estos pesos, ¿veinte giros seguidos se sienten como un libro (parecidos, nunca iguales) o como una tómbola? Si algún sorteo concreto te chirría, el panel dice qué salió: se ajusta el peso, no la sensación.</div>
 
@@ -64,7 +64,7 @@
 </div>
 
 <h2>Qué mirar</h2>
-<p class="notas">Cada giro es distinto y ninguno llama la atención por sí mismo: si uno lo hace, el panel dice cuál fue el sorteo (curva, elevación, velo, ms) y se toca ese peso. La sombra móvil escala con la elevación (.3 a los 12 px, .55 a los 40): una hoja que sube más proyecta más. El velo de canto solo la mitad de las veces por defecto. En papel oscuro las sombras son un 40 % más densas (ya visto en el 09). Con «ocupar el hilo» la hoja sigue.</p>
+<p class="notas">Cada giro es distinto y ninguno llama la atención por sí mismo: si uno lo hace, el panel dice cuál fue el sorteo (curva, elevación, velo, ms) y se toca ese peso. La sombra móvil es la que cuenta el peso ahora (.3, .45 o .55): la hoja no se despega del lomo. El velo de canto solo la mitad de las veces por defecto. En papel oscuro las sombras son un 40 % más densas (ya visto en el 09). Con «ocupar el hilo» la hoja sigue.</p>
 
 <h2>Resultado</h2>
 <p class="notas" id="res">Se rellena con la respuesta de Eneko: los pesos que se quedan.</p>
@@ -122,13 +122,14 @@ def taco(n: int, p: int) -> tuple[float, float]:
   // Editable en el panel. Es lo que pasa al anexo Q como especificación de la 7.
   const PESOS = {
     'curva standard (.2,0,0,1)': 60, 'curva inOutCubic': 40,
-    'elevación baja (12 px)': 25, 'elevación media (24 px)': 50, 'elevación alta (40 px)': 25,
-    'desvío de la elevación ±%': 25,
+    'sombra baja (.30)': 25, 'sombra media (.45)': 50, 'sombra alta (.55)': 25,
+    'desvío de la sombra ±%': 25,
+    'elevación real (px, 0 = ninguna)': 0,
     'velo de canto (% de las veces)': 50,
     'tiempo base (ms)': 400, 'desvío del tiempo ±%': 6,
   };
   const CURVAS = { 'curva standard (.2,0,0,1)': [.2, 0, 0, 1], 'curva inOutCubic': [.65, 0, .35, 1] };
-  const ELEV = { 'elevación baja (12 px)': 12, 'elevación media (24 px)': 24, 'elevación alta (40 px)': 40 };
+  const SOMBRAS = { 'sombra baja (.30)': .3, 'sombra media (.45)': .45, 'sombra alta (.55)': .55 };
   const tabla = document.getElementById('pesos');
   for (const k in PESOS) tabla.insertAdjacentHTML('beforeend', `<tr><td>${k}</td><td><input type="number" data-k="${k}" value="${PESOS[k]}" min="0" step="1"></td></tr>`);
   tabla.addEventListener('input', (e) => { const k = e.target.dataset.k; if (k) PESOS[k] = Number(e.target.value); });
@@ -139,12 +140,14 @@ def taco(n: int, p: int) -> tuple[float, float]:
     return claves[claves.length - 1];
   }
   const desvia = (v, pct) => v * (1 + (Math.random() * 2 - 1) * pct / 100);
-  /** El sorteo de una hoja: curva, elevación, velo, sombra (proporcional a la elevación) y tiempo. */
+  /** El sorteo de un gesto: curva, sombra (la «altura» se sugiere con la sombra, no con la hoja), velo y tiempo.
+   *  La elevación de la hoja (translateZ) se quitó a las 12:37: una hoja rígida cosida al lomo no puede subir sin
+   *  levantar también el lomo, y se veía. Queda como número editable, a 0, para comparar. */
   function sortea() {
-    const kc = elige(Object.keys(CURVAS)), ke = elige(Object.keys(ELEV));
-    const lift = Math.round(desvia(ELEV[ke], PESOS['desvío de la elevación ±%']));
+    const kc = elige(Object.keys(CURVAS)), ke = elige(Object.keys(SOMBRAS));
+    const lift = PESOS['elevación real (px, 0 = ninguna)'];
     const velo = Math.random() * 100 < PESOS['velo de canto (% de las veces)'];
-    const sombra = Math.min(.7, .3 + (lift - 12) * .009);
+    const sombra = Math.min(.7, desvia(SOMBRAS[ke], PESOS['desvío de la sombra ±%']));
     const dur = Math.round(desvia(PESOS['tiempo base (ms)'], PESOS['desvío del tiempo ±%']));
     return { curva: CURVAS[kc], nombre: kc.replace('curva ', ''), lift, velo, sombra: velo ? sombra * .7 : sombra, veloOp: velo ? .3 : 0, dur };
   }
@@ -175,7 +178,7 @@ def taco(n: int, p: int) -> tuple[float, float]:
     if (p.veloOp) h.querySelectorAll('.velo').forEach((el) => { const x = el.animate(kv, { duration: dur, delay, easing: 'linear', fill: 'forwards' }); x.playbackRate = lab.speed; vivas.push(x); });
     const som = document.getElementById(fwd ? 'somI' : 'somD');
     const x = som.animate([{ opacity: 0 }, { opacity: p.sombra, offset: .5 }, { opacity: 0 }], { duration: dur, delay, easing: 'linear' }); x.playbackRate = lab.speed; vivas.push(x);
-    document.getElementById('sorteo').textContent = `último sorteo: ${p.nombre} · elevación ${p.lift} px · ${p.velo ? 'con velo' : 'sin velo'} · sombra ${p.sombra.toFixed(2)} · ${p.dur} ms`;
+    document.getElementById('sorteo').textContent = `último sorteo: ${p.nombre} · sombra ${p.sombra.toFixed(2)} · ${p.velo ? 'con velo' : 'sin velo'}${p.lift ? ' · elevación ' + p.lift + ' px' : ''} · ${p.dur} ms`;
     return a.finished.then(() => { posadas.push(h); }).catch(() => {});
   }
   function ir(target) {
