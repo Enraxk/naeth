@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lab web 09 · pasar página, híbridos sobre E y C, con azar</title>
+<title>Lab web 09 · pasar página, híbridos sobre E y C a 400 ms, con azar</title>
 <link rel="stylesheet" href="../00-lab.css">
 <style>
   :root { --PW: 190px; --PH: 250px; --papel: #f1ece0; --tinta: #4b4740; --tela: #2b3340; }
@@ -39,7 +39,7 @@
 <body>
 
 <h1>web 09 · pasar página, híbridos sobre E y C <small>segunda ronda (21/09/2026, 11:40): «las que más me gustan de base son la E y C; G, H, I sobre ellas, y azar en H»</small></h1>
-<p>Dos bases: <b>E</b> (inOutCubic, 320 ms) y <b>C</b> (standard, 400 ms). Sobre cada una: <b>+G</b> elevación de 24 px con sombra al 45 %, <b>+GI</b> además el velo de canto en la hoja, y <b>~</b> con <b>azar por giro</b>: cada vez que pasas página se sortean la elevación (14 a 30 px) y el tiempo (±8 %); abajo, una con más elevación (40 px) y las dos «todo con azar». La esquina (rotateX) se quitó a las 11:46: la hoja está cosida al lomo y la inclinación movía la esquina interna, que no puede moverse; los valores sorteados salen debajo de cada libro para relacionar lo que sientes con el número. Es el «irregular» de la regla 8 del doc (§1): dos hojas nunca iguales, como en un libro de verdad.</p>
+<p>Dos bases, <b>las dos a 400 ms</b> desde las 11:51: <b>E</b> (inOutCubic) y <b>C</b> (standard); entre filas solo cambia la curva. Sobre cada una: <b>+G</b> elevación de 24 px con sombra al 45 %, <b>+GI</b> además el velo de canto en la hoja, y <b>~</b> con <b>azar por giro</b>: cada vez que pasas página se sortean la elevación (14 a 30 px) y el tiempo (±8 %); abajo, una con más elevación (40 px) y las dos «todo con azar». La esquina (rotateX) se quitó a las 11:46: la hoja está cosida al lomo y la inclinación movía la esquina interna, que no puede moverse; los valores sorteados salen debajo de cada libro para relacionar lo que sientes con el número. Es el «irregular» de la regla 8 del doc (§1): dos hojas nunca iguales, como en un libro de verdad.</p>
 
 <div class="pregunta"><b>Pregunta aislada:</b> pasa varias páginas seguidas en las nueve (el azar solo se nota con varias). ¿Cuál se siente mejor? ¿El azar suma o distrae? ¿Prefieres E o C debajo? ¿24 o 40 px de elevación?</div>
 
@@ -100,11 +100,11 @@ async def memory_add(payload: MemoryIn, *, agent_model: str) -> Memory:
 
   const STD = [.2, 0, 0, 1], EMPH = [.05, .7, .1, 1], INOUT = [.65, 0, .35, 1];
   const base = (k, t, d, extra) => Object.assign({ k, t, d, dur: 320, curva: INOUT, persp: 1400, sombra: .3, lift: 0, tilt: 0, velo: 0, rand: null }, extra);
-  const E = { dur: 320, curva: INOUT }, C = { dur: 400, curva: STD };
+  const E = { dur: 400, curva: INOUT }, C = { dur: 400, curva: STD };   // las dos a 400 ms (Eneko, 21/09 11:51): solo cambia la curva
   // Sin esquina (rotateX): la hoja está cosida al lomo y con el origen en el lomo la inclinación movía también las
   // esquinas del lado del lomo; Eneko, 21/09 11:46: «todas las que mueven la esquina interna no me cuadran».
   const V = [
-    base('E+G', 'E con elevación', 'inOutCubic 320 · sube 24 px · sombra .45', { ...E, lift: 24, sombra: .45 }),
+    base('E+G', 'E con elevación', 'inOutCubic 400 · sube 24 px · sombra .45', { ...E, lift: 24, sombra: .45 }),
     base('E+GI', 'E, elevación y velo', '24 px · velo de canto .35 · sombra .3', { ...E, lift: 24, velo: .35, sombra: .3 }),
     base('E+G~', 'E, elevación con azar', 'elevación 14 a 30 · ±8 % de tiempo', { ...E, lift: 24, sombra: .45, rand: true }),
     base('C+G', 'C con elevación', 'standard 400 · sube 24 px · sombra .45', { ...C, lift: 24, sombra: .45 }),
