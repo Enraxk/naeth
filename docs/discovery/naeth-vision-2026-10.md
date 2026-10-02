@@ -1406,16 +1406,23 @@ medirlo con las mismas 16 consultas.
 No es una de las trece: el plan la trataba como una restricción. Q3 la abrió a análisis con una
 condición: es no comercial para los demás, no para Eneko.
 
+**Lo que ya dice**: la Naeth License 1.0 (16/09/2026) permite el uso no comercial, exige atribución,
+prohíbe entrenar IA y deja el uso comercial "solo con licencia escrita del titular" (Naeth
+`c8ae08e4`). **Ya es una doble licencia**: la condición de Q3 se cumple con la de hoy, sin tocarla.
+(Una primera versión de esta sección la presentaba como una opción nueva; se corrigió el 02/10 a las
+19:44, al releer `c8ae08e4` en el checkpoint.)
+
 | Opción | Qué es | Precedente |
 |---|---|---|
-| 0 · La de hoy | Naeth 1.0: uso no comercial, con atribución (`c8ae08e4`) | Anytype: código visible, gratis sin uso comercial y comercio solo en sus redes [S29] |
-| Doble licencia | la de hoy para todos y una licencia comercial de pago para empresas y clientes | como titular, Eneko puede vender licencias comerciales sin cambiar la pública ⚠ (lectura general, sin consultar a nadie) |
-| AGPL-3.0 | libre, con obligación de publicar cambios si se ofrece como servicio | Basic Memory y Logseq [S1, S15] |
+| 0 · No hacer nada | la Naeth 1.0, y la licencia comercial escrita se redacta cuando alguien la pida | Anytype: código visible, gratis sin uso comercial y comercio solo en sus redes [S29] |
+| Tener ya la licencia comercial | unos términos y un precio escritos para equipos, empresas y clientes | lo que hace falta para que tres de los cuatro grupos de Q3 (equipos, empresas, clientes) entren sin negociar cada vez |
+| Pasar a AGPL-3.0 | libre, con obligación de publicar cambios si se ofrece como servicio | Basic Memory y Logseq [S1, S15]; incumple la condición de Q3 (cualquiera podría venderlo como servicio publicando su código) |
 
-**Lo que cuadra con Q3**: equipos, empresas y clientes son uso comercial, así que con la licencia de
-hoy necesitan otra licencia. La doble licencia es la única opción de las tres que mantiene "no
-comercial para otros, no para mí" y deja entrar a los cuatro grupos. **Recomendación: doble
-licencia.** ⚠ Necesita una revisión legal antes de publicarse.
+**Lo que cuadra con Q3**: equipos, empresas y clientes son uso comercial, así que necesitan la
+licencia escrita. **Recomendación: mantener la Naeth 1.0 y tener redactada la licencia comercial antes
+de abrir a esos grupos.** Lo pendiente de la nota del 16/09 sigue pendiente: una lectura en el
+Servicio de Orientación Jurídica y el registro de la propiedad intelectual; y si entra otro autor,
+una cesión de derechos (CLA) para que la doble licencia siga siendo posible (`c8ae08e4`).
 
 ### Cómo dependen unas de otras
 
