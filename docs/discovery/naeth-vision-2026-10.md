@@ -997,7 +997,435 @@ celda; aquí solo se resume. La última fila es Naeth hoy, para comparar.
 
 ## 5. Las decisiones de un solo sentido
 
-*Sub-fase 2.3: D1 a D13.*
+*Sub-fase 2.3, hecha el 02/10/2026 entre las 19:23 y las 19:36.* Trece decisiones, de la más difícil de deshacer a
+la menos. Cada una con la misma plantilla: la pregunta; las opciones, siempre con "no hacer nada";
+lo que cuesta cada una, con su M o su S; qué cierra y qué abre; cuánto cuesta deshacerla; la
+recomendación; y qué decide Eneko. **Recomendar no es decidir**: decide Eneko, y Agora revisa las
+recomendaciones antes (paso 3).
+
+### D1 · El modelo de contenido
+
+**La pregunta**: cómo entra en Naeth lo que no es una nota (un PDF, un módulo de código, un
+fichero), y si la unidad es el fragmento o la obra.
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | Naeth guarda notas; los ficheros se enlazan desde una nota | Nada. Es lo que la visión descarta: "una biblioteca con todo" no cabe [sección 1] |
+| A · Dentro de `memory` | cada fragmento, una fila de nota | 103 líneas; notas intactas; código 0/2; 49 nodos sueltos; sin obra, sin fichero, sin versiones [M18, M19] |
+| B · Tablas por tipo | la obra y sus partes en tablas propias de cada tipo | unas 245 líneas por tipo; necesita además una identidad común para las relaciones [estimación: E4] |
+| C2 · Núcleo genérico en paralelo | `item`, `item_part` y `blob` junto a `memory` | unas 536 líneas el primer tipo, unas 110 a 160 cada uno después; búsqueda conjunta sin coste medible [M20 a M22] |
+| C2 más C1a · Núcleo con identidad común | lo anterior, y cada nota con su fila en `item` y las FK hacia `item` | C2 más 31 líneas de SQL y 4 escrituras de `core.py`; ninguna lectura cambia [M24, M25] |
+| C1b · Todo en una tabla de partes | el contenido de las notas pasa a `item_part`; `memory`, a vista | 19 líneas más, las 5 escrituras cambian y **la vista pierde el HNSW**; la búsqueda en una tabla, más corta [M25, M27] |
+
+**Qué cierra y qué abre**: A cierra la obra como unidad (el PDF son 25 nodos sueltos) y por tanto la
+biblioteca. C2 abre la obra, el fichero original y los tipos nuevos con poco código cada uno. C1a
+abre además que una nota y una obra se enlacen, se versionen y se retiren con la misma maquinaria
+(D2). C1b cierra la puerta de atrás: `memory` deja de ser una tabla.
+
+**Cuánto cuesta deshacerla**: A, poco (las filas llevan su tipo). C2, poco: tres tablas nuevas que
+no tocan las viejas. C1a, medio: cambian las FK de cuatro tablas, el sync las ve (E5) y deshacerlo
+es volver a apuntarlas a `memory`. C1b, mucho: todas las escrituras, la vista y el sync.
+
+**Lo que dice el mercado**: los que tratan la obra como unidad son los que se leen (Gemini Notebook
+por fuente, Capacities por objeto, Anytype por objeto) [S19, S42, S33]; los que la trocean sin
+obra son APIs de memoria (Mem0, Supermemory) [S5, S17].
+
+**Recomendación: C2 más C1a**, y C1b no hasta que una medida lo pida. El núcleo genérico es lo
+barato desde el tercer tipo [estimación: E4], la identidad común es lo que da relaciones entre tipos por 31
+líneas de SQL [M24], y las notas siguen en su tabla con su HNSW (que además hay que arreglar, M27).
+**Depende de**: D2 (las relaciones), D4 (dónde vive el fichero), D11 (el formato), D12 (los tipos) y
+D13 (cómo se trocea y se embebe, que pesa más que dónde se guarda: E2).
+
+**Qué decide Eneko**: si la unidad de la biblioteca es la obra. Si lo es, A queda fuera.
+
+### D2 · Las relaciones entre tipos
+
+**La pregunta**: si una nota puede enlazar con un PDF, un módulo o una parte, y con qué garantía.
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | solo relaciones entre notas, como hoy (`relation` con FK a `memory`) | Nada; el PDF y la nota que lo comenta no se pueden unir [`naeth/db/schema.sql:82-83`] |
+| Polimórfica sin FK | `target_kind` más un id, sin integridad | Pocas líneas; un enlace puede apuntar a algo que no existe, y la E6 vio que las FK son lo que sujeta (y también lo que filtra entre dueños) [M31] |
+| Identidad común (C1a) | una tabla `item` de la que cuelga todo; las FK apuntan a ella | 31 líneas de SQL; la relación de una nota a un PDF entró a la primera [M24, M25] |
+| Tablas de relación por tipo | una tabla por cada par de tipos | crece con el cuadrado de los tipos; ningún producto de la lista lo hace [sección 4] |
+
+**Qué cierra y qué abre**: la identidad común abre además versiones (`supersession`) y retirada
+(`tombstone`) para cualquier cosa, con la misma maquinaria que las notas. Sin FK se abre la
+puerta a enlaces rotos que nadie ve, y Naeth ya cuenta 41 wikilinks rotos [M3].
+
+**Cuánto cuesta deshacerla**: la identidad común, medio (D1); la polimórfica, poco hacia delante y
+mucho hacia atrás (limpiar enlaces rotos).
+
+**Recomendación: identidad común**, que es la misma decisión que C1a en D1. Con un aviso de la E6:
+si hay varios dueños (D5), la FK tiene que incluir al dueño, porque una FK no pasa por la RLS
+[M31].
+
+**Qué decide Eneko**: nada aparte de D1; si D1 sale C2 más C1a, D2 sale sola.
+
+### D3 · Uno o dos nodos
+
+**La pregunta**: si Naeth sigue en dos nodos con failover (este PC y el VPS `finally`), o pasa a otra
+forma. Q4 no dio una tolerancia única ("depende qué"), así que primero se mira qué se cae, cuándo
+y para quién.
+
+**Cuándo manda cada nodo** [M34]: del 22/09 al 02/10, el PC mandó el 63% del tiempo y finally el
+37%. finally toma el mando al apagarse el PC, de madrugada (entre las 00:48 y las 02:33), y lo
+devuelve al arrancar, por la mañana (entre las 09:18 y las 14:08).
+
+**Cuándo se escribe** [M35]: en los últimos 30 días, 287 notas: 1 a las 00 h y las otras 286 entre
+las 11 y las 23 h. **Ninguna entre la 01:00 y las 10:59**, que es justo cuando manda finally. Leer:
+⚠ no medido (la API no guarda un registro de peticiones y se reinicia al arrancar el PC).
+
+**Qué se cae, función por función**, si solo quedara un nodo:
+
+| Función | Quién la usa | Si el único nodo es el PC | Si el único nodo es finally |
+|---|---|---|---|
+| Escribir desde Claude Code | Eneko en el PC | nada: Claude Code corre en el PC, así que nunca pide nada con el PC apagado | entra por el túnel: unos 55 ms más por llamada [M36] |
+| Leer desde Claude Code | Eneko en el PC | nada, por lo mismo | lo mismo: unos 55 ms más, sobre una búsqueda de 74 [M8] |
+| Escribir desde claude.ai o el móvil | Eneko fuera del PC | caído el 37% del tiempo, aunque en 30 días no hubo escrituras a esas horas [M34, M35] | nada |
+| Leer desde claude.ai o el móvil | Eneko fuera del PC | caído el 37% del tiempo; ⚠ cuánto se usa a esas horas, sin medir | nada |
+| El visor | Eneko | caído el 37% del tiempo; 3 de 685 notas entraron por él [M33] | nada |
+| Calcular embeddings | el worker | se retrasa hasta que arranque el PC | nada |
+
+**Las opciones**:
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | dos nodos con failover y merge en los dos sentidos | el trabajo de CENIT (hasta un 61% de sus líneas manuales desde el 17/07, un techo) [M11]; la cesión al apagar falla desde el 14/08 [M12]; un handoff que falla a mitad deja el destino a medias y lo que se edita no converge [E5, M29]; y cada tabla nueva hay que clasificarla [M29] |
+| A · Un nodo, en finally | finally siempre arriba; el PC es un cliente más | se pierde el loopback (unos 55 ms por llamada) [M36]; desaparecen el failover, el merge y el vigía; queda un backup que hay que verificar (D7) |
+| B · El PC manda y finally es un espejo de solo lectura | se copia en un solo sentido, sin merge ni failover | claude.ai y el visor leen siempre y solo escriben con el PC encendido; una copia en un sentido es lo más simple que hay del sync de hoy (sin unión, sin reglas monótonas, sin árbitro) [estimación: `sync.py`] |
+| C · Un nodo, en el PC | sin VPS | claude.ai, el visor y el móvil, caídos el 37% del tiempo [M34] |
+| D · Local-first | cada máquina con su copia, sincronizada como ficheros (git) o con CRDT | es el camino de Letta, Basic Memory y Anytype [S10, S15, S31]; con Postgres no encaja, y es casi rehacer el almacén (D11, D6) |
+| E · Replicación lógica de Postgres | Postgres copia entre nodos | descartada en el Paso 8.1 de CENIT: su copia inicial choca con la clave y un slot huérfano retiene WAL sin límite [`CENIT/core/reconciler/src/cenit_core/sync.py:1-5`] |
+
+**Qué cierra y qué abre**: A y B cierran el failover, el merge en dos sentidos y el problema del
+hook de apagado, y abren la puerta a que CENIT deje de ser multi-nodo (D7). A abre además lo que
+pide "un producto para otros" (Q3): una instalación es un nodo, como en todos los productos de la
+sección 4. B conserva el PC como sitio donde se escribe. D abre "lo abierto" en su sentido más
+fuerte, pero es otro producto.
+
+**Cuánto cuesta deshacerla**: A y B, medio: volver a dos nodos es reconstruir lo que hay hoy, que
+sigue en git. D, mucho.
+
+**Lo que dijo Eneko** (02/10, 19:31, Q4b): fuera de casa consulta Naeth desde claude.ai para darle
+contexto y deja notas rápidas "para luego"; de madrugada no usa claude.ai. Fuera de casa el PC
+puede estar apagado, así que **hace falta leer y escribir con el PC apagado**, aunque en 30 días no
+hubiera ninguna escritura a esas horas [M35]: una ausencia en los datos no dice que no haga falta.
+
+**Recomendación: A, un solo nodo en finally, siempre arriba.** Lee y escribe desde cualquier sitio a
+cualquier hora; el PC pasa a ser un cliente más, a unos 55 ms [M36], que sobre una búsqueda de 74 ms
+[M8] se nota poco; y desaparecen el failover, el merge en dos sentidos, el vigía y el hook de
+apagado que falla [M11, M12, E5]. B no sirve: deja escribir solo con el PC encendido. C tampoco: deja
+a claude.ai sin Naeth el 37% del tiempo [M34]. Lo que queda por resolver con A es el backup, que pasa
+a ser lo único que protege los datos (D7), y que el PC deja de tener la memoria en local (D10).
+
+**Qué decide Eneko**: si acepta que su Naeth viva en el VPS y no en el PC, con lo que eso toca de
+D10 ("lo de cliente no sale de la máquina").
+
+### D4 · Dónde viven los ficheros
+
+**La pregunta**: dónde se guarda el fichero original de una obra (el PDF, el audio), ahora que D1
+lo trae.
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | solo entra el texto extraído; el original se queda fuera | nada; pero no se puede volver al original ni re-trocear con otra estrategia (D13) |
+| Dentro de Postgres | el fichero como columna binaria | un solo PDF de la E2 pesa 4,6 MB [M20], el 15% de todo el schema `memory` de hoy (31 MB) [M4]; cada `pg_dump`, el sync y el backup lo arrastran |
+| En disco, por su sha256 | Postgres guarda la ruta; el fichero, en una carpeta por contenido (lo de la E2) | no viaja con el sync de hoy [M29]; con un solo nodo (D3) es una carpeta más que respaldar |
+| En un almacén de objetos (tipo S3) | lo mismo, en un servicio con API S3 | es lo que usa la nube de Basic Memory (Tigris S3) [S15]; sirve igual a un nodo propio que a uno alojado |
+| En la carpeta del usuario | los ficheros son la verdad y la base los indexa (Obsidian, Basic Memory) | ver D11 |
+
+**Qué cierra y qué abre**: guardar por sha256 hace que un fichero no se duplique y que encaje con
+ADD-only (un fichero que cambia es otro sha256: D9). Fuera de Postgres, el backup tiene que llevar
+la base y la carpeta a la vez, o una restauración saldrá con obras sin fichero.
+
+**Cuánto cuesta deshacerla**: poco entre disco y S3 (mismo contenido, misma clave); mucho si se meten
+en Postgres y luego hay que sacarlos.
+
+**Recomendación: fuera de Postgres, por sha256, detrás de una interfaz de almacén con dos
+implementaciones, disco local y S3.** Con D3 en un solo nodo, disco del VPS y backup del par base
+más carpeta (D7). La capacidad del disco de finally: ⚠ sin medir. Para el vídeo, CDA ya decidió lo mismo: "Dónde
+vive el vídeo: fuera de Naeth" [`cda-videos-2026-09-14.md:133`].
+
+**Qué decide Eneko**: si los originales entran en Naeth o solo su texto. Y, con D10, si entran los
+de clientes.
+
+### D5 · Identidad y varios usuarios
+
+**La pregunta**: cómo sabe Naeth de quién es cada cosa, ahora que Q3 incluye personas, equipos,
+empresas y clientes.
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | una persona por instalación; quien quiera Naeth, instala el suyo | nada en código; deja fuera a equipos y empresas (Q3) |
+| Una instancia por usuario | cada persona o equipo, su contenedor y su base | aislamiento total y cero cambios en el esquema; el coste es de operación, con 3,8 GB en reposo por instancia hoy [M13] |
+| Un dueño por fila y RLS | `owner_id` y una política por tabla (la E6) | 0 sentencias de código y menos de 1 ms con la política bien escrita, pero antes un rol que no sea superusuario, vistas con `security_invoker` y claves con el dueño [M30 a M32] |
+| Espacios con miembros y RLS | lo anterior, con `space_id` y una tabla de miembros; una persona sola es un espacio de uno | lo mismo más la pertenencia; es el modelo de Notion, Basic Memory Teams y Anytype [S48, S15, S28] |
+
+**Lo que ya hay**: el IdP de CENIT (Pocket-ID) valida de verdad, y el proxy inyecta el email y el
+`sub` en cada petición, pero Naeth no los lee [`cenit-verificacion-2026-09-09.md`; Naeth `23ea10af`].
+
+**Qué cierra y qué abre**: una instancia por usuario no cierra nada en el esquema pero multiplica la
+operación, y no da equipos (un espacio compartido entre dos personas). Los espacios con RLS abren
+equipos y clientes en una sola instalación, y obligan a resolver lo que encontró la E6: el worker, el
+sync y el backup tienen que elegir si ven a todos [M31].
+
+**Cuánto cuesta deshacerla**: añadir `space_id` después, con datos de varios dueños mezclados, es
+caro; hacerlo ahora, con un solo dueño, es una columna con un valor por defecto [M30].
+
+**Recomendación: espacios con miembros y RLS**, empezando con un solo espacio, el de Eneko. Es la
+única opción que cubre los cuatro grupos de Q3; en lo medido cuesta casi nada en código y en latencia
+[M31, M32]; y meter la columna ahora, con un solo dueño, es lo barato.
+
+**Qué decide Eneko**: si "equipos" entra en el primer horizonte o en uno lejano (D5 se puede preparar
+sin abrirlo).
+
+### D6 · Dónde corre y con qué base de datos
+
+**La pregunta**: en qué forma se entrega Naeth a cada grupo de Q3, y si Postgres sigue siendo el
+motor.
+
+**Lo medido**: Naeth arranca sin CENIT con un Postgres con extensiones y un DSN [M16]; en reposo
+ocupa unos 3,8 GB, casi todo dos copias del modelo de embeddings [M13]; el modelo son 2,1 GB que se
+descargan [M17]; hoy no existe camino de instalación desde cero [`cenit-verificacion-2026-09-09.md`].
+
+| Opción | Para quién de Q3 | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | solo Eneko | nada; Q3 queda fuera |
+| Un compose de Naeth solo (Postgres, API y worker) | quien instala, Eneko, clientes | lo que falta según la verificación del 09/09 ("a un cambio de fichero compose") y una sola copia del modelo [M13] |
+| Alojado por Eneko (lo mismo, con espacios) | quien no instala, equipos | D5 y una operación que hoy no existe (altas, cobro, soporte) |
+| App de escritorio con SQLite y sqlite-vec, o PGlite | quien instala sin servidor | **un segundo motor**: las 33 sentencias SQL y lo propio de Postgres (RRF, `tsvector`, HNSW de pgvector, RLS) por duplicado [M25; estimación: E3 y E6] |
+
+**Qué cierra y qué abre**: quedarse en Postgres cierra la app de escritorio sin servidor, que es lo
+que ofrece Basic Memory en local [S15]; y deja abierto todo lo medido en E1 a E6, que es Postgres.
+
+**Cuánto cuesta deshacerla**: añadir un motor después es caro pero no rompe nada; quitar Postgres
+sería rehacer el núcleo.
+
+**Recomendación: Postgres, con dos formas de entrega: el compose de Naeth solo (para quien instala,
+para clientes y para Eneko) y la misma imagen alojada con espacios (D5).** La app de escritorio, a un
+horizonte lejano y solo si el mercado lo pide. Primero, una sola copia del modelo: la mitad de la
+huella [M13].
+
+**Qué decide Eneko**: si "personas que no instalan" (alojado por él) entra en el primer horizonte,
+porque es lo que trae operación nueva.
+
+### D7 · Qué de CENIT se absorbe
+
+**La pregunta**: con qué se queda Naeth de CENIT, ahora que D3 recomienda un solo nodo.
+
+| Pieza de CENIT | Qué dice de ella la verificación del 09/09 | Con un solo nodo (D3) |
+|---|---|---|
+| Failover, árbitro por git y vigía | foso real | **sobra**: se retira con D3 |
+| Sync por unión con reglas monótonas | foso real | **sobra** como sync; la lección (clasificar cada tabla, reglas por columna) sirve para importar y exportar (D11) |
+| Respaldo cifrado (SOPS y age) con un verificador que descifra | foso real, "más sólido de lo que se creía" | **se absorbe**: con un nodo es lo único que protege los datos |
+| Pocket-ID y el proxy OAuth | en uso de verdad | **se absorbe** para Eneko y para lo alojado (D5); quien instala necesita un camino propio: Naeth tiene un servidor de autorización propio sin usar (exploración del 02/10, ⚠ sin volver a verificar) |
+| Reconciler de enrutado | parcial: genera un fichero de 29 líneas | se cambia por una receta de exposición dentro de Naeth |
+| Ataduras a esta máquina (DPAPI, rutas de Windows) | rompen el arranque | se quedan en el despliegue de Eneko, fuera del producto |
+
+[Las valoraciones, de `cenit-verificacion-2026-09-09.md`.]
+
+**Opciones**: 0, no absorber nada (Naeth sigue de módulo de CENIT); absorberlo todo (CENIT entero pasa
+a ser Naeth); o **absorber lo que un solo nodo necesita** (backup verificado, identidad, receta de
+exposición) y dejar el resto como el despliegue de Eneko.
+
+**Qué cierra y qué abre**: absorberlo todo arrastra el multi-nodo, que D3 retira. No absorber nada
+deja el diagnóstico del 09/09 como está: "CENIT no es una distribución: es el despliegue de una
+persona guardado en git".
+
+**Cuánto cuesta deshacerla**: poco: las piezas siguen en el repo de CENIT.
+
+**Recomendación: absorber backup, identidad y la receta de exposición; retirar failover, sync y
+vigía.** Encaja con D3 y con el hallazgo del 09/09: Naeth está a un compose de ser autónomo
+[`cenit-verificacion-2026-09-09.md`].
+
+**Qué decide Eneko**: qué pasa con CENIT después: si sigue como su despliegue, con otros módulos, o se
+apaga.
+
+### D8 · La instancia es el producto
+
+**La pregunta**: si sigue valiendo lo del 09/09, "El producto final tiene que ser el mismo que Eneko
+usa y sobre el que sigue desarrollando" [`../plan/roadmap-producto-2026-09-09.md:19`].
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | la instalación de Eneko es la de referencia y no hay otra | nada; deja fuera a Q3 entero |
+| El mismo código, dos despliegues | el producto es lo que Eneko usa, empaquetado; su instalación es una más, con su configuración aparte | separar la plataforma de la instancia, que el 09/09 era la fase 1 y sigue sin hacer [`b077b77a`]; con D3 y D7 se simplifica: un nodo, sin multi-nodo que empaquetar |
+| Un producto aparte | una rama "producto" y otra "la de Eneko" | dos cosas que mantener, que es lo que la regla del 09/09 quería evitar |
+
+**Qué cierra y qué abre**: la segunda opción abre los cuatro grupos de Q3 sin bifurcar el código, y
+obliga a que nada de la instancia de Eneko (rutas de Windows, DPAPI, su IdP) se cuele en el producto
+[`cenit-verificacion-2026-09-09.md`].
+
+**Cuánto cuesta deshacerla**: poco; es una forma de organizar el despliegue.
+
+**Recomendación: el mismo código, dos despliegues.** La regla del 09/09 se mantiene en lo que
+importa (Eneko usa el producto) [`../plan/roadmap-producto-2026-09-09.md:19-23`], y deja de
+significar que su instalación sea la única.
+
+**Qué decide Eneko**: nada aparte de confirmar la lectura de la regla.
+
+### D9 · ADD-only
+
+**La pregunta**: si todo sigue siendo de solo añadir, sin borrar nunca nada.
+
+**Lo medido**: el 47% del texto guardado ya es historia (versiones superadas) [M7]; a esta escala
+pesa poco (31 MB) [M4], pero con ficheros sería otra cosa. Y la E5 enseñó lo que pasa con lo que se
+edita sin versionar: no converge [M29].
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | ADD-only para todo: superar y retirar, nunca borrar | la historia crece sin tope; con varios dueños (D5) y clientes, sin un camino para borrar de verdad lo que alguien pide borrar (⚠ el alcance legal, sin verificar aquí) |
+| ADD-only más purga explícita | lo normal sigue igual; una operación aparte, registrada, borra de verdad lo que se pida | una tool o un comando nuevo y una tabla de registro [estimación]; el backup tiene que poder purgarse también |
+| Edición en el sitio | los cambios pisan la fila | rompe la historia y la trazabilidad de autoría, y el sync de hoy depende de ADD-only [`sync.py:13-40`] |
+
+**Qué cierra y qué abre**: la purga explícita mantiene lo bueno (historia, autoría, correcciones al
+lado de lo corregido) y abre lo que pide tener otros dentro: poder borrar. Con D4, un fichero
+retirado puede dejar de ocupar si nadie más lo referencia.
+
+**Cuánto cuesta deshacerla**: una purga ya hecha no se deshace, por diseño.
+
+**Recomendación: ADD-only más purga explícita.** Lo de siempre por defecto, que a esta escala cuesta
+poco aunque la historia sea ya el 47% del texto [M7, M4], y una salida registrada para lo que deba
+desaparecer.
+
+**Qué decide Eneko**: si quiere la purga ya o cuando entre el primero que no sea él (D5).
+
+### D10 · Lo de cliente no sale de la máquina
+
+**La pregunta**: qué queda de esta regla con D3 (un nodo en el VPS) y con ficheros (D4). Tiene dos
+orígenes distintos: el audio de clientes se transcribe en local y no sube a ninguna API (regla de
+Eneko), y el corpus no se enseña porque se escribe con franqueza sobre clientes y "eso no sale de
+casa" [`../plan/roadmap-producto-2026-09-09.md:115-116`].
+
+**Lo que ya pasa hoy**: las notas sobre clientes ya viven en dos máquinas (el PC y el VPS, por el
+sync), y lo que devuelve una búsqueda por MCP entra en el contexto del modelo del cliente IA que pregunta
+(así funciona MCP: el resultado de una tool va al modelo).
+La regla, en la práctica, ya se refiere a los **originales** de clientes (audio, documentos), no a
+las notas.
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | la regla como está, sin escribir | con D4 entraría un PDF de un cliente en el VPS sin que nadie lo haya decidido |
+| Solo para originales | los originales de clientes no entran en Naeth; su texto o sus notas, sí | una marca o una carpeta excluida en la ingesta [estimación]; es lo que ya se hace con el audio |
+| Originales cifrados | entran, cifrados con una clave que no está en el servidor | sin búsqueda sobre su contenido; un cifrado más que gestionar |
+| Retirarla | todo puede entrar | choca con la confianza de los clientes, que es el motivo de la regla |
+
+**Qué cierra y qué abre**: "solo para originales" cierra la puerta a que la biblioteca de todo se
+trague por accidente el material de un cliente, y deja que entren las notas, como hoy.
+
+**Cuánto cuesta deshacerla**: poco hacia la apertura; mucho hacia el cierre (sacar lo que ya entró).
+
+**Recomendación: la regla se queda, escrita, y solo para los originales de clientes.** Con D3, las
+notas siguen donde están hoy (en el VPS también); los originales, fuera, como el corpus que no se
+enseña [`../plan/roadmap-producto-2026-09-09.md:115-116`].
+
+**Qué decide Eneko**: si está de acuerdo en que la regla nunca se refirió a las notas.
+
+### D11 · Formatos abiertos
+
+**La pregunta**: si la verdad sigue en Postgres o pasa a ficheros, y qué garantía de salida tiene
+quien use Naeth.
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | Postgres es la verdad y no hay exportación | nada; es lo que la sección 4 enseña que ya nadie hace: exportar a Markdown es lo mínimo [S32, S44, S50, S51] |
+| Postgres como verdad y exportación abierta | una carpeta por proyecto y subtema, un Markdown con frontmatter por nota, los enlaces como enlaces locales, los ficheros por sha256 y la historia aparte | lo de Capacities y Notion [S44, S50]; ⚠ sin estimar en líneas |
+| Ficheros como verdad y la base de índice | lo de Basic Memory, Letta y Obsidian [S15, S10, S22] | todo lo medido en E1 a E6 cuelga de Postgres (RRF, HNSW, RLS, versiones); y Logseq hizo el camino contrario por estabilidad [S27] |
+| Un formato de intercambio entre sistemas | como COGX de Cognee [S47] | encaja si Naeth quiere importar de otros sistemas de memoria; COGX es suyo, no un estándar [S47] |
+
+**Qué cierra y qué abre**: la exportación abierta da la garantía sin rehacer el núcleo, y abre leer
+la bóveda con Obsidian (que es lo que da Basic Memory gratis) como lector de solo lectura.
+
+**Cuánto cuesta deshacerla**: poco: una exportación se añade o se quita sin tocar el núcleo.
+
+**Recomendación: Postgres como verdad y exportación abierta a Markdown con frontmatter**, que además
+sirva de importación (ida y vuelta), probada con un corpus de ejemplo. Es lo que ya dan Capacities y
+Notion [S44, S50]. Los ficheros como verdad, no: Logseq acaba de dejarlos por estabilidad [S27].
+
+**Qué decide Eneko**: si le basta con exportar o quiere poder editar los ficheros y que vuelvan (eso
+último es otra cosa: sync con ficheros).
+
+### D12 · La superficie de extensión
+
+**La pregunta**: cómo se añade un tipo nuevo (un ingestor, un lector) sin tocar el núcleo, que es la
+primera acepción de "abierto".
+
+**Lo medido**: en C2, un tipo nuevo es su ingestor (unas 80 líneas) y, si quiere, su lector [M21;
+estimación: E4]; una tool genérica más hizo crecer `tools/list` un 7% [M22].
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | cada tipo nuevo se mete en el núcleo | cada tipo es un cambio del núcleo |
+| Ingestores enchufables | un ingestor por tipo con un contrato (lee un fichero, devuelve obra y partes) | lo que hizo la E2 en dos tipos; el modelo de `MemorySource` de Cognee [S47] |
+| Tipos definidos por el usuario | el usuario define tipos con sus propiedades, sin código | lo de Anytype, Capacities y Tana [S33, S42, S53]; un editor de esquema en el visor |
+| Tools MCP por tipo | cada tipo trae sus tools | `tools/list` crece con cada una [M22], y un cliente IA no necesita saber qué tipos hay |
+
+**Qué cierra y qué abre**: ingestores enchufables más tools genéricas mantienen la superficie MCP
+pequeña y estable, que es lo que ve cada cliente IA; los tipos del usuario abren lo de Anytype sin
+código.
+
+**Cuánto cuesta deshacerla**: poco para los ingestores (un contrato interno); medio para los tipos
+del usuario (datos de usuarios con esquemas propios).
+
+**Recomendación: ingestores enchufables y tools genéricas ya; tipos definidos por el usuario en un
+horizonte siguiente**, porque son normales en el mercado [S33, S42, S53] pero piden visor (sección 6).
+
+**Qué decide Eneko**: si los tipos del usuario entran en el primer horizonte.
+
+### D13 · El modelo de embeddings y su dimensión
+
+**La pregunta**: si sigue e5-large (1.024 dimensiones) y cómo se trocea lo que no son notas.
+
+**Lo medido**: un fragmento cuesta 1,03 s en CPU y re-embeber el corpus, unos 20 minutos [M10]; el
+modelo solo ve 512 tokens, y una página media de PDF tiene 3.863 caracteres [M10]; hay dos copias del
+modelo en memoria, 3,4 GB [M13]; y **trocear bien pesó más que dónde se guarda** (el código pasó de
+0/2 a 1/2 solo por qué se embebe) [M19, M22].
+
+| Opción | Qué es | Lo que cuesta |
+|---|---|---|
+| 0 · No hacer nada | e5-large, dos copias, y cada tipo trocea como pueda | 3,4 GB en reposo [M13] |
+| e5-large con una sola copia y troceo por tipo | un servicio de embeddings compartido; cada ingestor decide qué embebe | la mitad de la huella [M13]; el troceo, dentro de D12 |
+| Un modelo más pequeño | menos memoria y más rápido | hay que medir el recall con las 16 consultas antes; cambiar de dimensión obliga a re-embeber todo [M10] |
+| Embeddings por API | sin modelo local | el texto sale a un tercero (D10) y cada embedding cuesta dinero |
+
+**Qué cierra y qué abre**: guardar con cada vector el modelo que lo hizo abre cambiar de modelo
+más adelante sin tirarlo todo de una vez.
+
+**Cuánto cuesta deshacerla**: cambiar de modelo, unos 20 minutos de CPU con el corpus de hoy [M10]; con
+una biblioteca de fragmentos, proporcional.
+
+**Recomendación: e5-large, con una sola copia (la mitad de la huella) [M13], el modelo guardado junto
+a cada vector y el troceo como parte de cada ingestor [M22].** Un modelo más pequeño solo después de
+medirlo con las mismas 16 consultas.
+
+**Qué decide Eneko**: nada ahora.
+
+### La licencia
+
+No es una de las trece: el plan la trataba como una restricción. Q3 la abrió a análisis con una
+condición: es no comercial para los demás, no para Eneko.
+
+| Opción | Qué es | Precedente |
+|---|---|---|
+| 0 · La de hoy | Naeth 1.0: uso no comercial, con atribución (`c8ae08e4`) | Anytype: código visible, gratis sin uso comercial y comercio solo en sus redes [S29] |
+| Doble licencia | la de hoy para todos y una licencia comercial de pago para empresas y clientes | como titular, Eneko puede vender licencias comerciales sin cambiar la pública ⚠ (lectura general, sin consultar a nadie) |
+| AGPL-3.0 | libre, con obligación de publicar cambios si se ofrece como servicio | Basic Memory y Logseq [S1, S15] |
+
+**Lo que cuadra con Q3**: equipos, empresas y clientes son uso comercial, así que con la licencia de
+hoy necesitan otra licencia. La doble licencia es la única opción de las tres que mantiene "no
+comercial para otros, no para mí" y deja entrar a los cuatro grupos. **Recomendación: doble
+licencia.** ⚠ Necesita una revisión legal antes de publicarse.
+
+### Cómo dependen unas de otras
+
+- **D3 manda sobre D4, D7, D9 y D10**: un solo nodo simplifica dónde viven los ficheros, retira
+  la mitad de CENIT y cambia dónde están las notas.
+- **D1 y D2 son la misma decisión vista desde dos lados** (la identidad común).
+- **D5 depende de Q3 y condiciona D6, D9 y la licencia**: tener a otros dentro trae espacios, purga y
+  licencia comercial.
+- **D11, D12 y D13 dependen de D1**: el formato, los tipos y el troceo se apoyan en la obra como
+  unidad.
 
 ## 6. La estética entera
 
@@ -1277,6 +1705,24 @@ contra producción (solo lectura): 685 vigentes. Por autor: Claude Code 515 (`cl
 `claude-opus-5-5` 63, sin modelo 58, `claude-opus-4-8` 23, `claude-fable-5-1` 12), claude.ai 167
 (sin modelo 127, `claude-opus-5` 36, `claude-opus-4-8` 4) y el visor (`naeth-web`) 3.
 
+**M34 · Quién manda y cuándo** (02/10, 19:26). `git log --since=2026-09-21` del repo de CENIT,
+commits `ownership:` (TAKEOVER del vigía, "finally cede", "local recupera"), con las horas de finally
+pasadas de UTC a local. Del 22/09 a las 00:10 al 02/10 a las 17:28 (257,3 h): el PC manda 161,9 h
+(62,9%) y finally 95,4 h (37,1%). TAKEOVER a las 02:10, 01:22, 20:37, 22:03, 15:43, 01:57, 02:24,
+02:33, 02:07, 00:48 y 01:03; recuperaciones a las 12:04, 12:11, 21:48, 11:53, 16:00, 12:38, 12:59,
+14:08, 11:23, 09:18 y 09:47.
+
+**M35 · A qué hora se escribe** (02/10, 19:26). Producción, solo lectura: notas creadas en los
+últimos 30 días por hora local (`Europe/Madrid`): 00 h 1; 11 h 7; 12 h 23; 13 h 11; 14 h 26; 15 h 15;
+16 h 34; 17 h 20; 18 h 20; 19 h 18; 20 h 14; 21 h 51; 22 h 30; 23 h 17. Total 287; ninguna de la 01 a
+las 10 h. Las lecturas no se pueden contar: `docker logs naeth-api-1` no tiene ninguna petición
+`POST /mcp` y el contenedor arrancó el 02/10 a las 09:46.
+
+**M36 · Loopback frente a túnel** (02/10, 19:29). 12 GET a `/healthz` por cada camino, con `curl`:
+`http://127.0.0.1:8801` p50 2 ms (máximo 3); `https://memory.enraxk.dev` p50 57 ms (máximo 197),
+todas 200. Ahora manda el PC, así que el túnel vuelve a esta misma máquina; con finally de único
+nodo, el camino sería PC, Cloudflare y VPS: ⚠ sin medir, del mismo orden o más.
+
 **M14 · Las vistas de hoy** (02/10, entre las 14:00 y las 14:11). Navegador integrado en `http://127.0.0.1:8801/`,
 solo lectura, rutas `#/home`, `#/graph`, `#/m/<id>`, `#/new`, `#/status` y `#/settings`. Capturas
 fuera del repo.
@@ -1379,7 +1825,8 @@ reiniciar: los diez contenedores de Naeth y CENIT, arriba desde hace 9 horas.
 |---|---|---|---|
 | Q1 | 02/10 | Qué PDF real usar (que no sea de cliente) y si aprueba las consultas de prueba | Uno público: "Local-first software" (Kleppmann y otros, Ink & Switch, 2019, inkandswitch.com, 4,6 MB). Las 12 consultas aprobadas tal cual: em dash `2c5df38a`, producto y CENIT `d91cf6c7`, deep-research `e72cf4ae`, licencia `c8ae08e4`, whisper `73c89873`, visor colgado `f741b79e`, código atómico `6fb343ed`, habitación 3D `1b4dd93e`, poe2-data `921daf83`, atlas `4b664f10`, Tania y Blender `6145849a`, cuatro agentes `f8dfc7af` |
 | Q2 | 02/10 | Si añade o quita algún producto del mercado | Añade Cognee, Notion (IA y MCP) y Mem.ai, con ficha completa; no quita ninguno. Quedan 15 fichas completas y 3 de una línea (Reor, Tana, Heptabase) |
-| Q3 | | Quiénes son los "otros", y cómo encaja con la licencia no comercial | |
-| Q4 | | Qué disponibilidad tolera si a cambio desaparecen los dos nodos | |
+| Q3 | 02/10, 19:24 | Quiénes son los "otros", y cómo encaja con la licencia no comercial | Los cuatro grupos propuestos: personas que lo instalan, personas que lo usan alojado por Eneko, equipos y empresas, y clientes de Eneko. La licencia se abre a análisis como una decisión más, con una condición: "es no comercial para otros, no para mí" |
+| Q4 | 02/10, 19:24 | Qué disponibilidad tolera si a cambio desaparecen los dos nodos | "Depende qué. Analizar más a fondo": no hay una tolerancia única; D3 la analiza por función (leer, escribir, cada cliente, el visor, la búsqueda) |
+| Q4b | 02/10, 19:31 | Si lee o escribe Naeth con el PC apagado (desde claude.ai, la app o el móvil) | "Depende de dónde esté y qué pase": fuera de casa le pregunta a claude.ai con el contexto de Naeth y deja notas rápidas para luego; de madrugada no usa claude.ai |
 | Q5 | | Qué es un libro cuando el contenido son notas; si quiere bocetos | |
 | Q6 | | Cuántas horas por semana tiene para "Ahora" | |
