@@ -52,7 +52,8 @@ problemas vivos de producción (se usan como dato). El problema vivo del lideraz
 
 *Sub-fase 2.1 A, medido el 02/10/2026. Falta M10 (coste de embeber), que va con el experimento.*
 
-**El corpus es pequeño y crece a unas 250 notas al mes.**
+**El corpus es pequeño y crece a unas 200 notas vigentes al mes** (unas 250 filas, pero casi
+un 40% de las filas son versiones que superan a otras; corregido el 02/10 a las 22:20 tras Agora).
 - 1.141 filas, de las que 678 están vigentes, 442 superadas y 26 retiradas; 646 relaciones [M2].
 - 29 proyectos y 96 paths; un 37% de las vigentes (251) son `fact` [M3].
 - Desde junio entran entre 266 y 404 filas al mes, y de 180 a 237 siguen vigentes [M6]. A ese
@@ -1173,6 +1174,9 @@ sync y el backup tienen que elegir si ven a todos [M31].
 **Cuánto cuesta deshacerla**: añadir `space_id` después, con datos de varios dueños mezclados, es
 caro; hacerlo ahora, con un solo dueño, es una columna con un valor por defecto [M30].
 
+**⚠ La definición dice "el universo de conocimiento de una persona"** (`83c21947`): encaja si cada
+persona tiene su universo y un equipo comparte una parte; ver la sección 6.
+
 **Recomendación: espacios con miembros y RLS**, empezando con un solo espacio, el de Eneko. Es la
 única opción que cubre los cuatro grupos de Q3; en lo medido cuesta casi nada en código y en latencia
 [M31, M32]; y meter la columna ahora, con un solo dueño, es lo barato.
@@ -1284,6 +1288,9 @@ lado de lo corregido) y abre lo que pide tener otros dentro: poder borrar. Con D
 retirado puede dejar de ocupar si nadie más lo referencia.
 
 **Cuánto cuesta deshacerla**: una purga ya hecha no se deshace, por diseño.
+
+**⚠ Choca con la definición de Naeth** ("donde nada se destruye", 26/08, `83c21947`): ver "Lo que
+cambia la definición" en la sección 6. Pendiente de Eneko.
 
 **Recomendación: ADD-only más purga explícita.** Lo de siempre por defecto, que a esta escala cuesta
 poco aunque la historia sea ya el 47% del texto [M7, M4], y una salida registrada para lo que deba
@@ -1410,7 +1417,7 @@ condición: es no comercial para los demás, no para Eneko.
 prohíbe entrenar IA y deja el uso comercial "solo con licencia escrita del titular" (Naeth
 `c8ae08e4`). **Ya es una doble licencia**: la condición de Q3 se cumple con la de hoy, sin tocarla.
 (Una primera versión de esta sección la presentaba como una opción nueva; se corrigió el 02/10 a las
-19:44, al releer `c8ae08e4` en el checkpoint.)
+19:43, al releer `c8ae08e4` en el checkpoint.)
 
 | Opción | Qué es | Precedente |
 |---|---|---|
@@ -1464,6 +1471,191 @@ visor cuenta un producto que no es el que hay. Lo que lo sustituye en la bibliot
 decidido en los documentos de CDA ([`cda-vista-diseno-2026-09-15.md`](cda-vista-diseno-2026-09-15.md)
 y [`cda-biblioteca-espacio-2026-09-21.md`](cda-biblioteca-espacio-2026-09-21.md)) y no se rehace
 aquí; A2 a A7 dicen lo que falta.
+
+Lo que sigue, A2 a A6, se escribió el 02/10/2026 entre las 19:47 y las 19:59. Lo decidido en CDA se
+cita con su línea y no se rehace; lo leído de esos documentos, con fechas de decisión hasta el 21/09.
+Todo es "de momento": la estética de la habitación se decide con Tania y sus renders
+[`cda-biblioteca-espacio-2026-09-21.md:263-264`].
+
+### A2 · El mapa de pantallas
+
+| Pantalla | Biblioteca o herramienta | Escritorio o móvil | Origen |
+|---|---|---|---|
+| La habitación, con la estantería | biblioteca | escritorio; en móvil, la cámara solo va a sitios | **decidida en CDA**: Three.js y Rapier, cámara a sitios y, más tarde, paseo libre [`cda-biblioteca-espacio-2026-09-21.md:182-200`]; solo estantería, sin mesa, y la posición del libro es su estado [`cda-vista-diseno-2026-09-15.md:556-565`] |
+| El libro cerrado en la estantería | biblioteca | los dos | **decidida**: lomo, canto teñido como progreso, una tela por proyecto, tres estados [`cda-vista-diseno-2026-09-15.md:152-163`] |
+| El libro abierto, a doble página | biblioteca | escritorio | **decidida**: 1840 o 2000 px sin estirar, minimapa, índice como en un libro [`cda-vista-diseno-2026-09-15.md:201-290`, `:347-360`] |
+| La página en móvil | biblioteca | móvil | **decidida**: lo esencial, botones, sin gestos, sin el cromo del visor [`cda-vista-diseno-2026-09-15.md:186-196`] |
+| El buscador | biblioteca | los dos | **decidido dentro del libro** (cabecera corrida, el índice se reduce a lo que coincide) [`cda-vista-diseno-2026-09-15.md:357-360`]; **abierto entre libros** ("buscar un símbolo en cualquier libro", propuesta) [`cda-vista-diseno-2026-09-15.md:38`] |
+| El libro de notas, el de un PDF y el de un audio | biblioteca | los dos | **nueva**: CDA solo cubre el código [`cda-biblioteca-espacio-2026-09-21.md:147-168`]; ver A3 |
+| Lista y grafo | herramienta | escritorio | **abierta**: "La biblioteca lo sustituye, pero no destruyendo lo que ya hay" [`cda-biblioteca-espacio-2026-09-21.md:160`]; ver A6 |
+| Escribir y editar una nota | herramienta | escritorio | existe (`views/New.svelte`, `views/Memory.svelte`); 3 de 685 notas entraron por él [M33] |
+| Estado del nodo y ajustes | herramienta | escritorio | existen; con D3 en un nodo, el estado se simplifica |
+| Espacios y miembros | herramienta | escritorio | **nueva**, por D5 |
+| Clientes IA conectados, con revocación | herramienta | escritorio | **nueva**: lo que Notion da al dueño del espacio [S49] |
+| Exportar e importar | herramienta | escritorio | **nueva**, por D11 |
+| Purga registrada | herramienta | escritorio | **nueva**, por D9 |
+
+**La forma del producto**: la biblioteca es la cara; las herramientas, un cajón aparte. Hoy es al
+revés: el visor entero es la herramienta (A1).
+
+### A3 · Qué es un libro, por tipo de contenido
+
+**El código, decidido en CDA**: un libro es un repo; las partes, las carpetas de primer nivel; un
+capítulo, un fichero, con su portadilla; una página, un bloque; el prólogo, el README; y dos repos
+de un proyecto son dos volúmenes con el mismo lomo, "como una colección de libros de texto"
+[`cda-vista-diseno-2026-09-15.md:143-145`, `:180-181`, `:308-312`, `:331`, `:349-350`].
+
+**Las notas** (Q5: "ahora lo solucionamos pensado con cabeza"; el 21/09 se había aplazado hasta
+terminar CDA, con "por proyecto puede estar bien" como idea [`cda-biblioteca-espacio-2026-09-21.md:153-158`]). Lo medido [M37]:
+
+- **El proyecto agrupa más que el subtema**: de 349 relaciones entre notas vigentes, 267 (el 77%)
+  quedan dentro del mismo proyecto y 165 (el 47%) dentro del mismo subtema; 82 (el 23%) cruzan de
+  proyecto.
+- **El status ya hace de prólogo**: 27 de los 29 proyectos tienen nota en `proyecto/status`, que es
+  por convención su punto de entrada.
+- **Los tamaños son muy desiguales**: 6 proyectos de más de 50 notas suman 481 de 690 (el 70%);
+  yogin tiene unos 327.000 caracteres, del orden de 160 páginas de 2.000; en el otro extremo, 15
+  proyectos tienen 5 notas o menos (35 notas entre todos).
+- **Los capítulos caben**: el proyecto más dividido tiene 9 subtemas.
+- **Hay mucha historia**: 194 de las 690 vigentes (el 28%) tienen versiones anteriores.
+- **Una nota es más o menos una página**: mediana de 2.260 caracteres, y la mayor llega a 36.266 [M5].
+
+| Opción | Qué es un libro | A favor | En contra |
+|---|---|---|---|
+| Por proyecto | proyecto = libro, subtema = capítulo, nota = página, status = prólogo | guarda el 77% de las relaciones dentro del libro; el prólogo ya existe; es el modelo de código (repo = libro) | 15 libros de 1 a 5 notas, finísimos |
+| Por subtema | `proyecto/subtema` = libro | capítulos innecesarios | 96 libros, casi todos delgados; solo el 47% de las relaciones queda dentro |
+| Por periodo | un mes o un trimestre = libro, como un diario | se lee en orden de vida | parte cada proyecto en trozos y corta casi todas las relaciones; 11 proyectos viven en un solo mes |
+| Por tema que agrupa la IA | grupos por embeddings | puede descubrir afinidades | cambia cada vez que entra una nota: un libro que se reordena solo no es un libro |
+
+**Estado (02/10, 20:09)**: Eneko marcó las cuatro piezas de la recomendación, pidió verla en diagramas
+(`F:/src/Diagramas/naeth-libro-notas.excalidraw`) y decidió pasarla por Agora antes de darla por
+buena. Material para Agora: [`agora-a3-libro-de-notas.md`](agora-a3-libro-de-notas.md).
+
+**Recomendación**:
+- **Un libro por proyecto, con el código como volúmenes de la misma colección.** Las notas de Yogin
+  son un volumen más de la colección de Yogin, con el mismo lomo que sus repos: es el precedente de
+  CDA ("Yogin son dos libros con el mismo lomo") [`cda-vista-diseno-2026-09-15.md:143-145`].
+- **Capítulo = subtema; página = nota**, en orden de creación dentro del capítulo, así el libro
+  crece por el final, como pide "la biblioteca crece" [`cda-biblioteca-espacio-2026-09-21.md:37-58`]. Una nota larga ocupa varias páginas.
+- **Prólogo = la nota de status**, y los proyectos que no tienen, sin prólogo.
+- **Las versiones**: la página enseña la vigente y lleva al margen sus ediciones anteriores (el 28%
+  tiene). Es lo que en un libro es la nota de la edición, no una página más.
+- **Las relaciones que cruzan de libro** (el 23%) van como referencias a otro libro, igual que una
+  nota enlazada al pie en CDA [`cda-vista-diseno-2026-09-15.md:88-92`].
+- **Los proyectos de 1 a 5 notas** (15 de 29) no son libros sino **cuadernillos**: una caja de
+  cuadernos en la estantería, para que no haya quince lomos de un milímetro.
+
+**Un PDF o un documento**: la obra es el libro (D1), con las páginas del original; los fragmentos de
+`item_part` sirven para buscar y para saltar a un pasaje, no para paginar. Va a la colección de su
+proyecto por su ruta. CDA no lo cubre [`cda-biblioteca-espacio-2026-09-21.md:147-168`]: es nuevo.
+
+**Un vídeo**: no es un libro. CDA ya decidió que el MP4 vive fuera, enlazado desde un bloque, y que
+su guion se guarda como un bloque de tipo `script` [`cda-videos-2026-09-14.md:482-484`].
+
+**Un audio**: su transcripción podría ser un libro corto; ⚠ abierto, sin caso real todavía.
+
+### A4 · La lectura, por tipo
+
+- **Código**: lo decidido en CDA: doble página, índice, minimapa, pasar página en 400 ms con hoja
+  rígida [`cda-vista-diseno-2026-09-15.md:201-290`, `:671-690`].
+- **Notas**: la misma doble página, con la nota pintada como hoy en el modo de lectura
+  (`components/MarkdownView.svelte`); las anotaciones, al pie [`cda-vista-diseno-2026-09-15.md:88-92`]; las ediciones, al margen
+  (A3).
+- **PDF**: las páginas del original, con el resultado de una búsqueda que salta al pasaje; ⚠ cómo se
+  pinta un PDF dentro de la doble página está sin explorar.
+- **Lo común**: las transiciones siguen la regla de los 144 Hz (solo `transform` y `opacity`, se mide)
+  [`cda-vista-diseno-2026-09-15.md:429-438`], y el texto del libro va en escala de grises [`cda-vista-diseno-2026-09-15.md:700-701`].
+
+### A5 · El móvil
+
+- **Leer**: decidido en CDA: lo esencial, con botones y sin gestos [`cda-vista-diseno-2026-09-15.md:186-196`].
+- **Buscar**: dentro de un libro, decidido (índice con buscar) [`cda-vista-diseno-2026-09-15.md:194-196`]; entre libros, abierto
+  (A2).
+- **Capturar**: **por el cliente IA, no por una pantalla de Naeth.** Fuera de casa, Eneko deja notas
+  rápidas desde claude.ai (Q4b), y por MCP entró el 99,6% de lo que hay [M33]. Una pantalla de captura
+  propia en el móvil solo tendría sentido para quien use Naeth sin cliente IA.
+- **Recomendación**: el móvil de Naeth es para leer y buscar; capturar es cosa del cliente IA.
+
+### A6 · El papel de la lista y del grafo
+
+- **Lo que dijo Eneko**: "La biblioteca lo sustituye, pero no destruyendo lo que ya hay" [`cda-biblioteca-espacio-2026-09-21.md:160`].
+- **El límite de escala**: el árbol carga el corpus entero, unos 300 bytes por elemento [M9]; con
+  notas va bien, pero con fragmentos de PDF y código serían megas (unos 3 MB a 10.000 elementos, ⚠
+  proyección lineal). La E1, con cada fragmento como nodo, añadió 49 nodos sueltos al grafo; la E2,
+  con la obra como unidad, 2 [M18, M21].
+- **Recomendación**: la lista y el grafo **se quedan como herramientas** (A2), de obras y notas,
+  nunca de fragmentos; el árbol pasa a cargar por partes antes de llegar a los 10.000 elementos; y
+  el grafo de CDA (bloques en el grafo del visor, ya decidido) [`biblioteca-codigo-2026-09-10.md:391-394`]
+  entra como una capa más, no como otro grafo.
+
+### A7 · Bocetos
+
+No se hacen ahora (Q5b): la estética de la habitación se decide con Tania y sus renders
+[`cda-biblioteca-espacio-2026-09-21.md:263-264`].
+
+### A3 tras Agora (02/10/2026, 20:18)
+
+Revisado por Agora con tres lentes (datos, lectura y coherencia con CDA): **18 hallazgos se sostienen
+(3 de gravedad alta, 13 media y 2 baja) y 2 quedan abiertos**. Acta en
+`~/.claude/agora/runs/20261002-2014-a3-libro-de-notas/acta.md`; coste, 360.057 tokens ponderados.
+Ninguna voz cuestionó que el libro sea el proyecto (el 77% de las relaciones dentro). Lo que falla:
+
+- **Alta: "orden de creación" no dice qué fecha manda.** Superar una nota crea otra fila con la fecha
+  de ese momento (`naeth/app/core.py:176-182`, `naeth/db/schema.sql:50`); con la de la vigente, 194
+  notas saltan al final de su capítulo cada vez que se superan.
+- **Media**: una nota que cambia de proyecto desaparece de su libro sin rastro (8 casos, y 27 de
+  subtema); `eneko` es un capítulo de 79 páginas y el destino más citado desde fuera; el prólogo es la
+  nota con más ediciones y en móvil no hay margen; los cuadernillos contradicen la colección y hacen
+  que un proyecto cambie de clase al crecer, con un umbral sin base; el pie ya es del lector en CDA
+  (`cda-vista-diseno-2026-09-15.md:88-92`) y ahí las relaciones pierden su tipo; la supersesión admite
+  varios padres (`schema.sql:56`); la colección no tiene enlace en los datos; el status sería prólogo
+  y capítulo a la vez.
+- **Abiertos, rebajados por la réplica**: cómo encontrar una decisión en un capítulo largo, y si "crece
+  por el final" corre la numeración.
+
+**A3 no se da por buena.** Se rehace después de la sub-fase visual (abajo).
+
+### Las preguntas de Eneko (02/10/2026, 21:53)
+
+Antes de rehacer A3, Eneko puso siete preguntas por encima de sus piezas:
+
+| # | Pregunta | Qué se decidió el 02/10 |
+|---|---|---|
+| 1 | ¿CDA literal, con coger el libro en primera persona? | Abierta, se investiga. Posición de partida: la metáfora (la obra como unidad, el estado a la vista) se sostiene; la mecánica, opcional y nunca el único camino (CDA ya decidió "sacar es pulsar") |
+| 2 | ¿El 3D es útil, o un infierno de usabilidad? | Abierta, se investiga y se mide: el 3D para el lugar y el estado, la lectura en HTML (ya decidido en CDA); ⚠ falta leer la investigación sobre interfaces 3D de documentos, y medir tareas en el piloto F0 |
+| 3 | ¿Formas nuevas de enseñar las relaciones? | **Sí, en una sub-fase propia.** La idea de partida de Eneko, no literal: el libro abierto y, al señalar un pasaje, lo que hay al otro lado de cada relación aparece alrededor, como un wikilink que deja ver adónde lleva antes de ir |
+| 4 | ¿Qué es lo más importante para el usuario? | **Decidido: cuatro criterios, en este orden**: fluido y que funcione; encontrar rápido; ver la historia; que se sienta tuyo |
+| 5 | ¿El 3D de CDA es un juego genérico más? | Abierta, se investiga: una pasada como la del mercado, sobre formas de mostrar el conocimiento |
+| 6 | ¿Separar tanto móvil y escritorio? | Posición: la separación de CDA es de maquetación, no de modelo; el modelo (qué es una obra, cómo se busca) es común. A confirmar en la sub-fase visual |
+| 7 | ¿Solo libros? | **No.** Qué decide la clase de cada objeto (el tipo de contenido o el tamaño) se decide en la sub-fase visual |
+
+### Lo que cambia la definición de Naeth
+
+La definición del 26/08 (`83c21947`): "Naeth, s. m.: el universo de conocimiento de una persona, donde
+nada se destruye y cada cosa conserva todos sus estados anteriores. No pertenece a ningún modelo:
+cualquiera puede consultarlo, en cualquier superficie y en cualquier momento." Y la lectura del
+símbolo: los dos montantes son la misma pieza en dos momentos, y la costura entre ellos queda "a la
+vista en vez de alisada".
+
+- **"Universo", no biblioteca**: la forma no tiene por qué ser solo libros (pregunta 7), ni solo una
+  sala con estanterías (pregunta 5).
+- **"Cada cosa conserva todos sus estados"**: las ediciones no van al margen, son la identidad de la
+  cosa (criterio 3, ver la historia); y el sitio de una cosa en su capítulo lo da su primer estado,
+  la raíz de la cadena, no el último. Responde al hallazgo alto de Agora.
+- **"Nada se destruye"** choca con la purga de D9: o no hay purga, o es una excepción legal para datos
+  de otros. Decide Eneko.
+- **"De una persona"** tensa D5 y Q3: encaja si cada persona tiene su universo y un equipo comparte una
+  parte.
+- **"En cualquier superficie y en cualquier momento"** respalda D3 (un nodo siempre arriba) y el
+  principio inamovible.
+
+### Una sub-fase nueva: cómo se ven las cosas y sus relaciones
+
+Pedida por Eneko el 02/10 ("requiere una sub-fase entera"). Entra antes de rehacer A3 y después de
+investigar el papel del 3D. Abarca: qué clase de objeto es cada tipo de contenido (pregunta 7), cómo se
+enseñan las relaciones según su tipo (pregunta 3), la historia a la vista (criterio 3), y el móvil
+frente al escritorio (pregunta 6). Se juzga con los cuatro criterios de la pregunta 4 y con la
+definición de Naeth.
 
 ## 7. Horizontes
 
@@ -1729,6 +1921,16 @@ las 10 h. Las lecturas no se pueden contar: `docker logs naeth-api-1` no tiene n
 `http://127.0.0.1:8801` p50 2 ms (máximo 3); `https://memory.enraxk.dev` p50 57 ms (máximo 197),
 todas 200. Ahora manda el PC, así que el túnel vuelve a esta misma máquina; con finally de único
 nodo, el camino sería PC, Cloudflare y VPS: ⚠ sin medir, del mismo orden o más.
+
+**M37 · La forma del corpus, para el libro de notas** (02/10, 19:58). Producción, solo lectura,
+sobre `memory_current` (690 vigentes a esa hora). Proyectos por tamaño: 6 de 1 nota, 9 de 2 a 5 (29
+notas), 4 de 6 a 20 (37), 4 de 21 a 50 (137) y 6 de más de 50 (481). Los de 20 o más: yogin 107 notas
+en 5 subtemas (327.228 caracteres), naeth 104 en 9, eneko 81 en 3, inkerlum 69 en 9, cenit 64 en 5,
+gridwatch 56 en 7, skills 41 en 4, infra 40 en 3, job-search 32 en 4, poe2-builds 24 en 5. Con nota
+de status, 27 de 29 proyectos. Relaciones vivas entre vigentes: 349, de las que 267 dentro del mismo
+proyecto, 165 dentro del mismo subtema y 82 entre proyectos. Notas con un enlace `[[proyecto/subtema]]`
+en el texto: 14. Proyectos por meses con notas: 11 en 1 mes, 6 en 2, 6 en 3, 4 en 4, 2 en 5. Vigentes
+con versiones anteriores: 194 de 690.
 
 **M14 · Las vistas de hoy** (02/10, entre las 14:00 y las 14:11). Navegador integrado en `http://127.0.0.1:8801/`,
 solo lectura, rutas `#/home`, `#/graph`, `#/m/<id>`, `#/new`, `#/status` y `#/settings`. Capturas
