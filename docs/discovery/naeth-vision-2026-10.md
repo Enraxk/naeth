@@ -469,7 +469,531 @@ backup) tiene que decidir explícitamente si ve a todos o a uno.
 
 ## 4. El mercado
 
-*Sub-fase 2.2.*
+*Sub-fase 2.2, hecha el 02/10/2026 entre las 18:45 y las 19:00.* Quince fichas completas y tres de
+una línea (Q2). Procedimiento por producto, 25 minutos como máximo: `gh api` para licencia, estrellas
+y último push [S1]; la documentación, los precios y las páginas de formato y de MCP por WebFetch; el
+navegador integrado si la página necesita JavaScript. Cada dato lleva su fuente S (URL y fecha en
+el anexo S) o `⚠ no publicado`. Los cinco que ya estaban en el ranking de mayo
+([`../../pasos/investigacion.md`](../../pasos/investigacion.md)) se parten de allí y se anota lo
+que cambió.
+
+La última línea de cada ficha, "qué copia Naeth y qué evita", es juicio nuestro sobre los datos de
+esa ficha y no lleva fuente propia. Las doce columnas de cada ficha están atadas a las decisiones: qué es; tipos de contenido y si son
+enchufables (D1, D12); ingesta; formato y exportación (D11); sync y local-first (D3); multiusuario
+(D5); dónde corre (D6); MCP y clientes IA (el principio inamovible); licencia y precio; cómo se lee
+y navega (estética); salud del proyecto; qué copia Naeth y qué evita.
+
+### Mem0
+
+- **Qué es**: una capa de memoria para agentes. Un LLM extrae "memorias" (hechos cortos) de las
+  conversaciones y luego se recuperan por búsqueda. Hay una plataforma en la nube y una librería o
+  servidor open source [S3].
+- **Tipos de contenido**: texto de conversación e imágenes, que un modelo de visión convierte en
+  memorias; el open source no menciona PDF ni documentos [S5]. Tipos enchufables: ⚠ no publicado.
+- **Ingesta**: un LLM es obligatorio para extraer; **guarda lo extraído, no el original**
+  ("Extracted information is stored as standard memories") [S5].
+- **Formato y exportación**: JSON con esquemas Pydantic, solo en la plataforma [S6]. El open source
+  guarda en Qdrant o Postgres con pgvector, y el historial en SQLite [S3]; formato portable: ⚠ no
+  publicado.
+- **Sync y local-first**: no lo hay; librería local o servidor central. ⚠ No publicado.
+- **Multiusuario**: por ámbitos de entidad (usuario, agente, ejecución) dentro de un proyecto, con
+  "unlimited end users" en todos los planes; SSO y auditoría, solo en Enterprise [S2].
+- **Dónde corre**: en su nube; on-prem solo en Enterprise [S2]; el open source, con Postgres y
+  pgvector [S3].
+- **MCP y clientes IA**: MCP **remoto y alojado** (`mcp.mem0.ai`), con OAuth en el navegador o API
+  key para entornos sin navegador, 11 tools; nombra Claude Desktop, Claude Code, Codex, Cursor y VS
+  Code, no claude.ai; **solo contra la plataforma, no contra el open source** [S4].
+- **Licencia y precio**: Apache-2.0 [S1]. Gratis con 10.000 altas y 1.000 búsquedas al mes; Starter
+  19 $; Pro 249 $, que es donde entran el grafo y la consolidación; Enterprise a medida [S2].
+- **Cómo se lee**: no está hecho para leerse; es una API para agentes. El panel de la plataforma:
+  ⚠ sin ver.
+- **Salud**: 66.476 estrellas, último push el 01/10/2026 [S1].
+- **Qué copia Naeth**: los ámbitos de entidad como multiusuario ligero (es lo que la E6 hace con
+  `owner_id`), y el MCP remoto con OAuth más API key para clientes sin navegador. **Qué evita**:
+  quedarse solo con lo que extrae un LLM, que pierde la frase original (Naeth guarda la nota
+  entera), y un MCP que solo sirve a la versión de pago.
+
+### Zep y Graphiti
+
+- **Qué es**: Graphiti es un framework open source de grafo de conocimiento **temporal**; Zep es la
+  plataforma gestionada encima, con un motor de grafos propio y un grafo por usuario [S8].
+- **Tipos de contenido**: "episodios" de texto, JSON o mensajes; ficheros y documentos no se
+  mencionan [S8]. **La ontología sí es enchufable**: los tipos de entidad se definen como modelos
+  Pydantic [S8].
+- **Ingesta**: un LLM extrae entidades y hechos (OpenAI, Anthropic, Gemini, Groq o Azure); una tool
+  aparte mete un hecho a mano sin extracción [S9].
+- **Formato y exportación**: el grafo vive en Neo4j, FalkorDB o Neptune (Kuzu, en desuso) [S8];
+  exportación: ⚠ no publicado.
+- **Versiones**: **bi-temporales**: cada hecho tiene ventana de validez y, cuando cambia, el viejo
+  se invalida en vez de borrarse, así que se puede consultar cualquier momento pasado [S8].
+- **Sync y local-first**: ⚠ no publicado.
+- **Multiusuario**: en Graphiti, espacios por `group_id` [S9]; en Zep, grafos por usuario y gestión
+  de usuarios incluida [S8], con plazas del MCP contadas por plan [S7].
+- **Dónde corre**: Graphiti, donde se quiera con la base de grafos propia; Zep, en su nube, y en la
+  VPC del cliente solo en Enterprise [S7]. La página de precios ya no menciona ninguna edición
+  self-hosted de Zep [S7].
+- **MCP y clientes IA**: el de Graphiti va por HTTP (`localhost:8000/mcp/`) o stdio, con 13 tools, y
+  **sin autenticación propia** [S9]; nombra Claude Desktop y Cursor [S9].
+- **Licencia y precio**: Apache-2.0 los dos repos [S1]. Zep: gratis con 10.000 créditos al mes, Flex
+  125 $, Flex Plus 375 $, Enterprise a medida; SOC 2 e HIPAA, solo en Enterprise [S7].
+- **Cómo se lee**: como grafo; FalkorDB trae una interfaz web propia [S9]. Para leer documentos: no
+  está pensado.
+- **Salud**: Graphiti 31.381 estrellas (unas 24.000 en mayo) y Zep 4.946; los dos con push el 01 o
+  el 02/10 [S1].
+- **Qué copia Naeth**: la **validez temporal** de un hecho (Naeth sabe qué nota sustituye a cuál,
+  pero no desde cuándo deja de ser verdad); la ontología enchufable como modelo para tipos de
+  contenido (D12); la trazabilidad de episodio a hechos, que es la de obra a partes de la E2.
+  **Qué evita**: un LLM obligatorio para meter nada y un servidor de grafos de dependencia; un MCP
+  sin autenticación.
+
+### Letta
+
+- **Qué es**: una plataforma de agentes con estado (antes MemGPT): el agente gestiona su propia
+  memoria y la conserva entre conversaciones [S12].
+- **Tipos de contenido**: la memoria del agente, en Markdown; documentos y PDF dentro de esa
+  memoria: ⚠ no publicado [S10]. Tipos enchufables: no aplica.
+- **Ingesta**: la escribe el propio agente, o una persona editando los ficheros [S10].
+- **Formato y exportación**: **ficheros Markdown con frontmatter YAML en un repositorio git de
+  verdad** (MemFS), con un `MEMORY.md` de índice: "Each memory except a `MEMORY.md` index is
+  projected as Markdown with YAML frontmatter" [S10]. Se edita con herramientas normales y cada
+  cambio es un commit [S10].
+- **Sync y local-first**: por git: en local el repo está en la máquina, en la nube lo aloja Letta, y
+  lo editado vale "everywhere" al hacer push; los conflictos los resuelve git [S10].
+- **Multiusuario**: equipos con permisos (Teams Pro, 20 $ por plaza) y, en Enterprise, roles y SSO
+  SAML u OIDC [S11].
+- **Dónde corre**: en su nube o en un servidor propio, que su documentación explica ("Run a Letta
+  agent runtime for local and remote SDK sessions") [S13]; la página de precios no lo menciona [S11].
+- **MCP y clientes IA**: es cliente MCP de las herramientas que use el agente, y además ofrece un MCP
+  alojado (`api.letta.com/mcp`) con 6 tools para crear agentes y hablar con ellos. **Solo con bearer
+  token: "OAuth-only clients are not supported yet"**, así que claude.ai no entra; nombra Cursor, VS
+  Code y Claude Code [S12].
+- **Licencia y precio**: Apache-2.0 [S1]. Gratis con 3 agentes, Pro 20 $, API 20 $ más 0,10 $ por
+  agente activo, Teams Pro 20 $ por plaza, Enterprise a medida [S11].
+- **Cómo se lee**: como ficheros, con cualquier editor [S10]; o hablando con el agente [S12].
+- **Salud**: 25.003 estrellas (unas 17.000 en mayo); el último push al servidor es del 10/09/2026,
+  tres semanas antes que el resto [S1].
+- **Qué copia Naeth**: **el formato**: Markdown con frontmatter en un repo git es exactamente "lo
+  abierto" de D11, y es casi la forma de la memoria nativa de Claude Code (un `MEMORY.md` de índice
+  más un fichero por nota). Versionar con git da historial y resolución de conflictos sin construir
+  nada. **Qué evita**: un MCP que deja fuera a los clientes que solo hablan OAuth.
+
+### Basic Memory
+
+- **Qué es**: notas en Markdown que escriben a la vez la IA y la persona, con un índice para buscar
+  y un MCP delante. Es **el producto más parecido a Naeth de toda la lista** [S14, S15].
+- **Tipos de contenido**: notas; dentro de cada una, "observaciones" y enlaces wiki que forman el
+  grafo [S15]. Documentos y PDF: no los menciona [S14]. Tipos enchufables: ⚠ no publicado.
+- **Ingesta**: la escribe la IA por MCP o la persona en su editor; sin LLM en medio [S15].
+- **Formato y exportación**: **Markdown plano con frontmatter y enlaces wiki**, más un índice en
+  SQLite o Postgres; exportar es copiar los ficheros, que salen iguales, en el mismo formato y
+  con los mismos enlaces [S15].
+- **Sync y local-first**: lo local funciona sin red; la nube sincroniza en los dos sentidos con
+  rclone y resolución de conflictos, y se puede llevar a la nube un proyecto y dejar otro en local
+  [S15]. En local, el sync entre máquinas es a mano (git, Syncthing) [S15].
+- **Multiusuario**: Teams, un espacio compartido en la nube, con edición a la vez en tiempo real, al
+  mismo precio por plaza [S15].
+- **Dónde corre**: en local sin servidor ("Just files plus a local SQLite index") o en su nube,
+  montada sobre WorkOS AuthKit, Neon Postgres y Tigris S3 [S15].
+- **MCP y clientes IA**: stdio en local y https en la nube; nombra Claude Desktop, Claude Code,
+  Codex, Cursor y VS Code, y ChatGPT con las tools `search` y `fetch` [S15]. claude.ai como
+  conector remoto: ⚠ no publicado (la nube va por https, pero no lo nombra).
+- **Licencia y precio**: AGPL-3.0 [S1]. Local, gratis; la nube, 15 $ al mes por plaza [S14, S15].
+- **Cómo se lee**: con cualquier editor de Markdown; con Obsidian sin configurar nada, apuntándolo a
+  la carpeta [S15]; en la nube, una web y una app móvil [S15].
+- **Salud**: 4.076 estrellas (unas 4.200 en mayo) y push el 02/10/2026 [S1]; la web dice 57.000
+  descargas al mes [S14].
+- **Qué copia Naeth**: casi todo el planteamiento. Ficheros Markdown como verdad y la base como
+  índice (lo contrario de Naeth hoy, que tiene la verdad en Postgres); poder elegir proyecto a
+  proyecto entre local y nube; Obsidian como lector gratis; búsqueda híbrida con FastEmbed, como la
+  de Naeth. **Qué evita, o dónde puede diferenciarse**: no trae ficheros que no sean notas, y no se
+  ve una biblioteca para leer, solo un editor. Es la competencia directa: si Naeth acaba en
+  "Markdown más índice más MCP", compite con un AGPL de 15 $ que ya existe.
+
+### Supermemory
+
+- **Qué es**: un motor de memoria y contexto para agentes, en API: extrae hechos, mantiene un perfil
+  por usuario, resuelve contradicciones y olvida lo caducado; RAG y conectores en el mismo sistema
+  [S17].
+- **Tipos de contenido**: **los más amplios de la lista**: PDF, imágenes con OCR, vídeo con
+  transcripción y código troceado por AST, más conectores con Google Drive, Gmail, Notion, OneDrive,
+  GitHub y un rastreador web [S17]. Tipos enchufables: ⚠ no publicado.
+- **Ingesta**: automática, con un LLM que extrae memorias y perfiles; "No embedding pipelines, no
+  vector DB config, no chunking strategies" [S17]. La extracción avanzada de PDF es del plan Scale
+  [S16].
+- **Formato y exportación**: en local, todo en un directorio `./.supermemory` fácil de copiar [S17];
+  un formato abierto o una exportación: ⚠ no publicado.
+- **Sync y local-first**: un binario local con motor de grafos y embeddings propios
+  (`bge-base-en-v1.5`), que con Ollama no saca nada de la máquina; misma API que la nube [S17].
+  Sync entre los dos: ⚠ no publicado.
+- **Multiusuario**: perfiles y memoria por `containerTag` (un usuario, un proyecto) [S17]; en Pro, 3
+  plazas de equipo y usuarios finales sin límite; en Scale, plazas ilimitadas con acceso por
+  etiqueta [S16].
+- **Dónde corre**: su nube; el binario local; y self-hosting gestionado o aislado de la red en Scale
+  y Enterprise [S16, S17].
+- **MCP y clientes IA**: remoto en `mcp.supermemory.ai/mcp`, **con OAuth** ("Supermemory uses OAuth,
+  so no API key is required"), y su código es abierto [S17, S18]; plugins para Claude Code, Cursor,
+  Codex y otros [S17]. claude.ai: no lo nombra [S18].
+- **Licencia y precio**: MIT [S1]. Gratis con 5 $ de crédito; Pro 19 $; Max 100 $; Scale 399 $ (PDF
+  avanzado, SOC 2, HIPAA, self-hosting); Enterprise a medida; y tarifa por uso, de 5 $ el millón de
+  tokens de memoria de texto [S16].
+- **Cómo se lee**: no está hecho para leer; da contexto a los agentes. Para leer: ⚠ sin ver.
+- **Salud**: 31.057 estrellas, push el 02/10/2026 [S1]. Publica sus propias medidas (95% de
+  recall@15) [S17], sin replicar.
+- **Qué copia Naeth**: **la ingesta por tipo** (OCR, transcripción, código por AST): es la lista de
+  extractores que la E1 y la E2 dijeron que hace falta; los conectores como "fuentes externas", la
+  cuarta acepción de abierto; el mismo API en local y en la nube cambiando solo la URL; MCP con
+  OAuth. **Qué evita**: el perfil de usuario resumido por un LLM como verdad, y precios por
+  millón de tokens, que son de producto de API y no de biblioteca personal.
+
+### NotebookLM, ahora Gemini Notebook
+
+- **Qué es**: cuadernos de fuentes sobre los que se conversa con Gemini y se generan resúmenes,
+  informes, mapas mentales, audio y vídeo. **Ha cambiado de nombre**: su ayuda redirige a "Gemini
+  Notebook" [S19, S20].
+- **Tipos de contenido**: **cualquier fuente habitual**: PDF, Word, PowerPoint, Markdown, texto,
+  CSV, ePub, Docs, Slides y Sheets, imágenes, audio (transcrito al importar), web, vídeos públicos
+  de YouTube (su transcripción) y libros de Play Books [S19]. No enchufables.
+- **Ingesta**: subir o enlazar; lo de Drive se resincroniza solo cada pocos minutos; con más de cinco
+  fuentes, las etiqueta y agrupa por tema solo; también busca fuentes nuevas en la web o en Drive
+  [S19]. Hasta 500.000 palabras o 200 MB por fuente [S19].
+- **Formato y exportación**: ⚠ no publicado en estas páginas. Una fuente es "a copy or auto-synced
+  version" del documento [S19].
+- **Sync y local-first**: no: solo en el navegador y la app móvil de Google [S20].
+- **Multiusuario**: cuadernos compartidos, y públicos; la compartición avanzada es de pago [S20].
+- **Dónde corre**: en Google; en la versión de empresa, dentro del proyecto de Google Cloud del
+  cliente, con regionalización [S20].
+- **MCP y clientes IA**: solo Gemini; API o MCP: ⚠ no publicado en estas páginas.
+- **Licencia y precio**: cerrado. Gratis con 100 cuadernos y 50 fuentes por cuaderno; con los planes
+  de Google AI (Plus, Pro, Ultra), de 200 a 500 cuadernos y de 100 a 600 fuentes [S20]. Los datos
+  no se usan para entrenar salvo que se dé feedback [S20].
+- **Cómo se lee**: **es el que mejor resuelve la lectura de la lista**: un visor de fuentes con una
+  guía resumida de cada una, citas que llevan al pasaje, y salidas para leer o escuchar (informes,
+  audio, vídeo, fichas) [S19, S20].
+- **Salud**: producto de Google, con el nombre cambiado [S19]; la fecha del cambio: ⚠ no publicado.
+- **Qué copia Naeth**: la **lista de tipos de fuente** como vara de medir de "biblioteca de todo";
+  la fuente de Drive que se resincroniza sola (una fuente externa viva); la guía por fuente, que es
+  el digest de Naeth aplicado a una obra; y que cada respuesta cite el pasaje. **Qué evita**: el
+  encierro: sin formato de salida publicado, sin MCP y solo con un modelo.
+
+### Obsidian
+
+- **Qué es**: un editor de notas local sobre una carpeta de Markdown, con enlaces, grafo, Canvas y
+  miles de plugins [S22].
+- **Tipos de contenido**: notas en Markdown y lienzos en JSON Canvas, un formato abierto [S22]; lo
+  demás (PDF, imágenes) vive en la carpeta y se ve dentro. **Enchufable por plugins**: 8.317 en el
+  catálogo de la comunidad [S23].
+- **Ingesta**: escribir; el Web Clipper oficial para la web [S22].
+- **Formato y exportación**: **"Obsidian stores your notes locally as plain text Markdown files"**;
+  no hay nada que exportar [S22].
+- **Sync y local-first**: local-first de serie; Sync de pago con cifrado de extremo a extremo
+  (AES-256) e historial de versiones [S21].
+- **Multiusuario**: carpetas compartidas por Sync; no hay plan de equipo [S21].
+- **Dónde corre**: escritorio y móvil, sin servidor [S22].
+- **MCP y clientes IA**: **ningún MCP oficial**. Hay una CLI oficial ("Anything you can do in
+  Obsidian you can do from the command line"), que exige la app abierta y que se ofrece para dar
+  acceso a "agentic tools" a una carpeta sin darles el ordenador [S24]; y 56 plugins de la
+  comunidad que mencionan MCP [S23].
+- **Licencia y precio**: cerrado; la app es gratis también para uso comercial; Sync 4 o 5 $ por
+  usuario al mes; Publish 8 o 10 $ por sitio; licencia comercial voluntaria de 50 $ al año [S21].
+- **Cómo se lee**: un editor con vista de lectura, enlaces y grafo. Es **el esqueleto que el visor de
+  Naeth copia** hoy (M14).
+- **Salud**: 21.963 estrellas en el repositorio de releases, push el 02/10/2026 [S1].
+- **Qué copia Naeth**: los formatos abiertos sin exportación (Markdown y JSON Canvas); que lo
+  alrededor (IA, MCP) sea un plugin y no el núcleo; la CLI como puerta para agentes con acceso
+  acotado. **Qué evita**: parecerse a Obsidian en la forma (A1); y depender de la app abierta para
+  que un agente entre.
+
+### Logseq
+
+- **Qué es**: notas en bloques y esquema, con diario, consultas, anotación de PDF y tareas [S25].
+- **Tipos de contenido**: bloques de texto; PDF anotables [S25]. Enchufable por su API de plugins
+  [S25].
+- **Ingesta**: escribir; importar PDF para anotarlos [S25].
+- **Formato y exportación**: **ha cambiado de base**. El 24/04/2026 Logseq se partió en dos: "Logseq
+  OG", sobre ficheros Markdown y Org, que solo recibirá "security fixes and patches", y la versión
+  con base de datos, que se queda con todo el desarrollo [S27]. La 2.0, publicada el 13/07/2026, es
+  esa versión con base de datos, en beta [S26], que guarda en SQLite y se respalda exportando esa
+  base [S25]. Que vuelva a escribir Markdown: "still researching the best way to do this" [S27].
+- **Sync y local-first**: local; el sync nuevo con colaboración en tiempo real (RTC) va cifrado de
+  extremo a extremo y está en alfa, con aviso expreso de que "data loss is possible" [S25, S27].
+- **Multiusuario**: colaboración en tiempo real por RTC, en alfa [S25].
+- **Dónde corre**: escritorio, y una app móvil nueva en alfa [S25].
+- **MCP y clientes IA**: ⚠ no publicado (ni el README ni el anuncio lo mencionan).
+- **Licencia y precio**: AGPL-3.0 [S1]; la app es gratis; el precio del sync: ⚠ no publicado (el
+  anuncio solo cita el acceso de los patrocinadores de 15 $ al mes a la beta de iOS) [S27].
+- **Cómo se lee**: esquema de bloques con enlaces y consultas [S25]; la app: ⚠ sin ver.
+- **Salud**: 45.109 estrellas y push el 02/10/2026 [S1]; la versión que se desarrolla está en beta y su
+  sync en alfa [S25].
+- **Qué copia Naeth**: nada de forma directa; **es la prueba en contra más clara para D11**: el
+  producto de notas en Markdown más conocido después de Obsidian se ha pasado a una base de datos
+  por velocidad de desarrollo y estabilidad ("Development will be much faster", "Stability will
+  improve") [S27], y deja el Markdown como algo por investigar. **Qué evita**: dos productos en
+  paralelo, uno congelado, y una migración de formato con riesgo de perder datos.
+
+### Anytype
+
+- **Qué es**: un espacio local-first de objetos tipados (notas, tareas, contactos, lo que se defina),
+  con canales compartidos y chat; ahora se vende también para empresas ("Run your company on
+  Anytype") [S28].
+- **Tipos de contenido**: **objetos con tipos definidos por el usuario**: "you can create your own
+  custom Types to match your needs", cada uno con sus propiedades, vistas y plantillas [S33]. Es el
+  modelo de tipos enchufables más maduro de la lista.
+- **Ingesta**: escribir e importar; las fuentes de importación: ⚠ no publicado en la página
+  [S32].
+- **Formato y exportación**: exporta a Markdown, a su formato propio (Any-Block, en JSON o en
+  Protobuf), a PDF y a HTML; **no exporta** los miembros ni los chats, atados a claves de cifrado
+  por usuario [S32].
+- **Sync y local-first**: local-first con sync cifrado ("Encrypted, Swiss-based") [S28]; modo solo
+  local [S31] y red propia autoalojada (any-sync, imagen Docker mantenida por ellos) [S34].
+- **Multiusuario**: canales compartidos (10 en el plan gratis, ilimitados de pago); para empresas,
+  SSO, panel de administración y self-hosting [S28].
+- **Dónde corre**: escritorio y móvil; sync en su red, en una red propia o en ninguna [S28, S34].
+- **MCP y clientes IA**: **MCP oficial** (`anytype-mcp`, MIT), que convierte en tools la API local
+  de la app; se configura con una API key creada en la app; nombra Claude Desktop, Claude Code,
+  Cursor, Windsurf y Raycast [S30]. Es local, no un conector remoto.
+- **Licencia y precio**: **"Any Source Available License 1.0"**: se puede usar, modificar y
+  redistribuir "only (a) for Non-Commercial Use, or (b) for Commercial Use in Allowed Networks"
+  [S29]. Gratis con 100 MB en remoto; Plus 4 $, Pro 8 $ y Ultra 16 $ al mes (de 1 a 100 GB) [S28].
+- **Cómo se lee**: objetos con vistas por tipo [S33]; la app: ⚠ sin ver.
+- **Salud**: el cliente de escritorio, 8.875 estrellas; push el 02/10/2026 [S1]; el MCP, 526
+  estrellas y push el 21/09 [S30].
+- **Qué copia Naeth**: **los tipos definidos por el usuario** como respuesta a D12; exportar en un
+  formato abierto y en uno propio sin pérdida, diciendo qué se pierde; poder elegir red (la suya,
+  una propia o ninguna). Y **su licencia es el precedente más cercano a Q3**: código visible, gratis
+  sin uso comercial y comercio solo dentro de su red, que es lo que plantea la licencia Naeth 1.0.
+  **Qué evita**: que lo compartido (miembros, chat) no se pueda exportar.
+
+### AnythingLLM
+
+- **Qué es**: una aplicación para chatear con documentos propios con cualquier LLM, local o en la
+  nube, con agentes, varios usuarios y bases vectoriales incluidas [S35].
+- **Tipos de contenido**: documentos (PDF, TXT, DOCX y otros), audio y vídeo transcritos con un
+  modelo propio [S35]. Tipos enchufables: no; lo enchufable son los proveedores (LLM, embeddings,
+  bases vectoriales, voz) [S35].
+- **Ingesta**: un servicio aparte (`collector`) trocea y procesa los documentos que se suben;
+  embeddings con un modelo nativo por defecto [S35].
+- **Formato y exportación**: vectores en LanceDB por defecto (o PGVector, Chroma y otros) [S35];
+  formato abierto o exportación: ⚠ no publicado.
+- **Sync y local-first**: escritorio local por defecto ("runs locally by default"), sin sync entre
+  máquinas publicado [S35].
+- **Multiusuario**: instancia con varios usuarios y permisos, **solo en la versión Docker** [S35];
+  SSO y RBAC en Enterprise [S36].
+- **Dónde corre**: escritorio (Mac, Windows, Linux), Docker propio gratis, o instancia alojada [S35,
+  S36]; app de Android open source [S35].
+- **MCP y clientes IA**: **solo cliente MCP**: sus agentes usan servidores MCP externos por stdio, SSE
+  o streamable; no expone sus documentos a otros clientes [S37].
+- **Licencia y precio**: MIT [S1]. Escritorio y Docker gratis; nube Basic 50 $ y Pro 99 $ al mes;
+  Enterprise a medida, con on-premise, SSO y RBAC [S36].
+- **Cómo se lee**: un chat por espacio de trabajo ("Chat with your docs") [S35]; los documentos se
+  preguntan, no se leen. La vista de los documentos: ⚠ sin ver.
+- **Salud**: 66.666 estrellas, push el 02/10/2026 [S1].
+- **Qué copia Naeth**: la ingesta como servicio aparte que entiende formatos; el espacio de trabajo
+  como unidad que se comparte con permisos; todo enchufable por proveedor. **Qué evita**: ser solo
+  una interfaz de chat (el conocimiento no se lee, se pregunta), y no exponerse por MCP, que es lo
+  único inamovible de Naeth.
+
+### Khoj
+
+- **Qué es**: un "segundo cerebro" con IA que responde con la web y con los documentos propios, y
+  agentes con conocimiento propio [S38].
+- **Tipos de contenido**: imágenes, PDF, Markdown, org-mode, Word y Notion [S38]. Tipos enchufables:
+  ⚠ no publicado.
+- **Ingesta**: indexa los documentos y las fuentes conectadas [S38].
+- **Formato y exportación**: ⚠ no publicado; el último commit arregla la exportación del chat [S39].
+- **Sync y local-first**: se instala en el ordenador propio o se usa su nube [S38].
+- **Multiusuario**: una oferta para equipos y empresas (nube, on-premise o híbrida) [S38].
+- **Dónde corre**: navegador, Obsidian, Emacs, escritorio, móvil y WhatsApp como clientes; servidor
+  propio o su nube [S38].
+- **MCP y clientes IA**: ⚠ no publicado en el README.
+- **Licencia y precio**: AGPL-3.0 [S1]; los precios: ⚠ no publicado (la página de precios da 404 y la
+  portada no muestra ninguno) [S40].
+- **Cómo se lee**: un chat, con los clientes donde ya se escribe (Obsidian, Emacs) [S38].
+- **Salud**: **se está apagando**. 37.558 estrellas, pero la última versión es una beta del
+  26/03/2026, los últimos commits son del 24/06 y del 02/08 [S39], y la portada empuja ahora otro
+  producto del mismo equipo, Pipali, "Your AI co-worker" [S40].
+- **Qué copia Naeth**: llegar a donde ya se escribe (un plugin de Obsidian, Emacs, WhatsApp) en vez
+  de exigir una aplicación propia. **Qué evita, y es la lección**: un proyecto open source de casi
+  40.000 estrellas puede quedarse sin desarrollo en meses cuando su equipo cambia de producto; la
+  salud de un proyecto se mide por la fecha del último commit, no por las estrellas.
+
+### Capacities
+
+- **Qué es**: un estudio de notas por objetos: cada cosa (libro, persona, idea, PDF) es un objeto de un
+  tipo, enlazado con los demás, en vez de un fichero en una carpeta [S42].
+- **Tipos de contenido**: **tipos definidos por el usuario**, sin límite en el plan gratis [S41, S42];
+  PDF (para leer, subrayar y analizar con IA), imágenes, audio (con transcripción y resumen) y
+  ficheros sueltos que solo se guardan y etiquetan [S42].
+- **Ingesta**: escribir; guardar desde WhatsApp, Telegram, Twitter y el correo; subir ficheros (5 GB
+  en el plan gratis) [S41].
+- **Formato y exportación**: Markdown con frontmatter, CSV por colección y los ficheros en carpetas;
+  los enlaces pasan a ser locales "so the graph character of your space is fully contained" [S44].
+- **Sync y local-first**: en la nube con trabajo sin conexión, que se sincroniza al volver [S41,
+  S42]; los ficheros se guardan en local y se sincronizan [S42].
+- **Multiusuario**: solo compartir para ver; no hay espacios de edición compartida [S41].
+- **Dónde corre**: escritorio, web y móvil, sobre su nube [S41].
+- **MCP y clientes IA**: **MCP remoto en `api.capacities.io/mcp` con OAuth 2.1, PKCE, registro dinámico
+  de clientes y tokens de refresco** (lo mismo que Naeth tras su IdP), con 8 tools de lectura y 11
+  de escritura, en el plan Pro; nombra Claude, ChatGPT y Cursor [S43]. Avisa de que una pregunta
+  amplia que deba recorrer todo el espacio sin filtro "may still be a poor fit" [S43]. La API REST
+  anterior está obsoleta [S42].
+- **Licencia y precio**: cerrado. Gratis (sin IA ni MCP); Pro 9,99 $ al mes; Believer desde 12,49 $;
+  ampliación de IA de 8,33 $ [S41].
+- **Cómo se lee**: páginas de objetos, colecciones, consultas y un grafo; el PDF se lee y se subraya
+  dentro [S42].
+- **Salud**: ⚠ no medible (cerrado, sin repositorio).
+- **Qué copia Naeth**: los **tipos del usuario** como Anytype, pero en la nube; la exportación que
+  convierte los enlaces en enlaces locales para que el grafo salga entero; separar "ficheros que se
+  leen" (PDF) de "ficheros que solo se guardan"; y el aviso honesto de para qué no sirve su MCP.
+  **Qué evita**: el MCP solo en el plan de pago y la colaboración limitada a ver.
+
+### Cognee
+
+- **Qué es**: una plataforma open source de memoria para agentes que convierte documentos, código y
+  conversaciones en un grafo de conocimiento autoalojado; ahora se vende como "Company Brain" [S45].
+- **Tipos de contenido**: documentos, conversaciones y **código, que entra como grafo de símbolos y
+  dependencias** [S45]. **Enchufable**: modelos de datos y ontologías propios [S45], y fuentes nuevas
+  escribiendo una subclase de `MemorySource` [S47].
+- **Ingesta**: **ya no exige un LLM**: sin clave, extrae el grafo con el modelo local GLiNER y
+  embebe en local; las fases que necesitan LLM se saltan solas [S45].
+- **Formato y exportación**: **COGX**, un formato de intercambio con documentos, conversaciones,
+  entidades y hechos (con ventanas de validez), bloques de memoria y metadatos; importa desde Mem0,
+  LangMem, Letta, Zep y Graphiti y exporta un archivo COGX [S47]. Es suyo, no una especificación
+  publicada aparte [S47].
+- **Sync y local-first**: ⚠ no publicado; corre en local o en servidor [S45].
+- **Multiusuario**: **multi-tenant por defecto**: sin desactivarlo, cada llamada a la API exige un
+  usuario autenticado [S45]; en la nube, usuarios ilimitados por espacio [S46].
+- **Dónde corre**: en local, en Docker (API, interfaz y MCP), en su nube o en la nube del cliente
+  [S45, S46]. Desde la 1.0 puede ir entera sobre un solo Postgres, pero el grafo en Postgres es una
+  demo y lo de producción es "a licensed product" [S45].
+- **MCP y clientes IA**: servidor MCP propio (puerto 8001 en el compose), plugins para Claude Code y
+  Codex, y guía para Cursor y Cline [S45].
+- **Licencia y precio**: Apache-2.0 [S1]. Open source gratis; nube gratis con 1 millón de tokens y
+  después 1 $ por millón y 5 $ por espacio extra; BYOC por contrato [S46].
+- **Cómo se lee**: una interfaz local con el grafo [S45]; para leer documentos: ⚠ sin ver.
+- **Salud**: 31.302 estrellas (unas 12.000 en mayo) y push el 02/10/2026 [S1].
+- **Qué copia Naeth**: **un formato de intercambio entre sistemas de memoria** (COGX) como
+  respuesta a D11 cuando el contenido no son solo notas; el código como grafo de símbolos, que es
+  CDA; la ingesta que funciona sin LLM y mejora si lo hay; y que el multiusuario venga encendido
+  de serie. **Qué evita**: que la versión de un solo Postgres sea de pago: es justo lo que Naeth ya
+  tiene.
+
+### Notion, con su IA y su MCP
+
+- **Qué es**: el espacio de trabajo de documentos y bases de datos más extendido en equipos, con IA y
+  agentes en el plan Business [S48].
+- **Tipos de contenido**: páginas de bloques y bases de datos [S50]. Que una base de datos con sus
+  propiedades haga de tipo definido por el equipo es lectura nuestra, no algo que diga la fuente.
+  Ficheros: ⚠ no mirado aquí.
+- **Ingesta**: escribir e integraciones; la búsqueda del MCP alcanza también fuentes conectadas
+  [S49].
+- **Formato y exportación**: PDF, HTML y "Markdown & CSV": cada página a Markdown y cada base de
+  datos a CSV; los callouts salen como HTML porque Markdown no tiene equivalente, y los comentarios
+  solo salen en HTML [S50]. Exportar con subpáginas: Business o Enterprise [S50].
+- **Sync y local-first**: en la nube, con modo sin conexión en todos los planes [S48].
+- **Multiusuario**: **es su fuerte**: espacios de equipo, permisos por base de datos, SSO SAML en
+  Business, y SCIM, auditoría y retención cero de datos en los proveedores de IA en Enterprise [S48].
+- **Dónde corre**: en su nube [S48].
+- **MCP y clientes IA**: **MCP remoto alojado por Notion, con OAuth**; nombra Claude Code, Cursor y
+  Codex; los dueños del espacio ven y revocan las conexiones [S49]. Restricción por plan: no la
+  menciona [S49].
+- **Licencia y precio**: cerrado. Gratis; Plus 9,50 €; Business 19,50 € por plaza al mes (la IA
+  entera); Enterprise a medida [S48].
+- **Cómo se lee**: páginas y bases de datos [S50]; sus vistas: ⚠ sin ver aquí.
+- **Salud**: ⚠ no medible (cerrado).
+- **Qué copia Naeth**: que el administrador vea y revoque qué clientes IA tiene conectados cada
+  miembro (Naeth ya registra qué cliente escribe cada nota, pero no da ese panel); el MCP remoto con
+  OAuth como lo normal; y exportar diciendo qué no tiene equivalente. **Qué evita**: que la
+  exportación completa dependa del plan, y que lo abierto sea solo una salida, no el formato.
+
+### Mem
+
+- **Qué es**: notas con IA que se organizan solas: detecta tareas, mantiene la relación entre
+  personas, proyectos y decisiones ("As new information arrives, Mem updates how people, projects,
+  decisions, and priorities fit together") y tiene un modo de voz para reuniones [S51, S52].
+- **Tipos de contenido**: notas, colecciones y notas de voz [S51]. Tipos enchufables: ⚠ no publicado.
+- **Ingesta**: escribir o dictar; captura rápida en Mac y Windows [S52].
+- **Formato y exportación**: "one-click exports of your notes and collections as Markdown files"
+  [S51].
+- **Sync y local-first**: no; en su nube, cifrado en reposo con AES-256 pero **no de extremo a
+  extremo**, "because Mem needs to process your knowledge" [S51].
+- **Multiusuario**: ⚠ no publicado [S51, S52].
+- **Dónde corre**: su nube, con apps de escritorio [S52].
+- **MCP y clientes IA**: un "Claude Connector" aparece en un titular de novedades, sin detalle;
+  MCP y API: ⚠ no publicado [S52].
+- **Licencia y precio**: cerrado. **Cobra por notas y mensajes al mes**: gratis con 25 notas, Plus 9 $
+  con 50, Pro 29 $ con 100, y escalones hasta 199 $ con 2.000 [S51].
+- **Cómo se lee**: notas y colecciones, con un chat encima [S51].
+- **Salud**: ⚠ no medible (cerrado).
+- **Qué copia Naeth**: la exportación a Markdown en un clic, y decir sin rodeos por qué no hay cifrado
+  de extremo a extremo (es lo mismo que le pasa a Naeth con la búsqueda semántica). **Qué evita**:
+  cobrar por número de notas, que castiga justo el uso que da valor a una memoria, y una
+  organización hecha por la IA que el usuario no controla.
+
+### De una línea
+
+- **Reor**: notas locales con IA; **archivado** desde el 13/05/2025, con 8.548 estrellas [S1]. Fuera.
+- **Tana**: notas en esquema con "supertags", que son tipos definidos por el usuario; MCP en todos
+  los planes; gratis, Pro de 20 a 30 $ y Max de 80 a 120 $ al mes, y Business a medida [S53].
+- **Heptabase**: tarjetas en pizarras visuales, con subrayado de PDF y transcripciones de YouTube;
+  Pro 8,99 $, Premium 17,99 $ y Premium+ 53,99 $; MCP, API y exportación a Markdown: no los menciona
+  [S54].
+
+### La rejilla
+
+Una fila por producto, con las columnas que deciden. La ficha de cada uno trae la fuente de cada
+celda; aquí solo se resume. La última fila es Naeth hoy, para comparar.
+
+| Producto | Tipos del usuario | Formato abierto | Local-first | Multiusuario | MCP | Licencia | Vivo |
+|---|---|---|---|---|---|---|---|
+| Mem0 | ⚠ | no (JSON, solo en la nube) | no | por ámbitos | remoto, OAuth, solo la nube | Apache-2.0 | sí |
+| Zep y Graphiti | ontología propia | ⚠ | no | por grupo o usuario | local, sin autenticación | Apache-2.0 | sí |
+| Letta | no aplica | Markdown en git | sí, por git | equipos | remoto, sin OAuth | Apache-2.0 | sí |
+| Basic Memory | ⚠ | Markdown | sí | Teams | stdio y https | AGPL-3.0 | sí |
+| Supermemory | ⚠ | ⚠ | binario local | por ámbitos y plazas | remoto, OAuth | MIT | sí |
+| Gemini Notebook | no | ⚠ | no | compartir | ⚠ | cerrado | sí |
+| Obsidian | por plugins | Markdown y JSON Canvas | sí | carpetas por Sync | sin oficial (CLI) | cerrado | sí |
+| Logseq | por plugins | SQLite (Markdown en OG) | sí | RTC en alfa | ⚠ | AGPL-3.0 | sí, en beta |
+| Anytype | sí | Markdown y propio | sí | canales y empresa | local, API key | source available | sí |
+| AnythingLLM | no | ⚠ | escritorio | solo en Docker | solo cliente | MIT | sí |
+| Khoj | ⚠ | ⚠ | servidor propio | equipos | ⚠ | AGPL-3.0 | apagándose |
+| Capacities | sí | Markdown y CSV | sin conexión | solo ver | remoto, OAuth 2.1, de pago | cerrado | ⚠ |
+| Cognee | ontologías | COGX (suyo) | ⚠ | multi-tenant de serie | servidor propio | Apache-2.0 | sí |
+| Notion | bases de datos | Markdown y CSV al exportar | sin conexión | su fuerte | remoto, OAuth | cerrado | ⚠ |
+| Mem | ⚠ | Markdown al exportar | no | ⚠ | ⚠ | cerrado | ⚠ |
+| **Naeth hoy** | no (E1) | no: Postgres | no: dos nodos (M11) | no (E6) | remoto, OAuth, propio | Naeth 1.0, no comercial | sí |
+
+### Lo que dice el mercado
+
+1. **Nadie junta las tres cosas**: ingerir de todo, leerlo como una biblioteca y darlo a cualquier IA
+   por MCP. Los que ingieren de todo no se leen: son una API o un chat (Supermemory, AnythingLLM,
+   Cognee, y Gemini Notebook, que además no tiene MCP) [S17, S35, S45, S19]. Los que se leen bien
+   no ingieren de todo o encierran el MCP en un plan de pago (Obsidian, Logseq, Anytype, Capacities,
+   Notion) [S22, S25, S33, S43, S49]. Ese hueco es el de Naeth.
+2. **Hay dos caminos para el formato, y los dos están vivos**: los ficheros como verdad (Basic Memory,
+   el MemFS de Letta en git, Obsidian) y la base de datos con exportación (Anytype, Capacities,
+   Notion, Mem) [S15, S10, S22, S32, S44, S50, S51]. Y uno de los grandes acaba de cambiar de
+   bando: **Logseq dejó los ficheros por una base de datos** por velocidad y estabilidad [S27].
+   Exportar a Markdown es ya lo mínimo; ser Markdown, una opción.
+3. **Los tipos definidos por el usuario son lo normal** en las herramientas de conocimiento
+   (Anytype, Capacities, los supertags de Tana) y en las de memoria con grafo (ontologías de
+   Graphiti y Cognee) [S33, S42, S53, S8, S45]. D12 no pide nada raro.
+4. **El MCP remoto con OAuth ya es lo normal en los productos cerrados** (Notion, Capacities,
+   Supermemory, la nube de Mem0) [S49, S43, S18, S4], y **casi ningún open source lo tiene**: Graphiti
+   va sin autenticación, Anytype y Basic Memory en local, Letta sin OAuth [S9, S30, S15, S12]. Naeth
+   tiene MCP remoto con OAuth y autoalojado: es un diferencial real, y el principio inamovible.
+5. **El multiusuario va por dos caminos**: ámbitos en la API (Mem0, Graphiti, Supermemory, Cognee,
+   que lo trae encendido) o espacios compartidos de producto (Notion, Basic Memory Teams, Anytype)
+   [S2, S9, S17, S45, S48, S15, S28]. La E6 está en el primero; el segundo es lo que pediría un
+   "producto para otros".
+6. **La ingesta que funciona sin LLM gana terreno**: Cognee ya no lo exige y Basic Memory nunca lo
+   hizo [S45, S15]; los que lo exigen guardan lo que el LLM extrae, no el original (Mem0, Graphiti,
+   Supermemory) [S5, S9, S17]. Naeth guarda el original: encaja con "funciona sin LLM y mejora con
+   él".
+7. **Las estrellas no dicen si un proyecto vive**: Khoj tiene 37.558 y está casi parado; Reor está
+   archivado; Logseq desarrolla una beta que avisa de pérdida de datos [S1, S39, S25].
+8. **La licencia de Naeth tiene precedente**: Anytype publica su código con uso no comercial y
+   comercio solo en sus redes [S29]. El resto del open source de la lista es Apache-2.0, MIT o
+   AGPL-3.0 [S1]. Va a Q3.
 
 ## 5. Las decisiones de un solo sentido
 
@@ -477,7 +1001,34 @@ backup) tiene que decidir explícitamente si ve a todos o a uno.
 
 ## 6. La estética entera
 
-*Sub-fase 2.4: A1 a A7.*
+*Sub-fase 2.4: A1 a A7. A1 adelantada al 02/10/2026, 19:01; el resto, en 2.4.*
+
+### A1 · Por qué el visor parece una copia de Obsidian
+
+Ocho rasgos, cada uno con el sitio del visor donde vive. El lado de Obsidian se describe por su
+interfaz por defecto, ⚠ sin una captura de referencia al lado; las seis vistas de Naeth están en la
+M14.
+
+| # | Rasgo | Dónde vive en Naeth | Su pareja en Obsidian |
+|---|---|---|---|
+| 1 | Tres columnas: árbol, contenido y una barra de iconos | `naeth/web/src/App.svelte:80` (`grid-template-columns: var(--side-w) 1fr 48px`), `components/Rail.svelte:14` | el explorador, el editor y la barra de iconos (allí a la izquierda, aquí a la derecha: el reparto es el mismo) |
+| 2 | Un árbol de carpetas por ruta (`proyecto/subtema`) | `components/Sidebar.svelte:19`, `lib/tree.ts` | el explorador de ficheros de la bóveda |
+| 3 | Enlaces `[[ ]]` | `lib/wikilinks.ts` (sintaxis medida en el corpus, 28/07) | su sintaxis de enlaces internos |
+| 4 | Un grafo de fuerzas de todo, coloreado por grupo | `views/Graph.svelte`, `lib/sim.ts:217` | la vista de grafo |
+| 5 | Un grafo local en el panel de cada nota | `components/MiniGraph.svelte:12-14` ("el mismo lienzo que el grafo grande"), `views/Memory.svelte:592` | el grafo local del panel derecho |
+| 6 | Un panel de contexto con relaciones y esquema | `views/Memory.svelte:185` y `:572` | los paneles de enlaces entrantes y de esquema |
+| 7 | Editor de Markdown en vivo y vista de lectura, que se alternan | `components/Milkdown.svelte`, `components/MarkdownView.svelte`, `views/Memory.svelte:80` | la vista previa en vivo y el modo lectura |
+| 8 | Un buscador que se abre centrado sobre todo | `components/Header.svelte:19` | el selector rápido |
+
+**Lo que dice A1**: el esqueleto entero (rasgos 1 a 4) es el de un **gestor de ficheros Markdown**,
+y Naeth no guarda ficheros: guarda filas en Postgres con digest, autoría, cadena de versiones y
+relaciones tipadas. Lo propio de Naeth vive **dentro** de la vista de una nota (rasgos 5 a 7), y lo
+que más lo distingue no se ve en ninguna pantalla: el MCP, por donde entraron 682 de las 685 notas
+vigentes; por el visor, 3 [M33]. El
+visor cuenta un producto que no es el que hay. Lo que lo sustituye en la biblioteca ya está
+decidido en los documentos de CDA ([`cda-vista-diseno-2026-09-15.md`](cda-vista-diseno-2026-09-15.md)
+y [`cda-biblioteca-espacio-2026-09-21.md`](cda-biblioteca-espacio-2026-09-21.md)) y no se rehace
+aquí; A2 a A7 dicen lo que falta.
 
 ## 7. Horizontes
 
@@ -721,13 +1272,76 @@ conexiones alternadas. Primera política, con `current_setting` por fila: base s
 misma consulta sin RLS daba 4,1 ms en la M26 y aquí unos 9,6; por eso solo se comparan
 pasadas alternadas entre sí.
 
+**M33 · Por dónde entran las notas** (02/10, 19:01). La tool `memory_stats` en modo `counts`,
+contra producción (solo lectura): 685 vigentes. Por autor: Claude Code 515 (`claude-opus-5` 359,
+`claude-opus-5-5` 63, sin modelo 58, `claude-opus-4-8` 23, `claude-fable-5-1` 12), claude.ai 167
+(sin modelo 127, `claude-opus-5` 36, `claude-opus-4-8` 4) y el visor (`naeth-web`) 3.
+
 **M14 · Las vistas de hoy** (02/10, entre las 14:00 y las 14:11). Navegador integrado en `http://127.0.0.1:8801/`,
 solo lectura, rutas `#/home`, `#/graph`, `#/m/<id>`, `#/new`, `#/status` y `#/settings`. Capturas
 fuera del repo.
 
 ## Anexo S · Fuentes
 
-*Sub-fase 2.2.*
+Todas consultadas el 02/10/2026. Las de WebFetch se leyeron con una pregunta concreta; lo que la
+página no decía se marca `⚠ no publicado` en la ficha, no se deduce.
+
+| Id | Fuente |
+|---|---|
+| S1 | `gh api repos/<repo>` a las 18:47 para mem0ai/mem0, getzep/graphiti, getzep/zep, letta-ai/letta, basicmachines-co/basic-memory, supermemoryai/supermemory, logseq/logseq, anyproto/anytype-heart, anyproto/anytype-ts, Mintplex-Labs/anything-llm, khoj-ai/khoj, topoteretes/cognee, reorproject/reor y obsidianmd/obsidian-releases: licencia SPDX, estrellas, último push, archivado |
+| S2 | https://mem0.ai/pricing |
+| S3 | https://docs.mem0.ai/open-source/overview |
+| S4 | https://docs.mem0.ai/platform/mem0-mcp |
+| S5 | https://docs.mem0.ai/open-source/features/multimodal-support |
+| S6 | https://docs.mem0.ai/platform/features/memory-export |
+| S7 | https://www.getzep.com/pricing |
+| S8 | https://github.com/getzep/graphiti (README) |
+| S9 | `mcp_server/README.md` de getzep/graphiti, por `gh api` (WebFetch dio 503) |
+| S10 | https://docs.letta.com/concepts/memfs/index.md |
+| S11 | https://docs.letta.com/letta-code/pricing (redirección desde https://www.letta.com/pricing) |
+| S12 | https://docs.letta.com/platform/hosted-mcp/index.md |
+| S13 | https://docs.letta.com/llms.txt (índice; páginas de self-hosting, MemFS, MCP y equipos) |
+| S14 | https://basicmemory.com |
+| S15 | `README.md` de basicmachines-co/basic-memory, por `gh api` |
+| S16 | https://supermemory.ai/pricing |
+| S17 | `README.md` de supermemoryai/supermemory, por `gh api` |
+| S18 | https://supermemory.ai/docs/supermemory-mcp/mcp |
+| S19 | https://support.google.com/gemininotebook/answer/16215270 (redirigida desde la ayuda de notebooklm; leída en el navegador integrado, WebFetch daba 404) |
+| S20 | https://support.google.com/gemininotebook/answer/16213268 (planes; navegador integrado) |
+| S21 | https://obsidian.md/pricing |
+| S22 | https://obsidian.md/ |
+| S23 | `community-plugins.json` de obsidianmd/obsidian-releases, por `gh api`: 8.317 plugins; 56 nombran MCP en su id, nombre o descripción |
+| S24 | https://obsidian.md/cli |
+| S25 | `README.md` de logseq/logseq, por `gh api` |
+| S26 | `gh api repos/logseq/logseq/releases`: la 2.0.1 del 13/07/2026, "Logseq 2.0 Beta (DB version)"; nightly del 02/10/2026 |
+| S27 | https://logseq.io/p/e3YDyX5AYr ("Logseq is splitting into two versions", 24/04/2026) |
+| S28 | https://anytype.io/pricing (navegador integrado; WebFetch no traía el contenido) |
+| S29 | `LICENSE.md` de anyproto/anytype-ts, por `gh api` (Any Source Available License 1.0) |
+| S30 | `gh api repos/anyproto/anytype-mcp` y su `README.md`: MIT, 526 estrellas, push el 21/09/2026 |
+| S31 | https://doc.anytype.io/anytype/llms.txt (índice: tipos, exportación, self-hosting, solo local, API local) |
+| S32 | https://doc.anytype.io/anytype/data/import-and-export.md |
+| S33 | https://doc.anytype.io/anytype/organize/types.md |
+| S34 | https://doc.anytype.io/anytype/data/sync-and-backup/self-host.md |
+| S35 | `README.md` de Mintplex-Labs/anything-llm, por `gh api` |
+| S36 | https://anythingllm.com/pricing |
+| S37 | https://docs.anythingllm.com/mcp-compatibility/overview |
+| S38 | `README.md` de khoj-ai/khoj, por `gh api` |
+| S39 | `gh api repos/khoj-ai/khoj/releases` y `commits`: última versión 2.0.0-beta.28 del 26/03/2026; commits del 24/06 y del 02/08/2026 |
+| S40 | https://khoj.dev (https://khoj.dev/pricing da 404) |
+| S41 | https://capacities.io/pricing |
+| S42 | https://docs.capacities.io/llms.txt (índice con el resumen de cada página: tipos, PDF, ficheros, audio, sin conexión, API obsoleta) |
+| S43 | https://docs.capacities.io/raw/developer/model-context-protocol.md |
+| S44 | https://docs.capacities.io/raw/reference/export.md |
+| S45 | `README.md` de topoteretes/cognee, por `gh api` |
+| S46 | https://www.cognee.ai/pricing |
+| S47 | https://docs.cognee.ai/examples/migrate-memory-systems |
+| S48 | https://www.notion.com/pricing (precios en euros) |
+| S49 | https://developers.notion.com/docs/mcp |
+| S50 | https://www.notion.com/help/export-your-content |
+| S51 | https://get.mem.ai/pricing |
+| S52 | https://get.mem.ai |
+| S53 | https://tana.inc/pricing |
+| S54 | https://heptabase.com/pricing |
 
 ## Anexo X · Diffs del experimento
 
@@ -764,7 +1378,7 @@ reiniciar: los diez contenedores de Naeth y CENIT, arriba desde hace 9 horas.
 | Id | Fecha | Pregunta | Respuesta |
 |---|---|---|---|
 | Q1 | 02/10 | Qué PDF real usar (que no sea de cliente) y si aprueba las consultas de prueba | Uno público: "Local-first software" (Kleppmann y otros, Ink & Switch, 2019, inkandswitch.com, 4,6 MB). Las 12 consultas aprobadas tal cual: em dash `2c5df38a`, producto y CENIT `d91cf6c7`, deep-research `e72cf4ae`, licencia `c8ae08e4`, whisper `73c89873`, visor colgado `f741b79e`, código atómico `6fb343ed`, habitación 3D `1b4dd93e`, poe2-data `921daf83`, atlas `4b664f10`, Tania y Blender `6145849a`, cuatro agentes `f8dfc7af` |
-| Q2 | | Si añade o quita algún producto del mercado | |
+| Q2 | 02/10 | Si añade o quita algún producto del mercado | Añade Cognee, Notion (IA y MCP) y Mem.ai, con ficha completa; no quita ninguno. Quedan 15 fichas completas y 3 de una línea (Reor, Tana, Heptabase) |
 | Q3 | | Quiénes son los "otros", y cómo encaja con la licencia no comercial | |
 | Q4 | | Qué disponibilidad tolera si a cambio desaparecen los dos nodos | |
 | Q5 | | Qué es un libro cuando el contenido son notas; si quiere bocetos | |
