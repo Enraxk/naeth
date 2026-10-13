@@ -31,6 +31,8 @@
    *
    *   simbolo  este fichero · el data URI del favicon (`index.html`, que no puede referenciar un
    *            fichero porque la raiz de `dist/` no la sirve nadie) · `docs/img/naeth-symbol*.svg`
+   *            · fuera de este repo, `F:\src\CCDmods\mods\cuadro\hooks\logo.ts` (el aviso de
+   *            checkpoint pendiente en la banda de Claude Code Desktop, desde el 13/10/2026)
    *   lockup   este fichero · `docs/img/naeth-lockup*.svg`, que es lo que el README pinta como H1
    *
    * Los `.svg` de `docs/img/` existen por partida doble (claro y oscuro) porque un SVG cargado a
