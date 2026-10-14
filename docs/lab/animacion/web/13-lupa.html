@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 13 · la lupa sobre el cielo</title>
+<!-- Lab web 13 (14/10/2026). Primer lab del cielo en pixel art (identidad `2c3aa1da`, gramática
+     `3f73c431`): cómo llega la lupa al pulsar una estrella y cómo se mueve una vez llegada. El cielo
+     se pinta en un lienzo pequeño (240 x 135) y se escala x4 sin suavizado; la lupa vuelve a pintar
+     ese mismo lienzo con más aumento dentro de un círculo.
+     Versión 2 (14/10, 12:0x): reloj propio para la llegada (antes, cambiar la velocidad con la lupa
+     abierta la hacía retroceder) y radio del brillo con suelo (antes, un radio negativo lanzaba una
+     excepción que mataba el bucle: por eso A no funcionaba nunca). Gestos de Eneko de las 11:59.
+     Versión 3 (14/10, 12:1x): llegada D (crece a la inversa) y tres rangos para comparar: círculo
+     fijo, área de la constelación con imán, y dos niveles de zoom. -->
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { height: auto; min-height: 0; padding: 0; background: #0b1020; }
+  #cv { display: block; width: 100%; height: auto; image-rendering: pixelated; cursor: pointer; outline: none; touch-action: none; }
+  .grupo { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .grupo b { color: var(--dim); font-weight: 400; margin-right: 4px; }
+  .barra button.on { border-color: var(--acc); color: var(--acc); }
+  #estado { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<h1>w13 · La lupa sobre el cielo <small>web · canvas 2D, escalado entero sin suavizado</small></h1>
+<p>Al pulsar una estrella, una lupa la acerca sin tapar el resto del cielo. Aquí se prueban cuatro formas de llegar y tres de acotar por dónde se mueve.</p>
+
+<div class="pregunta"><b>Pregunta aislada:</b> ¿qué llegada se siente menos brusca (A, B, C o D)? ¿Y qué rango: el círculo fijo, el área de la constelación con imán, o dos niveles de zoom? Los gestos ya están elegidos (14/10, 11:59): 1 + 3 en PC y 2 en el móvil.</div>
+
+<div class="barra">
+  <span class="grupo"><b>llegada</b><button data-a="A">A · crece</button><button data-a="D">D · crece a la inversa</button><button data-a="B">B · parpadeo</button><button data-a="C">C · enfoque a saltos</button></span>
+  <span class="grupo"><b>rango</b><button data-r="circulo">círculo fijo</button><button data-r="area">área + imán</button><button data-r="niveles">dos niveles</button></span>
+  <span class="grupo"><b>gesto</b><button data-g="pc">PC · 1 + 3</button><button data-g="movil">móvil · 2</button></span>
+</div>
+
+<div class="escena"><canvas id="cv" width="960" height="540" tabindex="0" aria-label="Cielo de constelaciones; pulsa una estrella para abrir la lupa"></canvas></div>
+
+<p class="notas mono" id="estado"></p>
+<p class="notas" id="desc"></p>
+
+<h2>Qué mirar</h2>
+<p class="notas">
+  <b>Pulsa cualquier estrella con color.</b> Para cambiar de estrella, pulsa otra fuera de la lupa. Para soltar, pulsa el cielo vacío o usa Escape.<br>
+  <b>Círculo fijo:</b> la lupa sigue al ratón con resistencia dentro del punteado, que viaja con la estrella al saltar (flechas, rueda o pulsar dentro).<br>
+  <b>Área + imán:</b> la lupa va donde el ratón, pero su centro no sale del rectángulo punteado, que es la zona de las estrellas de la constelación. A menos de 26 px de una estrella, se fija en ella y la marca; lejos de todas, no marca ninguna (estás mirando la constelación). Las flechas saltan igual; el ratón vuelve a mandar cuando lo mueves más de 30 px.<br>
+  <b>Dos niveles:</b> pulsar abre una lupa grande con la constelación entera (nivel 1). Pulsar una estrella dentro, la rueda hacia arriba o Intro bajan al nivel 2, la estrella, con el círculo fijo. La rueda hacia abajo, Escape o pulsar el cielo vacío suben un nivel. En el nivel 1 las flechas mueven la marca; en el 2, saltan.<br>
+  <b>Móvil:</b> la lupa se queda quieta hasta que la arrastras, con el mismo rango. Con el dedo se elige solo; con el ratón, con «móvil · 2».<br>
+  Con la velocidad a 0,25× se ve cada fotograma de la llegada, y se puede cambiar con la lupa abierta. Con reduced-motion, todo aparece de golpe.
+</p>
+
+<h2>Resultado</h2>
+<p class="notas">Gestos elegidos por Eneko el 14/10 a las 11:59: 1 + 3 en PC, 2 en el móvil; le gustaron más los gestos que las llegadas. A las 12:06 pide probar crecer a la inversa, el área de la constelación con imán y los dos niveles. Pendiente: la llegada y el rango.</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+
+  const W = 240, H = 135, S0 = 4, CW = W * S0, CH = H * S0;
+  const R = 120, M = 3, MAXOFF = 48, PAD = 28, SNAP = 26, M1 = 1.8;
+  const DUR = { A: 300, B: 550, C: 300, D: 320 };
+
+  // Las estrellas que se pueden pulsar. s es el tamaño (1 píxel, 2x2 o cruz), k la constelación.
+  const STARS = [
+    { id: 'a1', x: 70, y: 50, c: '#85B7EB', s: 2, k: 'A' },
+    { id: 'a2', x: 84, y: 58, c: '#7F77DD', s: 3, k: 'A' },
+    { id: 'a3', x: 98, y: 46, c: '#AFA9EC', s: 2, k: 'A' },
+    { id: 'a4', x: 90, y: 76, c: '#97C459', s: 2, k: 'A' },
+    { id: 'a5', x: 60, y: 66, c: '#EF9F27', s: 1, k: 'A' },
+    { id: 'b1', x: 160, y: 40, c: '#EF9F27', s: 2, k: 'B' },
+    { id: 'b2', x: 176, y: 48, c: '#85B7EB', s: 3, k: 'B' },
+    { id: 'b3', x: 168, y: 62, c: '#AFA9EC', s: 1, k: 'B' },
+    { id: 'polar', x: 130, y: 18, c: '#ffffff', s: 3, k: 'P' },
+  ];
+  const byId = Object.fromEntries(STARS.map((s) => [s.id, s]));
+  // [origen, destino, punteado, color]. La última cruza de constelación.
+  const LINKS = [
+    ['a1', 'a2', 1, '#534AB7'], ['a2', 'a3', 1, '#534AB7'], ['a2', 'a4', 0, '#185FA5'],
+    ['a1', 'a5', 1, '#534AB7'], ['b1', 'b2', 1, '#534AB7'], ['b2', 'b3', 0, '#185FA5'],
+    ['a3', 'b1', 1, '#4a3510'],
+  ];
+
+  // --- el cielo, pintado una vez en baja resolución -------------------------------------------
+  const sky = document.createElement('canvas');
+  sky.width = W; sky.height = H;
+  const g = sky.getContext('2d');
+  const px = (x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
+  const line = (x0, y0, x1, y1, c, dot) => {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    for (let i = 0; i <= n; i++) {
+      if (dot && i % 2) continue;
+      px(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c);
+    }
+  };
+  g.fillStyle = '#0b1020'; g.fillRect(0, 0, W, H);
+  let seed = 11;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const faint = ['#26345c', '#342f66', '#2a4428', '#4e3a1c', '#3c4670'];
+  for (let i = 0; i < 160; i++) px(Math.floor(rnd() * W), Math.floor(rnd() * 115), faint[i % 5]);
+  for (let i = 0; i < 26; i++) px(200 + Math.round((rnd() - 0.5) * 22), 92 + Math.round((rnd() - 0.5) * 16), ['#85B7EB', '#AFA9EC', '#97C459'][i % 3]);
+  for (const [a, b, dot, c] of LINKS) {
+    const A = byId[a], B = byId[b];
+    line(A.x, A.y, B.x, B.y, c, dot);
+  }
+  for (const s of STARS) {
+    if (s.s === 1) px(s.x, s.y, s.c);
+    else if (s.s === 2) { g.fillStyle = s.c; g.fillRect(s.x, s.y, 2, 2); }
+    else {
+      px(s.x, s.y, s.c);
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => px(s.x + dx, s.y + dy, '#e8e6ff'));
+      [[2, 0], [-2, 0], [0, 2], [0, -2]].forEach(([dx, dy]) => px(s.x + dx, s.y + dy, s.c === '#ffffff' ? '#b8c4ff' : s.c));
+    }
+  }
+  // El paisaje: una franja fina abajo, como en el boceto de Eneko.
+  g.fillStyle = '#639922'; g.fillRect(70, 121, 100, 2); g.fillRect(30, 123, 180, 3);
+  g.fillStyle = '#3B6D11'; g.fillRect(0, 126, W, 9);
+  g.fillStyle = '#993C1D'; g.fillRect(96, 118, 11, 2);
+  g.fillStyle = '#712B13'; g.fillRect(97, 120, 2, 1); g.fillRect(104, 120, 2, 1);
+
+  // --- geometría ---------------------------------------------------------------------------------
+  /** Centro de una estrella en píxeles del lienzo grande. */
+  const center = (s) => {
+    const o = s.s === 2 ? 1 : 0.5;
+    return { x: (s.x + o) * S0, y: (s.y + o) * S0 };
+  };
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const clampN = (v, a, b) => Math.min(Math.max(v, a), b);
+  const clampV = (v, lim) => { const l = Math.hypot(v.x, v.y); return l > lim ? { x: v.x / l * lim, y: v.y / l * lim } : v; };
+  const members = (k) => STARS.filter((s) => s.k === k);
+
+  /** Rectángulo que abarca las estrellas de una constelación, con margen: la zona del centro de la lupa. */
+  function box(k) {
+    const cs = members(k).map(center);
+    return {
+      x0: Math.min(...cs.map((c) => c.x)) - PAD, x1: Math.max(...cs.map((c) => c.x)) + PAD,
+      y0: Math.min(...cs.map((c) => c.y)) - PAD, y1: Math.max(...cs.map((c) => c.y)) + PAD,
+    };
+  }
+  /** Centro y radio de la lupa del nivel 1: la constelación entera cabe dentro con aumento M1. */
+  function level1(k) {
+    const cs = members(k).map(center);
+    const c = { x: cs.reduce((a, p) => a + p.x, 0) / cs.length, y: cs.reduce((a, p) => a + p.y, 0) / cs.length };
+    const d = Math.max(...cs.map((p) => dist(p, c)));
+    return { c, r: clampN(d * M1 + 40, 90, 230) };
+  }
+
+  // --- estado ----------------------------------------------------------------------------------
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  let arrival = 'D', range = 'area', gesture = 'pc';
+  let active = false;
+  // Reloj propio de la llegada, en ms "de animación": avanza dt x velocidad en cada fotograma.
+  let clock = 0, last = performance.now();
+  // anchor: la estrella pulsada (decide la constelación y, en el círculo, el centro del punteado).
+  // focus: la estrella marcada; null en el área cuando la lupa no está sobre ninguna.
+  let anchor = null, focus = null, level = 2;
+  // Centro de la lupa (lp) y adónde va (lt), en coordenadas absolutas del lienzo grande. cur es el
+  // radio y el aumento actuales, que se deslizan hacia los del nivel al cambiar de nivel.
+  let lp = { x: 0, y: 0 }, lt = { x: 0, y: 0 }, cur = { r: R, m: M };
+  let drag = null, kbLock = null;
+
+  const arrived = () => active && (lab.reduced || clock >= DUR[arrival]);
+  /** Radio y aumento a los que tiende la lupa en el rango y nivel actuales. */
+  const goal = () => (range === 'niveles' && level === 1 ? { r: level1(anchor.k).r, m: M1 } : { r: R, m: M });
+
+  /** La estrella más cercana a un punto del lienzo grande, si cae a menos de 16 px. */
+  function starAt(p, among = STARS) {
+    let best = null, d = 16;
+    for (const s of among) {
+      const k = dist(p, center(s));
+      if (k < d) { d = k; best = s; }
+    }
+    return best;
+  }
+
+  /** Abre la lupa sobre una estrella y arranca la llegada desde cero. */
+  function open(s) {
+    anchor = s; focus = s; active = true; clock = 0; drag = null; kbLock = null;
+    level = range === 'niveles' ? 1 : 2;
+    lp = range === 'niveles' ? level1(s.k).c : center(s);
+    lt = { ...lp };
+  }
+
+  /**
+   * Adónde quiere ir el centro de la lupa si el puntero pide `pt`, según el rango.
+   *
+   * Args:
+   *   pt: el centro que pide el puntero, en coordenadas del lienzo grande.
+   *   direct: true si viene de arrastrar (el móvil); false si viene de seguir al ratón.
+   *
+   * Returns:
+   *   `{ pt, focus }`: el centro permitido y la estrella marcada (o null).
+   */
+  function want(pt, direct) {
+    if (range === 'area') {
+      const b = box(anchor.k);
+      const q = { x: clampN(pt.x, b.x0, b.x1), y: clampN(pt.y, b.y0, b.y1) };
+      let best = null, d = SNAP;
+      for (const s of members(anchor.k)) { const k = dist(q, center(s)); if (k < d) { d = k; best = s; } }
+      return best ? { pt: center(best), focus: best } : { pt: q, focus: null };
+    }
+    if (range === 'niveles' && level === 1) return { pt: level1(anchor.k).c, focus };
+    // Círculo fijo, y el nivel 2: resistencia alrededor de la estrella.
+    const base = range === 'niveles' ? focus : anchor;
+    const o = center(base);
+    let v = { x: pt.x - o.x, y: pt.y - o.y };
+    if (direct) v = clampV(v, MAXOFF);
+    else { const l = Math.hypot(v.x, v.y) || 1, lim = MAXOFF * Math.min(l / (R * 1.5), 1); v = { x: v.x / l * lim, y: v.y / l * lim }; }
+    return { pt: { x: o.x + v.x, y: o.y + v.y }, focus: base };
+  }
+
+  /** Lleva la lupa a una estrella de la constelación sin cerrarla (flechas, rueda o pulsar dentro). */
+  function goTo(s) {
+    focus = s;
+    if (range === 'circulo') anchor = s;
+    if (range === 'niveles' && level === 1) return; // en el nivel 1 solo se mueve la marca
+    lt = center(s);
+  }
+
+  /** Baja al nivel 2 sobre una estrella (solo en dos niveles). */
+  function zoomIn(s) { level = 2; focus = s; lt = center(s); }
+  /** Sube al nivel 1, o cierra si ya estaba en él. */
+  function zoomOut() {
+    if (range === 'niveles' && level === 2) { level = 1; lt = level1(anchor.k).c; }
+    else active = false;
+  }
+
+  const ease = (p) => 1 - Math.pow(1 - p, 3);
+
+  /**
+   * Radio, aumento, opacidad y efectos de la lupa a los e ms de reloj, según la llegada.
+   *
+   * Args:
+   *   e: ms de reloj desde que se pulsó.
+   *   G: `{ r, m }` finales, que dependen del rango y del nivel.
+   *
+   * Returns:
+   *   `{ r, m, a, d, flash, blink }`; con reduced-motion, directamente el estado final.
+   */
+  function params(e, G) {
+    const fin = { r: G.r, m: G.m, a: 1, d: 1, flash: false, blink: false };
+    if (lab.reduced) return fin;
+    if (arrival === 'A') {
+      // Lineal en el radio: con ease, a un quinto del tiempo ya estaba al 60 % y no se leía como crecer.
+      const p = Math.min(e / 300, 1);
+      return { r: Math.max(G.r * p, 2), m: 1 + (G.m - 1) * ease(p), a: 1, d: p, flash: false, blink: false };
+    }
+    if (arrival === 'D') {
+      // A la inversa: nace grande, abarcando mucho cielo sin aumento, y se cierra sobre la estrella
+      // mientras enfoca. El primer 15 % entra con fundido para que el círculo grande no aparezca de golpe.
+      const p = Math.min(e / 320, 1), k = ease(p);
+      return { r: G.r * (2.6 - 1.6 * k), m: 1 + (G.m - 1) * k, a: Math.min(p / 0.15, 1), d: p, flash: false, blink: false };
+    }
+    if (arrival === 'B') {
+      if (e < 400) return { r: 0, m: 1, a: 0, d: 0, flash: false, blink: Math.floor(e / 100) % 2 === 0 };
+      const p = Math.min((e - 400) / 150, 1);
+      return { r: G.r, m: G.m, a: p, d: p, flash: false, blink: false };
+    }
+    const p = Math.min(e / 100, 1);
+    const steps = [1, (1 + G.m) / 2, G.m];
+    return {
+      r: G.r * ease(p), m: e < 100 ? steps[0] : e < 190 ? steps[1] : steps[2], a: 1, d: p,
+      flash: (e >= 100 && e < 140) || (e >= 190 && e < 230), blink: false,
+    };
+  }
+
+  function dotted(fn) {
+    ctx.save(); ctx.setLineDash([4, 6]); ctx.strokeStyle = 'rgba(180,178,169,.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); fn(); ctx.stroke(); ctx.restore();
+  }
+
+  function frame(now) {
+    // Tope de 100 ms: al volver de otra pestaña, la lupa no salta al final de golpe. Suelo de 0: la
+    // marca de tiempo del primer fotograma puede ser anterior al `performance.now()` del arranque.
+    const dt = clampN(now - last, 0, 100);
+    last = now;
+    if (active) clock += dt * lab.speed;
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sky, 0, 0, CW, CH);
+    if (active) {
+      const G = goal(), done = arrived();
+      // Deslizamiento independiente de la frecuencia del monitor y escalado con la velocidad.
+      const k = lab.reduced ? 1 : 1 - Math.pow(0.86, (dt * lab.speed) / 16.7);
+      lp.x += (lt.x - lp.x) * k; lp.y += (lt.y - lp.y) * k;
+      let P;
+      if (!done) { P = params(clock, G); cur = { r: P.r, m: P.m }; }
+      else {
+        cur.r += (G.r - cur.r) * k; cur.m += (G.m - cur.m) * k;
+        P = { r: cur.r, m: cur.m, a: 1, d: 1, flash: false, blink: false };
+      }
+
+      ctx.fillStyle = `rgba(0,0,0,${0.35 * P.d})`;
+      ctx.fillRect(0, 0, CW, CH);
+
+      if (P.blink) {
+        const o = center(anchor);
+        ctx.strokeStyle = 'rgba(232,230,255,.9)'; ctx.lineWidth = 2;
+        ctx.strokeRect(o.x - 12, o.y - 12, 24, 24);
+      }
+      if (done) {
+        if (range === 'area') { const b = box(anchor.k); dotted(() => ctx.rect(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0)); }
+        else if (range === 'circulo') { const o = center(anchor); dotted(() => ctx.arc(o.x, o.y, R + MAXOFF, 0, Math.PI * 2)); }
+        else if (level === 2) { const o = center(focus); dotted(() => ctx.arc(o.x, o.y, R + MAXOFF, 0, Math.PI * 2)); }
+      }
+      if (P.r > 1 && P.a > 0) {
+        const L = lp, S = S0 * P.m, sw = 2 * P.r / S;
+        ctx.save(); ctx.globalAlpha = P.a;
+        ctx.beginPath(); ctx.arc(L.x, L.y, P.r, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = '#0b1020'; ctx.fillRect(L.x - P.r, L.y - P.r, 2 * P.r, 2 * P.r);
+        ctx.drawImage(sky, L.x / S0 - sw / 2, L.y / S0 - sw / 2, sw, sw, L.x - P.r, L.y - P.r, 2 * P.r, 2 * P.r);
+        if (P.flash) { ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(L.x - P.r, L.y - P.r, 2 * P.r, 2 * P.r); }
+        // La estrella marcada, vista a través del cristal.
+        if (done && focus) {
+          const f = center(focus), q = { x: L.x + (f.x - L.x) * P.m, y: L.y + (f.y - L.y) * P.m };
+          const h = Math.round(5 * P.m);
+          ctx.strokeStyle = 'rgba(232,230,255,.85)'; ctx.lineWidth = 2;
+          ctx.strokeRect(Math.round(q.x) - h, Math.round(q.y) - h, 2 * h, 2 * h);
+        }
+        ctx.restore();
+        ctx.save(); ctx.globalAlpha = P.a;
+        ctx.strokeStyle = '#B4B2A9'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(L.x, L.y, P.r, 0, Math.PI * 2); ctx.stroke();
+        // El brillo del cristal. ⚠ El radio lleva suelo: negativo, arc() lanza y el bucle muere (v1).
+        ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(L.x, L.y, Math.max(P.r - 8, 1), Math.PI * 1.1, Math.PI * 1.4); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    const lvl = range === 'niveles' && active ? ` · nivel ${level}` : '';
+    document.getElementById('estado').textContent =
+      `estado: ${active ? (arrived() ? 'en su rango' : `llegando (${Math.round(clock)} de ${DUR[arrival]} ms)`) : 'cielo'}${lvl} · marcada: ${active && focus ? focus.id : '(ninguna)'} · llegada ${arrival} · rango ${range} · gesto ${gesture} · velocidad ${lab.speed}×`;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  const pos = (ev) => {
+    const r = cv.getBoundingClientRect();
+    return { x: (ev.clientX - r.left) * CW / r.width, y: (ev.clientY - r.top) * CH / r.height };
+  };
+  /** Lo que hay bajo un punto de dentro de la lupa, deshecho el aumento. */
+  const under = (p) => ({ x: lp.x + (p.x - lp.x) / cur.m, y: lp.y + (p.y - lp.y) / cur.m });
+
+  cv.addEventListener('pointerdown', (ev) => {
+    cv.focus();
+    // Con el dedo no hay ratón que seguir: el gesto del móvil se elige solo.
+    if (ev.pointerType === 'touch' && gesture !== 'movil') { gesture = 'movil'; paint(); }
+    const p = pos(ev);
+    if (!active) { const s = starAt(p); if (s) open(s); return; }
+    const inside = dist(p, lp) < cur.r;
+    if (inside) {
+      const s = starAt(under(p), members(anchor.k));
+      if (range === 'niveles' && level === 1) { if (s) zoomIn(s); return; }
+      if (gesture === 'movil') {
+        drag = { dx: p.x - lp.x, dy: p.y - lp.y };
+        try { cv.setPointerCapture(ev.pointerId); } catch {}
+        return;
+      }
+      if (s && s !== focus) goTo(s);
+      return;
+    }
+    const s = starAt(p);
+    if (s) open(s); else zoomOut();
+  });
+
+  // Los gestos guardan adónde quiere ir la lupa aunque aún esté llegando; así no hay ratos muertos.
+  cv.addEventListener('pointermove', (ev) => {
+    if (!active) return;
+    const p = pos(ev);
+    if (gesture === 'movil') {
+      if (!drag) return;
+      const w = want({ x: p.x - drag.dx, y: p.y - drag.dy }, true);
+      lt = w.pt; focus = w.focus;
+      return;
+    }
+    // Tras un salto con teclado, el ratón no recupera el mando hasta moverse 30 px.
+    if (kbLock) { if (dist(p, kbLock) < 30) return; kbLock = null; }
+    if (range === 'niveles' && level === 1) return;
+    const w = want(p, false);
+    lt = w.pt; focus = w.focus;
+  });
+  const endDrag = () => { drag = null; };
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+  let lastPointer = null;
+  cv.addEventListener('pointermove', (ev) => { lastPointer = pos(ev); }, { capture: true });
+
+  /** Gesto 3: salta a la estrella de la misma constelación que mejor cae en esa dirección. */
+  function jump(dx, dy) {
+    const from = focus ?? anchor, f = center(from);
+    let best = null, pts = 0;
+    for (const s of members(anchor.k)) {
+      if (s === from) continue;
+      const c = center(s), vx = c.x - f.x, vy = c.y - f.y, d = Math.hypot(vx, vy);
+      const score = (vx * dx + vy * dy) / d;
+      if (score > pts) { pts = score; best = s; }
+    }
+    if (best) { goTo(best); kbLock = lastPointer; }
+  }
+
+  cv.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') { if (active) zoomOut(); return; }
+    if (!active) return;
+    if (ev.key === 'Enter' && range === 'niveles' && level === 1 && focus) { zoomIn(focus); return; }
+    if (gesture !== 'pc') return;
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
+    if (d) { ev.preventDefault(); jump(d[0], d[1]); }
+  });
+  cv.addEventListener('wheel', (ev) => {
+    if (!active) return;
+    ev.preventDefault();
+    if (range === 'niveles') {
+      if (ev.deltaY < 0 && level === 1 && focus) zoomIn(focus);
+      else if (ev.deltaY > 0 && level === 2) zoomOut();
+      return;
+    }
+    if (gesture !== 'pc') return;
+    const same = members(anchor.k), from = focus ?? anchor;
+    const i = same.indexOf(from);
+    goTo(same[(i + (ev.deltaY > 0 ? 1 : -1) + same.length) % same.length]);
+    kbLock = lastPointer;
+  }, { passive: false });
+
+  // --- botones ---------------------------------------------------------------------------------
+  const DESC = {
+    A: 'A · Nace en la estrella y crece a ritmo constante mientras sube el aumento. Unos 300 ms.',
+    D: 'D · A la inversa: nace grande, sin aumento, y se cierra sobre la estrella mientras enfoca. Unos 320 ms.',
+    B: 'B · La estrella parpadea dos veces y la lupa aparece con un fundido, ya con su aumento. Unos 550 ms.',
+    C: 'C · Se abre y enfoca a saltos (1x, intermedio y final), con un destello en cada salto. Unos 300 ms.',
+    circulo: 'Círculo fijo · resistencia alrededor de la estrella.',
+    area: 'Área + imán · el centro va donde el ratón dentro de la zona de la constelación; cerca de una estrella, se fija en ella.',
+    niveles: 'Dos niveles · primero la constelación entera, luego la estrella.',
+    pc: 'PC · sigue al ratón; flechas, rueda o pulsar dentro saltan.',
+    movil: 'Móvil · quieta hasta que la arrastras.',
+  };
+  function paint() {
+    document.querySelectorAll('[data-a]').forEach((b) => b.classList.toggle('on', b.dataset.a === arrival));
+    document.querySelectorAll('[data-r]').forEach((b) => b.classList.toggle('on', b.dataset.r === range));
+    document.querySelectorAll('[data-g]').forEach((b) => b.classList.toggle('on', b.dataset.g === gesture));
+    document.getElementById('desc').textContent = `${DESC[arrival]} ${DESC[range]} ${DESC[gesture]}`;
+  }
+  document.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { arrival = b.dataset.a; if (active) open(anchor); paint(); }));
+  document.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => { range = b.dataset.r; if (active) open(anchor); paint(); }));
+  document.querySelectorAll('[data-g]').forEach((b) => b.addEventListener('click', () => { gesture = b.dataset.g; drag = null; kbLock = null; paint(); }));
+  paint();
+</script>
+</body>
+</html>

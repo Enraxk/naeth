@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab web 14 · la cámara sobre el cielo</title>
+<!-- Lab web 14 (14/10/2026). Sustituye a la lupa del w13: el cielo se recorre con una cámara de
+     canvas (decisión `f3d292a8`). Rueda para acercarse hacia el cursor, rueda pulsada o Ctrl +
+     arrastrar para moverse, flechas para saltar entre estrellas, y el clic izquierdo reservado.
+     Cómo se evita que los píxeles tiemblen: el cielo se vuelve a pintar en CADA fotograma en un
+     lienzo pequeño, con las estrellas como sprites de tamaño fijo colocados en píxeles enteros, y
+     ese lienzo se escala por un factor entero sin suavizado. Al acercarse no se estira ningún
+     dibujo: las estrellas se separan y cambian de sprite según la distancia, como en Stellarium.
+     Cada constelación está a su profundidad, así que lo cercano crece más deprisa que lo lejano.
+     El modo «ampliar el dibujo» es lo descartado, para comparar: estira el cielo inicial como una
+     página, con píxeles de anchos desiguales.
+     Versión 2 (14/10, 16:4x), con los nueve puntos de Eneko de las 16:38: fondo de polvo tramado
+     en vez de puntos (un punto decorativo parece una nota), clic en la nada quita la marca, el
+     cielo gira alrededor de la polar si te quedas quieto, las relaciones solo se ven de cerca o con
+     la estrella marcada, y anclado a una estrella te acercas hasta que es un disco grande; si
+     atraviesas una, se deshace en tramado con un destello. Luna, sol, planetas y tiempo: al w15.
+     Versión 3 (14/10, 18:1x), con la prueba de Eneko de las 18:05: el giro deja de ser una rueda
+     plana y pasa a ser la esfera celeste girando sobre el eje de la polar (latitud 42°), vista por
+     la cámara; atravesar una estrella es suave (la cámara frena y el disco se deshace, destello
+     tenue); y con una estrella marcada, la cámara la sigue mientras el cielo gira (modo cinemática).
+     Las variaciones del polvo quedan para la fase de ambiente.
+     Versión 4 (14/10, 20:5x), con lo de Eneko de las 20:46: fuera el efecto de atravesar (el
+     acercamiento se queda en el disco), el giro va casi a velocidad real (×10 por defecto, con
+     selector), y el polvo deja de costar 12 ms por fotograma: la esfera girada se proyecta con una
+     homografía y la capa se guarda en caché. -->
+<link rel="stylesheet" href="../00-lab.css">
+<style>
+  .escena { min-height: 0; padding: 0; background: #0b1020; line-height: 0; }
+  #cv { display: block; image-rendering: pixelated; outline: none; touch-action: none; cursor: default; }
+  #cv.pan { cursor: grabbing; }
+  .grupo { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .grupo b { color: var(--dim); font-weight: 400; margin-right: 4px; }
+  .barra button.on { border-color: var(--acc); color: var(--acc); }
+  #estado { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<h1>w14 · La cámara sobre el cielo <small>web · canvas 2D, sprites en rejilla, escalado entero</small></h1>
+<p>Acercarse con la rueda es mirar las estrellas, no ampliar una página: las constelaciones se separan a su ritmo según lo lejos que estén, y cada estrella cambia de dibujo al acercarte sin que ningún píxel tiemble.</p>
+
+<div class="pregunta"><b>Pregunta aislada (v4):</b> con el giro casi real (×10), ¿se siente el cielo vivo sin que se note el ángulo? Prueba ×60 y ×300 para ver el recorrido. ¿Va fluido a 144 Hz? <b>Antes (v3):</b> la cámara que sigue a la estrella marcada. <b>Antes (v2):</b> ¿el polvo convence más que los puntos, o mejor nada? Quédate quieto 8 s: ¿el giro alrededor de la polar suma, y al tocar algo debe quedarse girado o volver? ¿Acercarte a una estrella hasta el disco, y atravesarlas, se siente bien? Ya decidido: sprites en rejilla (16:38).</div>
+
+<div class="barra">
+  <span class="grupo"><b>dibujo</b><button data-m="grid">sprites en rejilla</button><button data-m="page">ampliar el dibujo</button></span>
+  <span class="grupo"><b>profundidad</b><button data-d="persp">con perspectiva</button><button data-d="flat">plano</button></span>
+  <span class="grupo"><b>imán</b><button data-i="on">sí</button><button data-i="off">no</button></span>
+  <span class="grupo"><b>fondo</b><button data-b="dust">polvo</button><button data-b="dots">puntos</button><button data-b="none">nada</button></span>
+  <span class="grupo"><b>giro como</b><button data-r="sphere-out">esfera, polo fuera de cuadro</button><button data-r="sphere">esfera, polar dentro (v3)</button><button data-r="wheel">rueda (v2)</button></span>
+  <span class="grupo"><b>velocidad del giro</b><button data-v="1">×1 real</button><button data-v="10">×10</button><button data-v="60">×60</button><button data-v="300">×300 (v3)</button></span>
+  <span class="grupo"><b>quieto 8 s</b><button data-s="stay">gira y se queda</button><button data-s="back">gira y vuelve</button><button data-s="off">no gira</button></span>
+  <button id="inicio">volver al inicio</button>
+</div>
+
+<div class="escena"><canvas id="cv" tabindex="0" aria-label="Cielo de constelaciones; la rueda acerca hacia el cursor y la rueda pulsada mueve la vista"></canvas></div>
+
+<p class="notas mono" id="estado"></p>
+<p class="notas" id="desc"></p>
+
+<h2>Qué mirar</h2>
+<p class="notas">
+  <b>Rueda:</b> acerca o aleja hacia el cursor. El punto bajo el cursor no se mueve; con perspectiva, solo el de su constelación, porque lo cercano crece más deprisa. Con un touchpad, pellizcar hace lo mismo.<br>
+  <b>Rueda pulsada, o Ctrl + arrastrar:</b> moverte. Agarras la constelación que tienes debajo y se queda pegada al cursor; las del fondo se mueven menos y la colina más.<br>
+  <b>Ultra zoom:</b> acércate con el cursor sobre el cúmulo de abajo a la derecha. Atraviesas las constelaciones cercanas, que salen volando por los lados, y el cúmulo se abre en estrellas sueltas.<br>
+  <b>Imán:</b> si giras la rueda hacia dentro a menos de unos 28 px de una estrella, esa estrella se desliza bajo el cursor, queda marcada con cuatro esquinas, y el zoom va exactamente a ella.<br>
+  <b>Acercarte mucho:</b> anclado a una estrella (con el imán, las flechas o +) llegas hasta 80× sobre su plano, y la estrella crece píxel a píxel hasta ser un disco con halo. Ahí se para: atravesarla se quitó en la v4. Sin ancla en una estrella, el tope sigue en 12,5×.<br>
+  <b>Relaciones:</b> solo se ven al entrar en una constelación (aparecen con un tramado hacia 1,5×) y, a cualquier distancia, las de la estrella marcada.<br>
+  <b>Polo fuera de cuadro (por defecto en la v4):</b> el eje del giro queda por encima del borde superior, así que todo lo que ves está por debajo del polo y deriva de izquierda a derecha en arcos lentos, como en el timelapse de Chile. Ojo: entonces la polar también se mueve, y deja de ser el centro fijo. «Polar dentro» es la v3.<br>
+  <b>Giro:</b> si no tocas nada durante 8 s, el cielo empieza a girar, casi a la velocidad real: a ×1 da una vuelta al día (15° por hora) y no se ve moverse; a ×10, que es el valor por defecto, se nota en un par de minutos. En «esfera», como de verdad: la esfera celeste gira sobre el eje que apunta a la polar, que está a 42° sobre el horizonte (la latitud de España) y mirando al norte. Por debajo de la polar las estrellas van hacia la derecha en arcos anchos, por encima hacia la izquierda, y las de abajo se ponen tras la colina. En «rueda», el giro plano de la v2, para comparar. La colina no gira: eres tú quien gira con la Tierra. Al mover el ratón se para; con «gira y vuelve», además vuelve a su sitio.<br>
+  <b>Modo cinemática:</b> si hay una estrella marcada cuando empieza a girar, la cámara la lleva despacio al centro y la sigue mientras el cielo gira.<br>
+  <b>Flechas:</b> saltan a la estrella visible más cercana en esa dirección, y la cámara la centra. <b>+ y -</b> acercan o alejan desde la marcada (o desde el centro), <b>0</b> vuelve al inicio y <b>Escape</b> quita la marca.<br>
+  <b>Clic izquierdo:</b> en la nada, quita la marca. Sobre una estrella sigue reservado y aún sin decidir.<br>
+  <b>Lo que no queremos:</b> con «ampliar el dibujo», haz zoom despacio y mira los bordes de las estrellas: los píxeles salen de anchos distintos y bailan. Con «plano», todo crece igual y el fondo se vacía: eso es una página.<br>
+  Con la velocidad a 0,25× se ve el deslizamiento del zoom; con reduced-motion, la cámara salta sin deslizarse y las estrellas no titilan.
+</p>
+
+<h2>Resultado</h2>
+<p class="notas">Pedido por Eneko el 14/10. Criterio de éxito acordado: que se sienta mirar estrellas y no ampliar una página, y que los píxeles no tiemblen. A las 16:38 Eneko decide los sprites en rejilla («queda super super bien»), le encanta la perspectiva, duda de los puntos de fondo y pide el giro, el clic en la nada, las relaciones por zoom y selección, y poder acercarse o atravesar. Luna, sol, planetas, nubes y lluvia van al w15. A las 18:05, sobre la v2: el giro no se parece al cielo real («se mueve de izquierda a derecha»), atravesar está guapo pero es demasiado llamativo, con una estrella marcada la cámara debería seguirla al girar, y el polvo queda muy bien (variaciones, en la fase de ambiente). A las 20:46, sobre la v3: atravesar molesta más que otra cosa (fuera), el giro tiene que ser lento, casi como en la vida real, y que no se note tanto el ángulo; trae un timelapse de Chile y fotos de referencia para la fase de ambiente. Su medidor marcó 20 fotogramas largos (el peor de 182 ms): el polvo de la esfera costaba 11,9 ms por fotograma a 464×261. Pendiente de su prueba de la v4.</p>
+
+<script src="../00-medidor.js"></script>
+<script src="../00-lab.js"></script>
+<script>
+  lab.init();
+
+  // Unidades de autor: el cielo del w13 tal como se ve al empezar (240 x 135).
+  const BASE_W = 240, BASE_H = 135;
+  const ART = 4;          // píxel de arte, en px CSS
+  const D_MIN = 0.08;     // lo más cerca que se puede llegar del plano que miras (zoom x12,5 a z 1)
+  const NEAR = 0.006;     // más cerca que esto, una estrella ya se ha atravesado y no se pinta
+  // ⚠ NEAR tiene que ser menor que D_MIN_STAR: en la v1 valía 0,05 y la estrella a la que te
+  // acercabas habría desaparecido justo antes de llegar.
+  const CZ_MIN = -0.4;    // lo más lejos que se puede alejar la cámara
+  const SNAP = 7;         // radio del imán, en píxeles de arte
+  const D_MIN_STAR = 0.0125; // anclado a una estrella se llega mucho más cerca: x80 a z 1
+  const FADE = 0.16;      // más cerca que esto, una estrella que estás atravesando se deshace
+  const LINK_ON = 1.5;    // las relaciones de una constelación aparecen a partir de este zoom
+  const IDLE_MS = 8000;   // quieto este rato, el cielo empieza a girar
+  // Una vuelta por día sidéreo (86 164 s), antihoraria como la real. La v3 iba a ×288 (1,2 °/s).
+  const SIDEREAL = -(2 * Math.PI) / 86164 / 1000;
+  const POLAR = { ax: 130, ay: 18 };
+  // La esfera celeste. Marco del observador: x al este, y al norte, z arriba. La vista inicial es
+  // una cámara que mira al norte inclinada PITCH, con focal F_AUTH en unidades de autor (unos 83°
+  // de ancho). Con estos dos números el horizonte cae en y 121 (la colina) y la polar queda a 42°
+  // de altura: la latitud de España, sin más ajuste.
+  const F_AUTH = 134, PITCH = (21.75 * Math.PI) / 180;
+  const CF = [0, Math.cos(PITCH), Math.sin(PITCH)], CR = [1, 0, 0], CU = [0, -Math.sin(PITCH), Math.cos(PITCH)];
+  /** Dirección en la esfera de un punto de autor, según la vista inicial. */
+  const toDir = (ax, ay) => {
+    const u = (ax - BASE_W / 2) / F_AUTH, v = (BASE_H / 2 - ay) / F_AUTH;
+    const d = [CF[0] + u * CR[0] + v * CU[0], CF[1] + u * CR[1] + v * CU[1], CF[2] + u * CR[2] + v * CU[2]];
+    const n = Math.hypot(d[0], d[1], d[2]);
+    return [d[0] / n, d[1] / n, d[2] / n];
+  };
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  /** Punto de autor de una dirección, o null si queda detrás de la vista inicial. */
+  const toAuth = (d) => {
+    const f = dot(d, CF);
+    if (f <= 1e-3) return null;
+    return { x: BASE_W / 2 + (F_AUTH * dot(d, CR)) / f, y: BASE_H / 2 - (F_AUTH * dot(d, CU)) / f };
+  };
+  // Dos ejes para comparar: la polar dentro del encuadre (el status como centro fijo) o el polo por
+  // encima del borde superior, fuera de cuadro, como en el timelapse de Chile que trajo Eneko el
+  // 14/10: ahí no se ve girar nada alrededor de un punto, todo deriva en arcos lentos.
+  const POLE_IN = toDir(POLAR.ax, POLAR.ay), POLE_OUT = toDir(BASE_W / 2, -80);
+  let POLE = POLE_OUT;
+  /** Matriz de giro de un ángulo alrededor de POLE (Rodrigues); negativo es el sentido real. */
+  const rotMatrix = (a) => {
+    const [x, y, z] = POLE, c = Math.cos(a), sn = Math.sin(a), t = 1 - c;
+    return [t * x * x + c, t * x * y - sn * z, t * x * z + sn * y, t * x * y + sn * z, t * y * y + c, t * y * z - sn * x, t * x * z - sn * y, t * y * z + sn * x, t * z * z + c];
+  };
+  /**
+   * La homografía que lleva un punto de autor girado a su punto sin girar.
+   *
+   * Args:
+   *   Ri: matriz del giro inverso.
+   *
+   * Returns:
+   *   Los nueve coeficientes de H = Bᵀ · Ri · B, con B = [CR CU CF] por columnas.
+   *
+   * Notes:
+   *   Proyectar, girar la esfera y volver a proyectar es una transformación proyectiva del plano:
+   *   por eso basta una matriz 3 x 3 y una división por píxel. La v3 hacía toDir, el giro y toAuth
+   *   en cada píxel del polvo: 11,9 ms por fotograma a 464 x 261 (medido el 14/10).
+   */
+  const homography = (Ri) => {
+    const B = [CR, CU, CF], out = [];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) out.push(dot(B[r], mul(Ri, B[c])));
+    return out;
+  };
+  const mul = (m, d) => [m[0] * d[0] + m[1] * d[1] + m[2] * d[2], m[3] * d[0] + m[4] * d[1] + m[5] * d[2], m[6] * d[0] + m[7] * d[1] + m[8] * d[2]];
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+  const BG = '#0b1020';
+
+  // Profundidad de cada constelación. C está delante, la polar muy al fondo.
+  const GROUPS = { C: 0.7, A: 1.0, B: 1.5, K: 2.2, P: 4.0 };
+
+  const clampN0 = (v) => Math.min(Math.max(v, 0), 1);
+  let seed = 11;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+
+  // ax, ay: dónde se ve la estrella al empezar, en unidades de autor. s es el tamaño (las versiones).
+  const STARS = [
+    { id: 'c1', ax: 26, ay: 92, c: '#97C459', s: 2, k: 'C' },
+    { id: 'c2', ax: 38, ay: 101, c: '#85B7EB', s: 1, k: 'C' },
+    { id: 'c3', ax: 50, ay: 95, c: '#EF9F27', s: 2, k: 'C' },
+    { id: 'c4', ax: 44, ay: 84, c: '#AFA9EC', s: 1, k: 'C' },
+    { id: 'a1', ax: 70, ay: 50, c: '#85B7EB', s: 2, k: 'A' },
+    { id: 'a2', ax: 84, ay: 58, c: '#7F77DD', s: 3, k: 'A' },
+    { id: 'a3', ax: 98, ay: 46, c: '#AFA9EC', s: 2, k: 'A' },
+    { id: 'a4', ax: 90, ay: 76, c: '#97C459', s: 2, k: 'A' },
+    { id: 'a5', ax: 60, ay: 66, c: '#EF9F27', s: 1, k: 'A' },
+    { id: 'b1', ax: 160, ay: 40, c: '#EF9F27', s: 2, k: 'B' },
+    { id: 'b2', ax: 176, ay: 48, c: '#85B7EB', s: 3, k: 'B' },
+    { id: 'b3', ax: 168, ay: 62, c: '#AFA9EC', s: 1, k: 'B' },
+    { id: 'polar', ax: 130, ay: 18, c: '#ffffff', s: 3, k: 'P' },
+  ];
+  for (let i = 0; i < 26; i++) {
+    STARS.push({
+      id: `k${i}`, ax: 200 + Math.round((rnd() - 0.5) * 22), ay: 92 + Math.round((rnd() - 0.5) * 16),
+      c: ['#85B7EB', '#AFA9EC', '#97C459'][i % 3], s: 1, k: 'K',
+    });
+  }
+  for (const s of STARS) s.z = GROUPS[s.k];
+  const byId = Object.fromEntries(STARS.map((s) => [s.id, s]));
+
+  // [origen, destino, punteado, color]. a3-b1 cruza de constelación y de profundidad.
+  const LINKS = [
+    ['a1', 'a2', 1, '#534AB7'], ['a2', 'a3', 1, '#534AB7'], ['a2', 'a4', 0, '#185FA5'],
+    ['a1', 'a5', 1, '#534AB7'], ['b1', 'b2', 1, '#534AB7'], ['b2', 'b3', 0, '#185FA5'],
+    ['a3', 'b1', 1, '#4a3510'], ['c1', 'c4', 1, '#534AB7'], ['c4', 'c3', 1, '#534AB7'], ['c3', 'c2', 0, '#185FA5'],
+  ];
+
+  // El polvo de fondo: tres capas lejanas que cubren tres pantallas de ancho y tres de alto.
+  const FAINT = [];
+  [[3, 90, ['#26345c', '#342f66', '#2a4428', '#4e3a1c', '#3c4670']], [6, 120, ['#1f2b4c', '#2b2754', '#233a22', '#3c4670']], [12, 160, ['#19223d', '#221f44', '#2a3358']]]
+    .forEach(([z, n, pal]) => {
+      for (let i = 0; i < n; i++) {
+        FAINT.push({ ax: -240 + rnd() * 720, ay: -135 + rnd() * 405, z, c: pal[i % pal.length], ph: rnd(), per: 900 + rnd() * 1500 });
+      }
+    });
+
+  // El polvo: una banda tipo Vía Láctea en un plano lejano, precalculada en unidades de autor.
+  // No son puntos, así que no se confunde con una nota.
+  // La rejilla va de 2 en 2 unidades y cubre 700 alrededor de la polar: girado, el cielo pide
+  // muestras lejos de la vista inicial, y con la rejilla justa se veía un corte recto en la banda.
+  const DUST_Z = 12, DS = 2, DX0 = -600, DY0 = -700, DW = 730, DH = 720;
+  const DUST = new Float32Array(DW * DH);
+  for (let j = 0; j < DH; j++) for (let i = 0; i < DW; i++) {
+    const ax = DX0 + i * DS, ay = DY0 + j * DS;
+    const sd = 0.34 * (ax - 120) + 0.94 * (ay - 60);
+    const base = Math.exp(-((sd / 34) ** 2));
+    const lane = 1 - 0.55 * Math.exp(-(((sd - 4 * Math.sin(ax * 0.03)) / 5) ** 2));
+    const m = 0.78 + 0.14 * Math.sin(ax * 0.035 + 1.5 * Math.sin(ay * 0.02)) + 0.08 * Math.sin(ax * 0.11 - ay * 0.07);
+    DUST[j * DW + i] = clampN0(base * m * lane);
+  }
+
+  // --- colores en Uint32 (memoria RGBA en little-endian) --------------------------------------
+  const hexN = (h) => parseInt(h.slice(1), 16);
+  const c32 = (h) => { const n = hexN(h); return ((255 << 24) | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | (n >> 16)) >>> 0; };
+  /** Mezcla dos colores hex; t = 0 da a, t = 1 da b. */
+  const mix = (a, b, t) => {
+    const x = hexN(a), y = hexN(b);
+    const ch = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t);
+    return '#' + ((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0');
+  };
+  const BG32 = c32(BG), RET32 = c32('#e8e6ff'), DUST1 = c32('#121834'), DUST2 = c32('#1a2044');
+  for (const s of STARS) {
+    const polar = s.k === 'P';
+    s.role = { c: c32(s.c), w: c32('#e8e6ff'), d: c32(polar ? '#b8c4ff' : mix(s.c, BG, 0.5)) };
+  }
+  for (const f of FAINT) { f.c32 = c32(f.c); f.dim32 = c32(mix(f.c, BG, 0.6)); }
+  const LINK32 = LINKS.map((l) => c32(l[3]));
+  const HILL = { back: c32('#2a4d0e'), body: c32('#3B6D11'), rim: c32('#639922'), wood: c32('#993C1D'), leg: c32('#712B13') };
+
+  // --- sprites por distancia: [dx, dy, papel], papel c = color, w = núcleo claro, d = apagado ---
+  const SPRITES = [[[0, 0, 'c']], [[0, 0, 'c'], [1, 0, 'c'], [0, 1, 'c'], [1, 1, 'c']]];
+  const ring = (n, role, out) => { [[n, 0], [-n, 0], [0, n], [0, -n]].forEach(([x, y]) => out.push([x, y, role])); };
+  {
+    const l2 = [[0, 0, 'c']]; ring(1, 'w', l2); ring(2, 'c', l2);
+    const l3 = [[0, 0, 'w']]; ring(1, 'w', l3); [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([x, y]) => l3.push([x, y, 'c']));
+    ring(2, 'c', l3); ring(3, 'd', l3);
+    const l4 = [];
+    for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) {
+      const m = Math.abs(x) + Math.abs(y);
+      if (m <= 1) l4.push([x, y, 'w']); else if (m === 2) l4.push([x, y, 'c']);
+    }
+    ring(3, 'c', l4); ring(4, 'c', l4); ring(5, 'd', l4);
+    [[2, 2], [2, -2], [-2, 2], [-2, -2], [3, 3], [3, -3], [-3, 3], [-3, -3]].forEach(([x, y]) => l4.push([x, y, 'd']));
+    SPRITES.push(l2, l3, l4);
+  }
+  const RAD = [0, 1, 2, 3, 5];
+  const DISCS = new Map();
+
+  /**
+   * El sprite de una estrella muy cercana: un disco de radio R en píxeles enteros.
+   *
+   * Args:
+   *   R: radio del disco, en píxeles de arte.
+   *
+   * Returns:
+   *   La lista `[dx, dy, papel]` (cacheada por radio), con `r` = radio con los rayos (para saber
+   *   si cae en pantalla) y `h` = radio del halo (para la marca).
+   *
+   * Notes:
+   *   Núcleo claro, anillo del color, halo tramado con Bayer hasta 1,6 R y cuatro rayos punteados.
+   *   El radio cambia de uno en uno al acercarte, así que la estrella crece píxel a píxel y nunca se
+   *   estira.
+   */
+  function discOf(R) {
+    if (DISCS.has(R)) return DISCS.get(R);
+    const out = [], h = Math.round(R * 1.6);
+    for (let y = -h; y <= h; y++) for (let x = -h; x <= h; x++) {
+      const r = Math.hypot(x, y);
+      if (r <= R * 0.55) out.push([x, y, 'w']);
+      else if (r <= R) out.push([x, y, 'c']);
+      else if (r <= R * 1.6 && BAYER[(y & 3) * 4 + (x & 3)] < ((1.6 - r / R) / 0.6) * 0.5) out.push([x, y, 'd']);
+    }
+    const ray = Math.round(R * 2.2);
+    for (let i = h + 1; i <= ray; i++) if (i % 2 === 0) [[i, 0], [-i, 0], [0, i], [0, -i]].forEach(([x, y]) => out.push([x, y, 'd']));
+    out.r = ray; out.h = h;
+    DISCS.set(R, out);
+    return out;
+  }
+
+  // --- estado ----------------------------------------------------------------------------------
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const wrap = cv.parentElement;
+  const lo = document.createElement('canvas'), loCtx = lo.getContext('2d');
+  const still = document.createElement('canvas'), stillCtx = still.getContext('2d');
+  let P = 4, W = 240, H = 135, U = 1, img = null, buf = null;
+
+  let mode = 'grid', flat = false, magnet = true, bg = 'dust', spinMode = 'stay', spinKind = 'sphere-out';
+  // Giro de la esfera de este fotograma y su inversa (para el polvo, que va de pantalla a cielo).
+  let RM = rotMatrix(0), RMi = rotMatrix(0), HM = null;
+  // Caché de la capa de fondo (color + polvo): se rehace solo si cambia la cámara, el lienzo, el
+  // modo o el giro en más de medio píxel.
+  let bgBuf = null, bgKey = '';
+  // El giro del cielo alrededor de la polar: ángulo, velocidad actual y la última vez que tocaste
+  // algo (en reloj de animación). homing: volviendo a 0 tras pulsar 0.
+  let theta = 0, spin = 0, cosT = 1, sinT = 0, lastInput = 0, homing = false, spinMul = 10;
+  const SPIN = () => SIDEREAL * spinMul;
+  let following = false;
+  // La cámara: cx, cy en coordenadas de mundo; cz es cuánto ha avanzado hacia el fondo. tcz es
+  // adónde va cz; el zoom se desliza hasta allí.
+  let cx = 0, cy = 0, cz = 0, tcz = 0;
+  // El ancla: un punto del mundo (wx, wy) a la profundidad za que se ve en (sx, sy) del lienzo
+  // pequeño. La cámara se deduce del ancla en cada fotograma, así que el zoom hacia el cursor,
+  // arrastrar y centrar una estrella son lo mismo: mover (sx, sy) hacia (tx, ty).
+  let A = null;
+  let focus = null, pan = null, lastPointer = null, wheelPrev = null;
+  let clock = 0, last = performance.now(), note = null;
+
+  const clampN = (v, a, b) => Math.min(Math.max(v, a), b);
+  const camNow = () => ({ cx, cy, cz, flat: flat || mode === 'page' });
+  const zOf = (z, cam) => (cam.flat ? 1 : z);
+
+  /**
+   * Proyecta un punto de autor a su profundidad sobre el lienzo pequeño.
+   *
+   * Args:
+   *   ax: x de autor (dónde se ve al empezar).
+   *   ay: y de autor.
+   *   z: profundidad real; en plano se trata como 1.
+   *   cam: `{ cx, cy, cz, flat }`.
+   *
+   * Returns:
+   *   `{ x, y, scale, d }` en píxeles de arte, con decimales, o null si ya está detrás de la
+   *   cámara. `scale` es cuánto ha crecido respecto al inicio y `d`, su distancia a la cámara.
+   *
+   * Notes:
+   *   El mundo es la vista inicial multiplicada por la profundidad: así, con la cámara en el
+   *   origen, todo se ve exactamente donde se dibujó, y al avanzar cada plano crece z / (z - cz).
+   *   El giro se aplica antes, en unidades de autor, alrededor de la polar: como la polar está en
+   *   el eje del giro a todas las profundidades, se queda quieta y lo demás gira a su alrededor.
+   */
+  function proj(ax, ay, z, cam) {
+    const r = rot(ax, ay), zz = zOf(z, cam), d = zz - cam.cz;
+    if (!r || d <= NEAR) return null;
+    return {
+      x: W / 2 + (((r.x - BASE_W / 2) * zz - cam.cx) / d) * U,
+      y: H / 2 + (((r.y - BASE_H / 2) * zz - cam.cy) / d) * U,
+      scale: zz / d, d,
+    };
+  }
+  /**
+   * Gira un punto de autor con el cielo: como esfera (lo real) o como rueda plana (la v2).
+   *
+   * Args:
+   *   ax: x de autor. ay: y de autor.
+   *
+   * Returns:
+   *   El punto de autor girado, o null si con el giro ha quedado bajo el horizonte o detrás.
+   *
+   * Notes:
+   *   La rueda plana de la v2 acertaba el sentido pero no la forma: Eneko lo vio el 14/10 a las
+   *   18:05. La esfera hace círculos alrededor de la polar solo cerca de ella; lejos, arcos anchos
+   *   casi horizontales, y lo de abajo se pone tras la colina en vez de subir por los lados.
+   */
+  const rot = (ax, ay) => {
+    if (theta === 0) return { x: ax, y: ay };
+    if (spinKind === 'wheel') {
+      const dx = ax - POLAR.ax, dy = ay - POLAR.ay;
+      return { x: POLAR.ax + dx * cosT - dy * sinT, y: POLAR.ay + dx * sinT + dy * cosT };
+    }
+    const d = mul(RM, toDir(ax, ay));
+    if (d[2] < 0) return null;
+    return toAuth(d);
+  };
+  const projStar = (s, cam) => proj(s.ax, s.ay, s.z, cam);
+  const worldOf = (s, cam) => { const z = zOf(s.z, cam), r = rot(s.ax, s.ay) || { x: s.ax, y: s.ay }; return { x: (r.x - BASE_W / 2) * z, y: (r.y - BASE_H / 2) * z, z }; };
+  const onScreen = (q) => q && q.x >= 0 && q.x < W && q.y >= 0 && q.y < H;
+
+  /**
+   * Hasta dónde puede avanzar la cámara hacia un plano.
+   *
+   * Args:
+   *   za: profundidad del plano.
+   *   star: true si el ancla es una estrella (se llega a D_MIN_STAR); false si es un punto vacío.
+   *
+   * Returns:
+   *   El cz máximo. Con un punto vacío es D_MIN, salvo que ya estés más cerca (venías anclado a una
+   *   estrella): entonces no se retrocede, se queda donde está.
+   */
+  const limitFor = (za, star) => (star ? za - D_MIN_STAR : Math.max(za - D_MIN, Math.min(cz, za - D_MIN_STAR)));
+
+  /** Fija el ancla en el punto del mundo que se ve en p, a la profundidad za. */
+  function anchorAt(p, za) {
+    const d = za - cz;
+    A = { wx: cx + ((p.x - W / 2) * d) / U, wy: cy + ((p.y - H / 2) * d) / U, za, sx: p.x, sy: p.y, tx: p.x, ty: p.y, star: null };
+    tcz = Math.min(tcz, limitFor(za, false));
+  }
+
+  /**
+   * Fija el ancla en una estrella y la lleva hasta `to` deslizándose.
+   *
+   * Args:
+   *   s: la estrella.
+   *   to: dónde tiene que acabar en el lienzo pequeño (el cursor con el imán, el centro con flechas).
+   *
+   * Returns:
+   *   Nada; además la marca.
+   */
+  function anchorStar(s, to) {
+    const cam = camNow(), w = worldOf(s, cam), q = projStar(s, cam);
+    A = { wx: w.x, wy: w.y, za: w.z, sx: q.x, sy: q.y, tx: to.x, ty: to.y, star: s };
+    tcz = Math.min(tcz, limitFor(w.z, true));
+    focus = s;
+  }
+
+  /**
+   * La profundidad que manda bajo un punto: la de la estrella que hay debajo, o si no la de la
+   * constelación visible cuyo centro cae más cerca.
+   *
+   * Args:
+   *   p: punto en el lienzo pequeño.
+   *
+   * Returns:
+   *   La profundidad z del plano que se agarra al hacer zoom o arrastrar.
+   *
+   * Notes:
+   *   Una constelación cuenta mientras no se haya pasado del tope de D_MIN_STAR; con un umbral mayor,
+   *   al llegar al tope la siguiente muesca la daba por atravesada y seguía hacia la de detrás.
+   *   La polar solo cuenta si el cursor está sobre ella. Si contara por cercanía, girar la rueda en
+   *   el cielo vacío de arriba avanzaría hacia z 4 y atravesaría todo en tres muescas.
+   */
+  function pickDepth(p) {
+    const cam = camNow();
+    if (cam.flat) return 1;
+    let best = null, bd = 12;
+    for (const s of STARS) {
+      if (s.z - cam.cz < D_MIN_STAR * 0.99) continue;
+      const q = projStar(s, cam);
+      if (!q) continue;
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < bd) { bd = d; best = s.z; }
+    }
+    if (best != null) return best;
+    let bz = null, bc = Infinity;
+    for (const [k, z] of Object.entries(GROUPS)) {
+      if (k === 'P' || z - cam.cz < D_MIN_STAR * 0.99) continue;
+      const qs = STARS.filter((s) => s.k === k).map((s) => projStar(s, cam));
+      const c = { x: qs.reduce((a, q) => a + q.x, 0) / qs.length, y: qs.reduce((a, q) => a + q.y, 0) / qs.length };
+      const d = Math.hypot(c.x - p.x, c.y - p.y);
+      if (d < bc) { bc = d; bz = z; }
+    }
+    return bz ?? Math.max(...Object.values(GROUPS));
+  }
+
+  /** La estrella más cercana a p, si cae a menos de `r` píxeles de arte; si no, null. */
+  function starNear(p, r) {
+    const cam = camNow();
+    let best = null, bd = r;
+    for (const s of STARS) {
+      const q = projStar(s, cam);
+      if (!q) continue;
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < bd) { bd = d; best = s; }
+    }
+    return best;
+  }
+
+  /**
+   * Límites de la cámara: en página, no salir del dibujo; en rejilla, un margen de cielo medido a
+   * la profundidad del ancla.
+   *
+   * Returns:
+   *   `{ x0, x1, y0, y1 }` en coordenadas de mundo.
+   *
+   * Notes:
+   *   Medidos en el plano del ancla porque el mundo es la vista inicial por z: con límites fijos,
+   *   el cúmulo (z 2,2) caía fuera y no se podía centrar al acercarse (visto el 14/10). Hacia abajo
+   *   el margen es corto: debajo del horizonte no hay nada que mirar.
+   */
+  function bounds() {
+    if (mode === 'page') return { x0: -120 * cz, x1: 120 * cz, y0: -67.5 * cz, y1: 67.5 * cz };
+    const z = A.za;
+    return { x0: -200 * z, x1: 200 * z, y0: -150 * z, y1: 40 * z };
+  }
+
+  /** Deduce la cámara del ancla y la mete en sus límites; si choca, el ancla se queda donde cae. */
+  function place() {
+    const d = Math.max(A.za - cz, 1e-3);
+    const b = bounds();
+    const rx = A.wx - ((A.sx - W / 2) * d) / U, ry = A.wy - ((A.sy - H / 2) * d) / U;
+    cx = clampN(rx, b.x0, b.x1); cy = clampN(ry, b.y0, b.y1);
+    if (cx !== rx || cy !== ry) { A.sx = W / 2 + ((A.wx - cx) * U) / d; A.sy = H / 2 + ((A.wy - cy) * U) / d; }
+  }
+
+  // --- pintar en el lienzo pequeño -----------------------------------------------------------
+  const put = (x, y, c) => { if (x >= 0 && x < W && y >= 0 && y < H) buf[y * W + x] = c; };
+
+  /**
+   * Línea de Bresenham entre dos puntos enteros; con `dot`, un píxel sí y otro no.
+   *
+   * Args:
+   *   x0: x de origen. y0: y de origen. x1: x de destino. y1: y de destino.
+   *   c: color en Uint32.
+   *   dot: true para punteada.
+   *   t: cuánto se ve, de 0 a 1; por debajo de 1 solo se pinta esa fracción de píxeles (tramado).
+   *
+   * Returns:
+   *   Nada.
+   */
+  function line(x0, y0, x1, y1, c, dot, t = 1) {
+    if ((x0 < 0 && x1 < 0) || (y0 < 0 && y1 < 0) || (x0 >= W && x1 >= W) || (y0 >= H && y1 >= H)) return;
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    if (n > 6000) return;
+    for (let i = 0; i <= n; i++) {
+      if (dot && i % 2) continue;
+      if (t < 1 && (i * 0.618034) % 1 > t) continue;
+      put(Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n), c);
+    }
+  }
+
+  const backH = (i) => 8 + Math.round(3 * Math.sin(i * 0.029) + 2 * Math.sin(i * 0.071 + 1.3));
+  const frontH = (i) => Math.max(2, 5 + Math.round(4 * Math.sin(i * 0.019 + 2.1) + 1.5 * Math.sin(i * 0.067)));
+  const TABLE = 100;
+
+  /**
+   * Pinta la colina y la mesa, en píxeles de pantalla y no de mundo.
+   *
+   * Args:
+   *   cam: la cámara.
+   *
+   * Returns:
+   *   Nada.
+   *
+   * Notes:
+   *   Baja al acercarte (cz de 0 a 0,5) y al mirar hacia arriba, y sube un poco al alejarte, como
+   *   quien levanta la vista. Mirar hacia abajo no la sube por encima de donde empieza. Al moverte
+   *   de lado, la de delante corre 1,6 veces lo que la constelación A y la de detrás 1,25: es lo
+   *   más cercano de la escena. No gira con el cielo: quien gira eres tú, con el suelo.
+   */
+  function hill(cam) {
+    const a = clampN(cam.cz / 0.5, 0, 1), sm = a * a * (3 - 2 * a);
+    const rise = clampN(cam.cz / CZ_MIN, 0, 1) * 6;
+    // Mirar hacia arriba la baja; mirar hacia abajo no la sube (con el cúmulo, que está bajo el
+    // centro, la colina subía y lo tapaba).
+    const look = Math.max(0, -cam.cy * U);
+    const dropF = Math.round(sm * 30 - rise + look * 1.6);
+    const dropB = Math.round(sm * 24 - rise * 0.8 + look * 1.25);
+    const offB = Math.round(cam.cx * U * 1.25), offF = Math.round(cam.cx * U * 1.6);
+    for (let x = 0; x < W; x++) {
+      for (let y = Math.max(H - backH(x + offB) + dropB, 0); y < H; y++) buf[y * W + x] = HILL.back;
+      const top = H - frontH(x + offF) + dropF;
+      for (let y = Math.max(top, 0); y < H; y++) buf[y * W + x] = y === top ? HILL.rim : HILL.body;
+    }
+    const tx = TABLE - offF, ty = H - frontH(TABLE + 5) + dropF - 2;
+    for (let i = 0; i < 11; i++) { put(tx + i, ty, HILL.wood); put(tx + i, ty + 1, HILL.wood); }
+    [1, 8].forEach((i) => { put(tx + i, ty + 2, HILL.leg); put(tx + i + 1, ty + 2, HILL.leg); });
+  }
+
+  /**
+   * Pinta el cielo entero en el lienzo pequeño, todo en píxeles enteros.
+   *
+   * Args:
+   *   cam: la cámara.
+   *   live: true en el bucle (titileo, histéresis de los sprites y marca); false para el dibujo
+   *     fijo del modo página.
+   *
+   * Returns:
+   *   Nada; deja el resultado en `buf`.
+   *
+   * Notes:
+   *   Cada estrella elige sprite por log2 de lo que ha crecido más su tamaño propio, con una
+   *   histéresis de 0,12 para que no parpadee entre dos sprites si el zoom se para en el umbral.
+   *   Del nivel 5 en adelante es un disco cuyo radio sigue al zoom píxel a píxel.
+   *   Una estrella más cercana que el plano que miras se deshace en tramado al pasarla. El
+   *   destello y el atravesar desde el tope se quitaron en la v4 (20:46: «molesta más que otra cosa»).
+   */
+  function render(cam, live) {
+    if (bg === 'dust') {
+      const key = `${cam.cx},${cam.cy},${cam.cz},${cam.flat},${spinKind},${Math.round(theta / (0.5 / W))},${W},${H}`;
+      if (key === bgKey && bgBuf && bgBuf.length === buf.length) buf.set(bgBuf);
+      else {
+        buf.fill(BG32);
+        dust(cam);
+        if (!bgBuf || bgBuf.length !== buf.length) bgBuf = new Uint32Array(buf.length);
+        bgBuf.set(buf);
+        bgKey = key;
+      }
+    } else buf.fill(BG32);
+    if (bg === 'dots') {
+      for (const f of FAINT) {
+        const q = proj(f.ax, f.ay, f.z, cam);
+        if (!q) continue;
+        const tw = live && !lab.reduced && ((clock / f.per + f.ph) % 1) < 0.1;
+        put(Math.round(q.x), Math.round(q.y), tw ? f.dim32 : f.c32);
+      }
+    }
+    const pts = {};
+    for (const s of STARS) { const q = projStar(s, cam); pts[s.id] = q && { x: Math.round(q.x), y: Math.round(q.y), scale: q.scale, d: q.d }; }
+    // Relaciones: de cerca (por la estrella más grande de las dos) o si tocan a la marcada.
+    LINKS.forEach(([a, b, dot], i) => {
+      const p = pts[a], q = pts[b];
+      if (!p || !q) return;
+      const sel = live && focus && (focus.id === a || focus.id === b);
+      const t = sel ? 1 : clampN((Math.max(p.scale, q.scale) - LINK_ON) / 0.6, 0, 1);
+      if (t > 0) line(p.x, p.y, q.x, q.y, LINK32[i], dot, t);
+    });
+    for (const s of STARS) {
+      const q = pts[s.id];
+      if (!q) continue;
+      const v = Math.log2(q.scale) + s.s - 1;
+      let lvl = clampN(Math.round(v), 0, 5);
+      if (live) {
+        if (s.lvl == null || Math.abs(v - s.lvl) > 0.62) s.lvl = lvl;
+        lvl = s.lvl;
+      }
+      if (s.k === 'P') lvl = Math.max(lvl, 2);
+      const spr = lvl < 5 ? SPRITES[lvl] : discOf(clampN(Math.round(5 * 2 ** (v - 5)), 5, 48));
+      const r = lvl < 5 ? RAD[lvl] : spr.r;
+      s.drawnR = lvl < 5 ? r : spr.h;
+      if (q.x < -r || q.x > W + r || q.y < -r || q.y > H + r) continue;
+      const front = live && s.z < A.za - 1e-6 && !cam.flat;
+      // Las que pasan por delante del plano que miras (en el ultra zoom) se deshacen en tramado.
+      const fade = front && q.d < FADE ? clampN((q.d - NEAR) / (FADE - NEAR), 0, 1) : 1;
+      for (const [dx, dy, role] of spr) {
+        const x = q.x + dx, y = q.y + dy;
+        if (fade < 1 && BAYER[(y & 3) * 4 + (x & 3)] > fade) continue;
+        put(x, y, s.role[role]);
+      }
+    }
+    if (live && focus && pts[focus.id]) {
+      const q = pts[focus.id], r = (focus.drawnR ?? 0) + 2;
+      for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        put(q.x + sx * r, q.y + sy * r, RET32); put(q.x + sx * (r - 1), q.y + sy * r, RET32); put(q.x + sx * r, q.y + sy * (r - 1), RET32);
+      }
+    }
+    hill(cam);
+  }
+
+  /**
+   * Pinta el polvo de fondo: la banda precalculada, girada con el cielo y tramada con Bayer.
+   *
+   * Args:
+   *   cam: la cámara.
+   *
+   * Returns:
+   *   Nada.
+   *
+   * Notes:
+   *   El tramado va anclado a la pantalla y la banda se mueve por debajo: al girar, el borde
+   *   cambia de píxel en píxel en vez de arrastrar un patrón girado, que haría muaré.
+   */
+  function dust(cam) {
+    const zz = cam.flat ? 1 : DUST_Z, d = zz - cam.cz;
+    const sphere = spinKind !== 'wheel' && theta !== 0;
+    if (sphere && !HM) HM = homography(RMi);
+    const h = HM;
+    for (let y = 0; y < H; y++) {
+      const wy = (((y - H / 2) * d) / U + cam.cy) / zz + BASE_H / 2 - POLAR.ay;
+      for (let x = 0; x < W; x++) {
+        const wx = (((x - W / 2) * d) / U + cam.cx) / zz + BASE_W / 2 - POLAR.ax;
+        let ox, oy;
+        if (sphere) {
+          const u = (wx + POLAR.ax - BASE_W / 2) / F_AUTH, v = (BASE_H / 2 - wy - POLAR.ay) / F_AUTH;
+          const f = h[6] * u + h[7] * v + h[8];
+          if (f <= 1e-3) continue;
+          ox = BASE_W / 2 + (F_AUTH * (h[0] * u + h[1] * v + h[2])) / f;
+          oy = BASE_H / 2 - (F_AUTH * (h[3] * u + h[4] * v + h[5])) / f;
+        } else { ox = POLAR.ax + wx * cosT + wy * sinT; oy = POLAR.ay - wx * sinT + wy * cosT; }
+        const i = Math.round((ox - DX0) / DS), j = Math.round((oy - DY0) / DS);
+        if (i < 0 || j < 0 || i >= DW || j >= DH) continue;
+        const v = DUST[j * DW + i];
+        // El 0,18 de suelo limpia el resto del cielo: sin él, los umbrales bajos de Bayer dejaban
+        // un tramado fino por todas partes que se leía como ruido.
+        if (v > 0.18 + BAYER[(y & 3) * 4 + (x & 3)] * 0.9) buf[y * W + x] = v > 0.62 ? DUST2 : DUST1;
+      }
+    }
+  }
+
+  // --- tamaño: el lienzo grande es siempre W x P por H x P píxeles de dispositivo ---------------
+  /**
+   * Ajusta los lienzos al ancho disponible, con el píxel de arte entero en píxeles de dispositivo.
+   *
+   * Returns:
+   *   Nada.
+   *
+   * Notes:
+   *   ⚠ El w13 tenía el lienzo a 960 px con `width: 100%`, así que el navegador lo reescalaba por
+   *   un factor no entero y sus píxeles ya salían desiguales. Aquí el tamaño CSS es exactamente
+   *   W x P / dpr, para que cada píxel de arte ocupe P x P píxeles de dispositivo.
+   */
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    P = Math.max(1, Math.round(ART * dpr));
+    W = Math.max(120, Math.floor((wrap.clientWidth * dpr) / P));
+    H = Math.round((W * 9) / 16);
+    U = W / BASE_W;
+    cv.width = W * P; cv.height = H * P;
+    cv.style.width = `${(W * P) / dpr}px`; cv.style.height = `${(H * P) / dpr}px`;
+    lo.width = still.width = W; lo.height = still.height = H;
+    img = loCtx.createImageData(W, H); buf = new Uint32Array(img.data.buffer);
+    renderStill();
+    const za = A ? A.za : 1;
+    wheelPrev = null;
+    A = { wx: cx, wy: cy, za, sx: W / 2, sy: H / 2, tx: W / 2, ty: H / 2 };
+  }
+
+  /** El dibujo fijo del modo página: la vista inicial, sin girar. */
+  function renderStill() {
+    bgKey = '';
+    const c = cosT, sn = sinT;
+    cosT = 1; sinT = 0;
+    render({ cx: 0, cy: 0, cz: 0, flat: true }, false);
+    stillCtx.putImageData(img, 0, 0);
+    cosT = c; sinT = sn;
+  }
+
+  /** Un fotograma: avanza el reloj, desliza zoom y ancla, coloca la cámara y pinta. */
+  function frame(now) {
+    // Tope de 100 ms al volver de otra pestaña; suelo de 0 por si el primer fotograma es anterior.
+    const dt = clampN(now - last, 0, 100);
+    last = now;
+    clock += dt * lab.speed;
+    const k = lab.reduced ? 1 : 1 - Math.pow(0.8, (dt * lab.speed) / 16.7);
+    // El giro: arranca despacio (unos 2 s) tras IDLE_MS quieto y frena en unos 0,3 s al tocar algo.
+    const idle = clock - lastInput > IDLE_MS, theta0 = theta;
+    const want = idle && spinMode !== 'off' && mode !== 'page' && !lab.reduced ? SPIN() : 0;
+    spin += (want - spin) * (1 - Math.pow(want ? 0.97 : 0.8, (dt * lab.speed) / 16.7));
+    if (!want && Math.abs(spin) < Math.abs(SPIN()) * 0.002) spin = 0;
+    theta += spin * dt * lab.speed;
+    if (homing || (spinMode === 'back' && !idle)) {
+      theta = Math.atan2(Math.sin(theta), Math.cos(theta));
+      theta += (0 - theta) * (lab.reduced ? 1 : 1 - Math.pow(0.88, (dt * lab.speed) / 16.7));
+      if (Math.abs(theta) < 1e-4) { theta = 0; homing = false; }
+    }
+    cosT = Math.cos(theta); sinT = Math.sin(theta);
+    if (theta !== theta0) { RM = rotMatrix(theta); RMi = rotMatrix(-theta); HM = null; }
+    // Modo cinemática: con una estrella marcada, mientras el cielo gira la cámara la sigue y la
+    // lleva despacio al centro. El ancla se rehace donde se ve ahora, así que no hay salto.
+    following = false;
+    if (focus && theta !== theta0 && pan == null && mode !== 'page') {
+      const q = projStar(focus, camNow());
+      if (q) {
+        const w = worldOf(focus, camNow());
+        A = { wx: w.x, wy: w.y, za: w.z, sx: q.x, sy: q.y, tx: W / 2, ty: H / 2, star: focus, push: A.push, slow: true };
+        following = true;
+      }
+    }
+    cz += (tcz - cz) * k;
+    if (Math.abs(tcz - cz) < 1e-5) cz = tcz;
+    const ks = A.slow && !lab.reduced ? 1 - Math.pow(0.96, (dt * lab.speed) / 16.7) : k;
+    A.sx += (A.tx - A.sx) * ks; A.sy += (A.ty - A.sy) * ks;
+    place();
+
+    ctx.imageSmoothingEnabled = false;
+    if (mode === 'page') {
+      // Lo descartado: estirar el cielo inicial. s no es entero casi nunca, y los píxeles salen desiguales.
+      const s = 1 / (1 - cz);
+      ctx.fillStyle = BG; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(still, (W / 2 - (W / 2 + cx * U) * s) * P, (H / 2 - (H / 2 + cy * U) * s) * P, W * s * P, H * s * P);
+    } else {
+      render(camNow(), true);
+      loCtx.putImageData(img, 0, 0);
+      ctx.drawImage(lo, 0, 0, W * P, H * P);
+    }
+
+    const zoom = A.za / Math.max(A.za - cz, 1e-3);
+    const msg = note && clock < note.until ? ` · ${note.text}` : '';
+    document.getElementById('estado').textContent =
+      `zoom ${zoom.toFixed(2)}× sobre el plano z ${A.za} · cámara z ${cz.toFixed(3)} · marcada: ${focus ? focus.id : '(ninguna)'}${following ? ' (siguiéndola)' : ''}${pan != null ? ' · moviéndote' : ''} · ${mode === 'page' ? 'ampliar el dibujo' : 'sprites'} · ${flat ? 'plano' : 'perspectiva'} · imán ${magnet ? 'sí' : 'no'} · cielo ${spin ? `girando (${{ sphere: 'polar dentro', 'sphere-out': 'polo fuera', wheel: 'rueda' }[spinKind]}, ×${spinMul})` : idleLeft()} ${((-theta * 180) / Math.PI).toFixed(1)}° · velocidad ${lab.speed}× · píxel de arte ${P} px, lienzo ${W}×${H}${msg}`;
+  }
+  const idleLeft = () => (spinMode === 'off' ? 'sin giro' : `quieto, gira en ${Math.max(0, Math.ceil((IDLE_MS - (clock - lastInput)) / 1000))} s`);
+  const loop = (now) => { frame(now); requestAnimationFrame(loop); };
+
+  // --- gestos ------------------------------------------------------------------------------------
+  const pos = (ev) => {
+    const r = cv.getBoundingClientRect();
+    return { x: ((ev.clientX - r.left) * W) / r.width, y: ((ev.clientY - r.top) * H) / r.height };
+  };
+  const say = (text) => { note = { text, until: clock + 1600 }; };
+  /** Quita la marca; el ancla deja de ser una estrella, así que el tope vuelve a ser D_MIN. */
+  const unmark = () => { focus = null; if (A) A.star = null; };
+  // Cualquier gesto en la página cuenta como estar haciendo algo: para el giro.
+  ['pointerdown', 'pointermove', 'wheel', 'keydown'].forEach((t) => document.addEventListener(t, () => { lastInput = clock; }, { capture: true, passive: true }));
+
+  /**
+   * Acerca o aleja la cámara multiplicando la distancia al plano del ancla.
+   *
+   * Args:
+   *   f: factor sobre la distancia; menor que 1 acerca.
+   *
+   * Returns:
+   *   Nada; mueve el objetivo tcz, y el bucle se desliza hasta él.
+   */
+  function zoomBy(f) {
+    const d = (A.za - tcz) * f;
+    tcz = clampN(A.za - d, mode === 'page' ? 0 : CZ_MIN, limitFor(A.za, !!A.star));
+  }
+
+  // La rueda pulsada abre el autodesplazamiento de Windows si no se corta en mousedown.
+  cv.addEventListener('mousedown', (ev) => { if (ev.button === 1) ev.preventDefault(); });
+  cv.addEventListener('pointerdown', (ev) => {
+    // Sin preventScroll, pulsar un lienzo medio visible hacía saltar la página para enseñarlo entero.
+    cv.focus({ preventScroll: true });
+    wheelPrev = null;
+    const p = pos(ev);
+    const wantPan = ev.button === 1 || (ev.button === 0 && (ev.ctrlKey || ev.metaKey));
+    if (!wantPan) {
+      if (ev.button !== 0) return;
+      if (starNear(p, SNAP)) say('clic izquierdo sobre una estrella: reservado, aún sin decidir');
+      else if (focus) { unmark(); say('marca quitada'); }
+      return;
+    }
+    ev.preventDefault();
+    anchorAt(p, pickDepth(p));
+    pan = ev.pointerId;
+    cv.classList.add('pan');
+    try { cv.setPointerCapture(ev.pointerId); } catch {}
+  });
+  cv.addEventListener('pointermove', (ev) => {
+    const p = pos(ev);
+    lastPointer = p;
+    if (pan !== ev.pointerId) return;
+    A.sx = A.tx = p.x; A.sy = A.ty = p.y;
+  });
+  const endPan = (ev) => { if (pan === ev.pointerId) { pan = null; cv.classList.remove('pan'); } };
+  cv.addEventListener('pointerup', endPan);
+  cv.addEventListener('pointercancel', endPan);
+
+  cv.addEventListener('wheel', (ev) => {
+    // Sin esto, Ctrl + rueda (y el pellizco del touchpad, que llega así) amplía la página entera.
+    ev.preventDefault();
+    if (pan != null) return;
+    const p = pos(ev), now = performance.now();
+    const delta = ev.deltaY * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? 400 : 1);
+    // Un mismo gesto (muescas seguidas sin mover el cursor) conserva su ancla. Si no, en el ultra
+    // zoom una estrella cercana que pasa volando bajo el cursor se lo robaba a mitad de camino.
+    const keep = wheelPrev && now - wheelPrev.t < 400 && Math.hypot(p.x - wheelPrev.x, p.y - wheelPrev.y) < 2 && A.za - cz > D_MIN_STAR * 0.99;
+    wheelPrev = { t: now, x: p.x, y: p.y };
+    if (!keep) {
+      const s = magnet && mode !== 'page' && delta < 0 ? starNear(p, SNAP) : null;
+      if (s) anchorStar(s, p); else anchorAt(p, pickDepth(p));
+    }
+    zoomBy(Math.exp(delta * 0.0018));
+  }, { passive: false });
+
+  /** Salta a la estrella visible más cercana dentro de un cono de unos 60 grados hacia (dx, dy). */
+  function jump(dx, dy) {
+    const cam = camNow();
+    const from = (focus && projStar(focus, cam)) || { x: W / 2, y: H / 2 };
+    let best = null, bs = Infinity;
+    for (const s of STARS) {
+      if (s === focus) continue;
+      const q = projStar(s, cam);
+      if (!onScreen(q)) continue;
+      const vx = q.x - from.x, vy = q.y - from.y, d = Math.hypot(vx, vy);
+      if (d < 1) continue;
+      const cos = (vx * dx + vy * dy) / d;
+      if (cos < 0.5) continue;
+      if (d / cos < bs) { bs = d / cos; best = s; }
+    }
+    if (best) anchorStar(best, { x: W / 2, y: H / 2 });
+  }
+
+  /** Vuelve a la vista inicial deslizándose; si el origen ya quedó detrás de la cámara, de golpe. */
+  function home() {
+    focus = null; wheelPrev = null; homing = true;
+    const q = proj(BASE_W / 2, BASE_H / 2, 1, camNow());
+    if (!q) { reset(); return; }
+    A = { wx: 0, wy: 0, za: 1, sx: q.x, sy: q.y, tx: W / 2, ty: H / 2 };
+    tcz = 0;
+  }
+
+  cv.addEventListener('keydown', (ev) => {
+    wheelPrev = null;
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
+    if (d) { ev.preventDefault(); jump(d[0], d[1]); return; }
+    if (ev.key === '+' || ev.key === '=' || ev.key === '-') {
+      ev.preventDefault();
+      const q = focus && projStar(focus, camNow());
+      if (onScreen(q)) anchorStar(focus, q); else anchorAt({ x: W / 2, y: H / 2 }, pickDepth({ x: W / 2, y: H / 2 }));
+      zoomBy(ev.key === '-' ? 1 / 0.7 : 0.7);
+    } else if (ev.key === '0') home();
+    else if (ev.key === 'Escape') unmark();
+  });
+
+  // --- botones ---------------------------------------------------------------------------------
+  const DESC = {
+    grid: 'Sprites en rejilla: el cielo se repinta en cada fotograma; las estrellas se separan y cambian de dibujo, nunca se estiran.',
+    page: 'Ampliar el dibujo: lo descartado. Estira la imagen inicial como una página; mira cómo bailan los píxeles al hacer zoom despacio.',
+    persp: 'Con perspectiva: C está a 0,7, A a 1, B a 1,5, el cúmulo a 2,2 y la polar a 4; lo cercano crece más deprisa.',
+    flat: 'Plano: todo a la misma distancia, crece igual y el fondo se vacía.',
+    on: 'Imán activo.', off: 'Sin imán: el zoom va al punto exacto del cursor.',
+    dust: 'Fondo de polvo: una banda tramada que no se confunde con una estrella.', dots: 'Fondo de puntos: el de la v1.', none: 'Sin fondo.',
+    spin_stay: 'Quieto 8 s, el cielo gira; al tocar algo, se para donde esté.', spin_back: 'Quieto 8 s, el cielo gira; al tocar algo, vuelve a su sitio.', spin_off: 'El cielo no gira.',
+  };
+  /** Empieza desde la vista inicial al cambiar de modo, para que no haya saltos raros. */
+  function reset() { focus = null; pan = null; wheelPrev = null; theta = 0; spin = 0; cosT = 1; sinT = 0; homing = false; RM = rotMatrix(0); RMi = rotMatrix(0); cz = tcz = 0; cx = cy = 0; A = { wx: 0, wy: 0, za: 1, sx: W / 2, sy: H / 2, tx: W / 2, ty: H / 2 }; }
+  function paint() {
+    document.querySelectorAll('[data-m]').forEach((b) => b.classList.toggle('on', b.dataset.m === mode));
+    document.querySelectorAll('[data-d]').forEach((b) => b.classList.toggle('on', (b.dataset.d === 'flat') === flat));
+    document.querySelectorAll('[data-i]').forEach((b) => b.classList.toggle('on', (b.dataset.i === 'on') === magnet));
+    document.querySelectorAll('[data-b]').forEach((b) => b.classList.toggle('on', b.dataset.b === bg));
+    document.querySelectorAll('[data-s]').forEach((b) => b.classList.toggle('on', b.dataset.s === spinMode));
+    document.querySelectorAll('[data-r]').forEach((b) => b.classList.toggle('on', b.dataset.r === spinKind));
+    document.querySelectorAll('[data-v]').forEach((b) => b.classList.toggle('on', Number(b.dataset.v) === spinMul));
+    document.getElementById('desc').textContent = `${DESC[mode]} ${mode === 'page' ? '' : DESC[flat ? 'flat' : 'persp']} ${DESC[magnet ? 'on' : 'off']} ${DESC[bg]} ${DESC[`spin_${spinMode}`]}`;
+  }
+  document.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { mode = b.dataset.m; reset(); paint(); }));
+  document.querySelectorAll('[data-d]').forEach((b) => b.addEventListener('click', () => { flat = b.dataset.d === 'flat'; reset(); paint(); }));
+  document.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('click', () => { magnet = b.dataset.i === 'on'; paint(); }));
+  document.querySelectorAll('[data-b]').forEach((b) => b.addEventListener('click', () => { bg = b.dataset.b; renderStill(); paint(); }));
+  document.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => { spinMode = b.dataset.s; paint(); }));
+  document.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => { spinKind = b.dataset.r; POLE = spinKind === 'sphere' ? POLE_IN : POLE_OUT; reset(); paint(); }));
+  document.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { spinMul = Number(b.dataset.v); paint(); }));
+  document.getElementById('inicio').addEventListener('click', () => { home(); cv.focus({ preventScroll: true }); });
+
+  resize();
+  new ResizeObserver(() => { if (Math.floor((wrap.clientWidth * (window.devicePixelRatio || 1)) / P) !== W) resize(); }).observe(wrap);
+  paint();
+  requestAnimationFrame(loop);
+
+  /**
+   * Comprueba que cada píxel de arte del lienzo grande es un bloque P x P de un solo color.
+   *
+   * Returns:
+   *   `{ P, blocks, bad }`: los bloques revisados y cuántos mezclan colores. En rejilla tiene que
+   *   dar 0; en «ampliar el dibujo», con zoom no entero, no.
+   */
+  function checkGrid() {
+    const d = ctx.getImageData(0, 0, cv.width, cv.height).data, w = cv.width;
+    let bad = 0, blocks = 0;
+    for (let by = 0; by < H; by++) for (let bx = 0; bx < W; bx++) {
+      blocks++;
+      const o = ((by * P) * w + bx * P) * 4;
+      outer: for (let y = 0; y < P; y++) for (let x = 0; x < P; x++) {
+        const i = ((by * P + y) * w + bx * P + x) * 4;
+        if (d[i] !== d[o] || d[i + 1] !== d[o + 1] || d[i + 2] !== d[o + 2]) { bad++; break outer; }
+      }
+    }
+    return { P, blocks, bad };
+  }
+  // Para probar con el panel oculto, que congela requestAnimationFrame.
+  window.w14 = { frame: (ms) => frame(last + ms), checkGrid, get cam() { return { cx, cy, cz, tcz, A: { ...A, star: A.star && A.star.id }, focus: focus && focus.id, theta, spin, following }; }, starScreen: (id) => projStar(byId[id], camNow()), get dims() { return { P, W, H, U }; } };
+</script>
+</body>
+</html>
