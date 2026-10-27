@@ -10,8 +10,8 @@ activo, las rutas OAuth (/.well-known/oauth-authorization-server, /authorize, /t
 donde claude.ai las busca. El visor + CRUD se sirven como custom_route del propio servidor
 (mismo proceso, Paso 7 §6).
 
-Herramientas: memory_add/search/get/supersede/tombstone, relation_add/list/tombstone,
-memory_stats y system_status. Cada una lleva dos textos a propósito: la `description` del
+Herramientas: memory_add/search/get/supersede/tombstone, memory_batch (27/10/2026),
+relation_add/list/tombstone, memory_stats y system_status. Cada una lleva dos textos a propósito: la `description` del
 decorador, que es lo que lee el agente, y el docstring, que es para quien la mantiene.
 
 OAuth: conmutable por env var, y `_build_auth` elige el proveedor.
@@ -30,6 +30,7 @@ cutover. Si aparece en algún sitio, ese sitio está desactualizado.
 from __future__ import annotations
 
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -513,6 +514,75 @@ async def memory_supersede(parent_id: str, content: str, title: str | None = Non
     m = r["memory"]
     return {"id": str(m["id"]), "supersedes": parent_id, "title": m["title"],
             "digest": m.get("digest")}
+
+
+#: Forma de `via`, la marca de quién dispara un lote además del agente: kebab-case, como los paths.
+_VIA = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+@mcp.tool(name="memory_batch",
+          description="Write a whole reviewed batch to Naeth in ONE transaction, all or "
+                      "nothing: notes (add or supersede), the project status and the "
+                      "relations. Each note carries a ref '#n'; relations may point to '#n' or "
+                      "to full UUIDs, and every '{{#n}}' in the status is replaced by that "
+                      "note's real id. Pass a fresh UUID as batch_id: retrying with the same "
+                      "one returns the first result without writing again. dry_run=true runs "
+                      "the whole batch and rolls it back. Every note and the status need "
+                      "title, content, digest (300 chars max), path 'project/subtopic', "
+                      "memory_type and tags with the project first. Pass agent_model with the "
+                      "model that drafted the batch.")
+async def memory_batch(batch_id: str, notes: list[dict[str, Any]] | None = None,
+                       status: dict[str, Any] | None = None,
+                       relations: list[dict[str, Any]] | None = None,
+                       omitted: list[str] | None = None, dry_run: bool = False,
+                       agent_model: str | None = None, agent_vendor: str | None = None,
+                       via: str | None = None) -> dict[str, Any]:
+    """Lote de escrituras por MCP: compone la autoría con `via`, aplica el enforce del modelo y delega en `core.batch`.
+
+    Args:
+        batch_id: UUID que pone quien llama; con el mismo, un reintento no duplica.
+        notes: las notas del lote, con la forma que documenta `core.batch`.
+        status: el `proyecto/status`, con sus `{{#n}}` sin sustituir.
+        relations: aristas `{from, to, predicate}` con extremos `#n` o UUID completos.
+        omitted: las `#n` del informe que no se aprobaron.
+        dry_run: recorre el lote y lo deshace; no escribe ni gasta el `batch_id`.
+        agent_model: el modelo que redactó el informe, no quien hace la llamada.
+        agent_vendor: opcional, como en `memory_add`.
+        via: quién dispara la escritura además del agente (`edm-approve` desde el panel).
+
+    Returns:
+        Lo que devuelve `core.batch`: los ids reales de cada `#n`, el del status, las relaciones
+        escritas y las saltadas, y si fue reintento o `dry_run`.
+
+    Raises:
+        ValueError: instructivo, si falta `agent_model` con el enforce en `strict`, si `via` no
+            es kebab-case, o con todos los motivos por los que `core.batch` rechaza el lote. En
+            ningún caso queda nada escrito.
+
+    Notes:
+        POR QUÉ EXISTE: es la pieza A del plan del 27/10/2026. El pack edm la llama con
+        `$.mcp.call` al pulsar Aprobar, y así cada nota de un checkpoint se genera una sola vez,
+        al pasar el informe al panel, y no otra al reescribirla con `memory_add`.
+
+        AUTORÍA (D1, decidida por Eneko el 27/10/2026): `agent_model` es el modelo que redactó
+        el informe aunque la llamada la haga el panel, y `via` va a `author.client_raw` para que
+        se sepa que la escritura la disparó un clic y no un turno del modelo.
+
+        No llama a `_enforce_digest`: `core.batch` exige digest en cada nota y en el status
+        siempre, que es más que el enforce en `strict`.
+
+        ⚠ `$.mcp.call` NO PASA POR LOS HOOKS DE CLAUDE CODE: `guard-em-dash` no ve esta llamada.
+        Lo que la sustituye es la validación de `core.batch`, que rechaza em dash y en dash.
+    """
+    author = _authorship(agent_model, agent_vendor)
+    if via is not None:
+        if not _VIA.match(via):
+            raise ValueError(f"via tiene que ir en kebab-case (p. ej. 'edm-approve'), y llegó {via!r}")
+        author["client_raw"]["via"] = via
+    _enforce_model(author)
+    return core.batch(batch_id, notes or [], status=status, relations=relations,
+                      omitted=omitted, author=author, source_client=_source_client(author),
+                      dry_run=dry_run)
 
 
 @mcp.tool(name="memory_tombstone",

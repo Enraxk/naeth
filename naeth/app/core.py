@@ -179,14 +179,14 @@ def add(content: str, *, title: str | None = None, memory_type: str = "observati
         idénticas dentro de un `memory_batch` dan una sola fila (test del 27/10/2026).
     """
     ch = content_hash(title, content)
-    with _tx(c) as c:
-        existing = c.execute(
+    with _tx(c) as tx:
+        existing = tx.execute(
             "SELECT * FROM memory_current WHERE content_hash = %s LIMIT 1", (ch,)
         ).fetchone()
         if existing:
             return {"memory": existing, "created": False}
 
-        row = c.execute(
+        row = tx.execute(
             """INSERT INTO memory (content_hash, title, content, memory_type, tags, path,
                                    metadata, source_client, author, digest)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -195,7 +195,7 @@ def add(content: str, *, title: str | None = None, memory_type: str = "observati
              psycopg.types.json.Jsonb(metadata or {}), source_client,
              psycopg.types.json.Jsonb(author or {}), _digest(digest)),
         ).fetchone()
-        c.execute("INSERT INTO job (kind, memory_id) VALUES ('embed', %s)", (row["id"],))
+        tx.execute("INSERT INTO job (kind, memory_id) VALUES ('embed', %s)", (row["id"],))
         return {"memory": row, "created": True}
 
 
@@ -235,8 +235,8 @@ def supersede(parent_id: str, content: str, *, title: str | None = None,
         `memory_batch` necesita su propia clave de lote para reintentar sin duplicar.
     """
     ch = content_hash(title, content)
-    with _tx(c) as c:
-        row = c.execute(
+    with _tx(c) as tx:
+        row = tx.execute(
             """INSERT INTO memory (content_hash, title, content, memory_type, tags, path,
                                    metadata, source_client, author, digest)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
@@ -244,12 +244,12 @@ def supersede(parent_id: str, content: str, *, title: str | None = None,
              psycopg.types.json.Jsonb(metadata or {}), source_client,
              psycopg.types.json.Jsonb(author or {}), _digest(digest)),
         ).fetchone()
-        c.execute(
+        tx.execute(
             "INSERT INTO supersession (child_id, parent_id, source_client) VALUES (%s, %s, %s)",
             (row["id"], parent_id, source_client),
         )
-        c.execute("UPDATE memory SET is_current = false WHERE id = %s", (parent_id,))
-        c.execute("INSERT INTO job (kind, memory_id) VALUES ('embed', %s)", (row["id"],))
+        tx.execute("UPDATE memory SET is_current = false WHERE id = %s", (parent_id,))
+        tx.execute("INSERT INTO job (kind, memory_id) VALUES ('embed', %s)", (row["id"],))
         return {"memory": row, "created": True}
 
 
@@ -296,8 +296,8 @@ def relation_add(source_id: str, target_id: str, predicate: str,
         ⚠ `predicate` ES TEXTO LIBRE, sin CHECK en la base ni aquí. La convención declara cuatro
         y el corpus usa cinco (`tested_by` entró solo). Medido el 10/09/2026.
     """
-    with _tx(c) as c:
-        row = c.execute(
+    with _tx(c) as tx:
+        row = tx.execute(
             """INSERT INTO relation (source_id, target_id, predicate, metadata, source_client)
                VALUES (%s, %s, %s, %s, %s) RETURNING id""",
             (source_id, target_id, predicate,
@@ -314,7 +314,7 @@ def relation_add(source_id: str, target_id: str, predicate: str,
 MEMORY_TYPES = ("fact", "decision", "observation", "preference")
 #: Lo que sustituye en el status al `{{#n}}` de una nota que no se aprobó (D2, 27/10/2026).
 NOT_APPROVED = "(no aprobado)"
-_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 #: `proyecto/subtema` en kebab-case: la misma expresión que `report.ts` del pack edm.
 _PATH = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*/[a-z0-9]+(-[a-z0-9]+)*$")
 _REF = re.compile(r"^#[1-9][0-9]*$")
@@ -454,7 +454,7 @@ def _skip_reason(rel: dict, omitted: list[str]) -> str | None:
 
 def batch(batch_id: str, notes: list[dict], *, status: dict | None = None,
           relations: list[dict] | None = None, omitted: list[str] | None = None,
-          author: dict | None = None, source_client: str = "web") -> dict:
+          author: dict | None = None, source_client: str = "web", dry_run: bool = False) -> dict:
     """Escribe un lote de notas, su status y sus relaciones en UNA transacción, entero o nada.
 
     Args:
@@ -467,12 +467,14 @@ def batch(batch_id: str, notes: list[dict], *, status: dict | None = None,
         omitted: las `#n` que el informe tenía y no se aprobaron (aprobación parcial).
         author: autoría de cada nota escrita, tal cual la construye la fachada MCP.
         source_client: de dónde llega la escritura, para el sync.
+        dry_run: recorre el lote entero dentro de la transacción y la deshace al final.
 
     Returns:
-        `{"batch_id", "replayed", "ids": {"#n": uuid}, "created": {"#n": bool}, "status_id",
-        "relations": [{"index", "id"}], "skipped": [{"index", "reason"}]}`. `index` es la
-        posición en `relations`, empezando en 0. `created` es `False` en una nota `add` que ya
-        existía, y en todas las de un reintento.
+        `{"batch_id", "replayed", "dry_run", "ids": {"#n": uuid}, "created": {"#n": bool},
+        "status_id", "relations": [{"index", "id"}], "skipped": [{"index", "reason"}]}`. `index`
+        es la posición en `relations`, empezando en 0. `created` es `False` en una nota `add` que
+        ya existía, y en todas las de un reintento. En un `dry_run` que no es reintento, los ids
+        van a `None`: los que se generaron dentro de la transacción deshecha no existen.
 
     Raises:
         ValueError: si el lote no pasa la validación (con todos los motivos a la vez), si un
@@ -496,9 +498,16 @@ def batch(batch_id: str, notes: list[dict], *, status: dict | None = None,
         relación con un extremo omitido se salta y se devuelve en `skipped`; un `{{#n}}`
         omitido queda como `NOT_APPROVED` (decidido por Eneko el 27/10/2026).
 
-        ⚠ LO QUE NO HACE: no aplica los enforce de autoría ni de digest de la capa MCP (eso es
-        de `memory_batch`, en N2), no encola nada que no encolen ya `add` y `supersede`, y no
-        valida `predicate` contra un vocabulario, igual que `relation_add`.
+        EL `dry_run` ESCRIBE Y DESHACE, en vez de validar aparte, para que lo que pruebe sea la
+        misma ruta que la escritura real: un fallo que solo salte al insertar también salta aquí.
+        Es seguro porque nada sale de la transacción (ni triggers ni `NOTIFY` en el esquema, y el
+        `job` de embedding también se deshace), y no gasta el `batch_id`. Existe para E0: probar
+        que el panel puede llamar a la tool sin escribir nada.
+
+        ⚠ LO QUE NO HACE: no aplica el enforce de autoría de la capa MCP (eso es de
+        `memory_batch`), no encola nada que no encolen ya `add` y `supersede`, y no valida
+        `predicate` contra un vocabulario, igual que `relation_add`. El digest, en cambio, es
+        obligatorio aquí siempre, con `NAETH_DIGEST_ENFORCE` en `warn` o en `strict`.
     """
     relations = list(relations or [])
     omitted = list(omitted or [])
@@ -520,7 +529,8 @@ def batch(batch_id: str, notes: list[dict], *, status: dict | None = None,
             if any(r["metadata"].get("batch_hash") != bhash for r in mem + rel):
                 raise ValueError(f"el batch_id {batch_id} ya se usó con otro contenido; "
                                  f"un lote nuevo necesita un batch_id nuevo")
-            return _replay(c, batch_id, notes, relations, omitted, mem, rel)
+            return {**_replay(c, batch_id, notes, relations, omitted, mem, rel),
+                    "dry_run": dry_run}
         errors = _check_targets(c, notes, status, relations)
         if errors:
             raise ValueError("lote rechazado, no se ha escrito nada: " + "; ".join(errors))
@@ -559,8 +569,14 @@ def batch(batch_id: str, notes: list[dict], *, status: dict | None = None,
                                r["predicate"], metadata=meta(i), source_client=source_client, c=c)
             written.append({"index": i, "id": out["id"]})
 
-    return {"batch_id": batch_id, "replayed": False, "ids": ids, "created": created,
-            "status_id": status_id, "relations": written, "skipped": skipped}
+        result = {"batch_id": batch_id, "replayed": False, "dry_run": dry_run, "ids": ids,
+                  "created": created, "status_id": status_id, "relations": written,
+                  "skipped": skipped}
+        if dry_run:
+            c.rollback()
+            result |= {"ids": dict.fromkeys(ids), "status_id": None,
+                       "relations": [{"index": w["index"], "id": None} for w in written]}
+    return result
 
 
 def _replay(c, batch_id, notes, relations, omitted, mem, rel) -> dict:

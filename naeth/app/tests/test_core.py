@@ -643,12 +643,11 @@ def _count(table):
 
 
 def test_dos_escrituras_en_la_misma_conexion_se_deshacen_juntas():
-    with pytest.raises(RuntimeError):
-        with core.conn() as c:
-            a = core.add("primera del lote", title="lote", c=c)["memory"]
-            b = core.add("segunda del lote", title="lote", c=c)["memory"]
-            core.relation_add(str(a["id"]), str(b["id"]), "links_to", c=c)
-            raise RuntimeError("falla algo despues de escribir")
+    with pytest.raises(RuntimeError), core.conn() as c:
+        a = core.add("primera del lote", title="lote", c=c)["memory"]
+        b = core.add("segunda del lote", title="lote", c=c)["memory"]
+        core.relation_add(str(a["id"]), str(b["id"]), "links_to", c=c)
+        raise RuntimeError("falla algo despues de escribir")
     assert _count("memory") == 0
     assert _count("relation") == 0
     assert _count("job") == 0
@@ -666,10 +665,9 @@ def test_lo_escrito_en_la_conexion_compartida_se_confirma_al_salir():
 
 
 def test_un_padre_inexistente_deshace_lo_que_el_lote_ya_habia_escrito():
-    with pytest.raises(psycopg.errors.ForeignKeyViolation):
-        with core.conn() as c:
-            core.add("esto no debe quedar", title="lote", c=c)
-            core.supersede("00000000-0000-0000-0000-000000000000", "huerfana", title="lote", c=c)
+    with pytest.raises(psycopg.errors.ForeignKeyViolation), core.conn() as c:
+        core.add("esto no debe quedar", title="lote", c=c)
+        core.supersede("00000000-0000-0000-0000-000000000000", "huerfana", title="lote", c=c)
     assert _count("memory") == 0
 
 
