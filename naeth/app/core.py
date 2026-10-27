@@ -13,7 +13,9 @@ Nada de UPDATE/DELETE salvo el relleno async del embedding (worker) y is_current
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import re
 from contextlib import contextmanager
 
 import psycopg
@@ -303,6 +305,291 @@ def relation_add(source_id: str, target_id: str, predicate: str,
         ).fetchone()
         return {"id": str(row["id"]), "source_id": source_id, "target_id": target_id,
                 "predicate": predicate}
+
+
+# ============================================================
+# Lotes (memory_batch, N1 del 27/10/2026)
+# ============================================================
+#: El vocabulario cerrado de `memory_type`. `batch` lo valida; `add` y `supersede`, no.
+MEMORY_TYPES = ("fact", "decision", "observation", "preference")
+#: Lo que sustituye en el status al `{{#n}}` de una nota que no se aprobó (D2, 27/10/2026).
+NOT_APPROVED = "(no aprobado)"
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+#: `proyecto/subtema` en kebab-case: la misma expresión que `report.ts` del pack edm.
+_PATH = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*/[a-z0-9]+(-[a-z0-9]+)*$")
+_REF = re.compile(r"^#[1-9][0-9]*$")
+_PLACEHOLDER = re.compile(r"\{\{(#[1-9][0-9]*)\}\}")
+#: Em dash y en dash, construidos y no escritos: `guard-em-dash` lee cada escritura de Claude.
+_DASHES = (chr(0x2014), chr(0x2013))
+
+
+def _check_memory(m: dict, label: str, errors: list[str]) -> None:
+    """Apunta en `errors` lo que una nota o el status del lote incumplen, sin mirar la base."""
+    for f in ("title", "content", "digest", "path"):
+        v = m.get(f)
+        if not isinstance(v, str) or not v.strip():
+            errors.append(f"{label}: falta {f}")
+        elif f != "path" and any(d in v for d in _DASHES):
+            errors.append(f"{label}: {f} lleva em dash o en dash")
+    action, parent = m.get("action"), m.get("parent")
+    if action not in ("add", "supersede"):
+        errors.append(f"{label}: action tiene que ser add o supersede")
+    if action == "supersede" and not (isinstance(parent, str) and _UUID.match(parent)):
+        errors.append(f"{label}: supersede necesita parent con el UUID completo")
+    if action == "add" and parent is not None:
+        errors.append(f"{label}: add no lleva parent")
+    path = m.get("path") if isinstance(m.get("path"), str) else ""
+    if path and not _PATH.match(path):
+        errors.append(f"{label}: path tiene que ser proyecto/subtema en kebab-case")
+    if m.get("memory_type") not in MEMORY_TYPES:
+        errors.append(f"{label}: memory_type tiene que ser uno de {', '.join(MEMORY_TYPES)}")
+    tags = [t for t in (m.get("tags") or []) if isinstance(t, str) and t.strip()]
+    if not tags:
+        errors.append(f"{label}: faltan tags")
+    elif _PATH.match(path) and tags[0] != path.split("/")[0]:
+        errors.append(f"{label}: el primer tag tiene que ser el proyecto ({path.split('/')[0]})")
+
+
+def _check_batch(batch_id, notes, status, relations, omitted) -> list[str]:
+    """Todos los errores del lote a la vez, sin tocar la base; lista vacía si se puede escribir.
+
+    Notes:
+        Repite lo que `parseReport` del pack edm rechaza al pasar el informe, porque la llamada
+        del panel con `$.mcp.call` NO pasa por los hooks y `guard-em-dash` no la ve: lo que no se
+        compruebe aquí llega a Naeth tal cual, y Naeth no borra.
+
+        El digest del status se mide CON los `{{#n}}` ya sustituidos (36 caracteres por UUID), no
+        como llega: un `{{#1}}` ocupa 6 y su UUID 36, y un digest que cabe al redactarlo puede
+        pasar de 300 al escribirlo. Así salta aquí y no a mitad de la transacción.
+    """
+    errors: list[str] = []
+    if not (isinstance(batch_id, str) and _UUID.match(batch_id)):
+        errors.append("batch_id tiene que ser un UUID completo")
+    if not notes and status is None:
+        errors.append("no hay notas ni status")
+    refs: list[str] = []
+    parents: list[str] = []
+    for i, n in enumerate(notes):
+        ref = n.get("ref")
+        label = f"nota {ref}" if isinstance(ref, str) else f"nota en la posición {i}"
+        if not (isinstance(ref, str) and _REF.match(ref)):
+            errors.append(f"{label}: ref tiene que ser #n")
+        elif ref in refs:
+            errors.append(f"{label}: ref repetida")
+        else:
+            refs.append(ref)
+        _check_memory(n, label, errors)
+        if isinstance(n.get("path"), str) and n["path"].endswith("/status"):
+            errors.append(f"{label}: el status no es una nota, va en el campo status")
+        if isinstance(n.get("digest"), str) and len(n["digest"].strip()) > DIGEST_MAX:
+            errors.append(f"{label}: el digest pasa de {DIGEST_MAX} caracteres")
+        if n.get("action") == "supersede":
+            parents.append(n.get("parent"))
+    for o in omitted:
+        if not (isinstance(o, str) and _REF.match(o)) or o in refs:
+            errors.append(f"omitida {o}: tiene que ser un #n que no esté entre las notas")
+    known = set(refs) | set(omitted)
+    if status is not None:
+        _check_memory(status, "status", errors)
+        if isinstance(status.get("path"), str) and not status["path"].endswith("/status"):
+            errors.append("status: path tiene que ser <proyecto>/status")
+        for f in ("title", "content", "digest"):
+            for ref in _PLACEHOLDER.findall(status.get(f) or ""):
+                if ref not in known:
+                    errors.append(f"status: {{{{{ref}}}}} en {f} no es ninguna nota del lote ni de lo omitido")
+        filled = _PLACEHOLDER.sub(
+            lambda m: "x" * 36 if m.group(1) in refs else NOT_APPROVED, status.get("digest") or "")
+        if len(filled.strip()) > DIGEST_MAX:
+            errors.append(f"status: el digest pasa de {DIGEST_MAX} caracteres al sustituir los "
+                          f"{{{{#n}}}} por sus UUID ({len(filled.strip())})")
+        if status.get("action") == "supersede":
+            parents.append(status.get("parent"))
+    dup = {p for p in parents if p and parents.count(p) > 1}
+    for p in sorted(dup):
+        errors.append(f"el padre {p} se supersede más de una vez en el mismo lote")
+    for i, r in enumerate(relations):
+        if not (isinstance(r.get("predicate"), str) and r["predicate"].strip()):
+            errors.append(f"relación {i}: falta predicate")
+        for end in ("from", "to"):
+            x = r.get(end)
+            if not (isinstance(x, str) and (x in known or _UUID.match(x))):
+                errors.append(f"relación {i}: {end} {x} no es ninguna nota del lote ni de lo "
+                              f"omitido, ni un UUID")
+    return errors
+
+
+def _batch_hash(notes, status, relations, omitted) -> str:
+    """SHA-256 del lote en JSON canónico: distingue un reintento de otro lote con el mismo id."""
+    payload = json.dumps({"notes": notes, "status": status, "relations": relations,
+                          "omitted": sorted(omitted)}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _check_targets(c, notes, status, relations) -> list[str]:
+    """Lo que solo se sabe mirando la base: que cada padre exista y sea vigente, y cada UUID exista."""
+    errors: list[str] = []
+    sups = [(f"nota {n['ref']}", n["parent"]) for n in notes if n["action"] == "supersede"]
+    if status is not None and status["action"] == "supersede":
+        sups.append(("status", status["parent"]))
+    for label, p in sups:
+        row = c.execute("SELECT is_current FROM memory WHERE id = %s", (p,)).fetchone()
+        if row is None:
+            errors.append(f"{label}: el padre {p} no existe")
+        elif not row["is_current"]:
+            errors.append(f"{label}: el padre {p} no es vigente; la vigente es {_current_of(c, p)}")
+    for i, r in enumerate(relations):
+        for end in ("from", "to"):
+            x = r[end]
+            if _UUID.match(x) and c.execute(
+                    "SELECT 1 FROM memory WHERE id = %s", (x,)).fetchone() is None:
+                errors.append(f"relación {i}: {end} {x} no existe")
+    return errors
+
+
+def _skip_reason(rel: dict, omitted: list[str]) -> str | None:
+    """El motivo para saltar una relación con un extremo no aprobado, o `None` si se escribe."""
+    gone = next((e for e in (rel["from"], rel["to"]) if e in omitted), None)
+    return f"apunta a {gone}, que no se aprobó" if gone else None
+
+
+def batch(batch_id: str, notes: list[dict], *, status: dict | None = None,
+          relations: list[dict] | None = None, omitted: list[str] | None = None,
+          author: dict | None = None, source_client: str = "web") -> dict:
+    """Escribe un lote de notas, su status y sus relaciones en UNA transacción, entero o nada.
+
+    Args:
+        batch_id: UUID que pone quien llama; reintentar con el mismo no duplica nada.
+        notes: notas con `ref` (`#n`), `action` (`add` o `supersede`), `parent` en los supersede,
+            `title`, `content`, `digest`, `path`, `memory_type` y `tags`.
+        status: el `proyecto/status`, con la misma forma salvo `ref`; en su título, contenido y
+            digest, cada `{{#n}}` se sustituye por el UUID de la nota `#n`.
+        relations: aristas `{from, to, predicate}`, con extremos `#n` del lote o UUID completos.
+        omitted: las `#n` que el informe tenía y no se aprobaron (aprobación parcial).
+        author: autoría de cada nota escrita, tal cual la construye la fachada MCP.
+        source_client: de dónde llega la escritura, para el sync.
+
+    Returns:
+        `{"batch_id", "replayed", "ids": {"#n": uuid}, "created": {"#n": bool}, "status_id",
+        "relations": [{"index", "id"}], "skipped": [{"index", "reason"}]}`. `index` es la
+        posición en `relations`, empezando en 0. `created` es `False` en una nota `add` que ya
+        existía, y en todas las de un reintento.
+
+    Raises:
+        ValueError: si el lote no pasa la validación (con todos los motivos a la vez), si un
+            padre no existe o no es vigente, si un extremo UUID no existe, o si el `batch_id` ya
+            se usó con otro contenido. En todos los casos no se escribe nada.
+
+    Notes:
+        POR QUÉ EXISTE: con el pack edm, cada nota de un checkpoint se generaba dos veces, una
+        al pasar el informe al panel y otra al reescribirla con `memory_add` tras aprobarla. En
+        octubre de 2026 la segunda pasada fueron 0,73 M caracteres de salida del modelo en 336
+        llamadas. Con esto, el panel escribe el informe aprobado de una vez.
+
+        LA CLAVE DEL LOTE VA EN `metadata` de cada fila (`batch_id`, `batch_ref`, `batch_hash`),
+        y no en una tabla propia, a propósito: una tabla nueva tiene que clasificarse en el
+        `sync.py` de CENIT en el mismo commit, o el preflight del sync se cae (pasó con
+        `_emdash_backup` el 30/07/2026). `memory` y `relation` ya se funden entre nodos, así que
+        el reintento tras un failover también encuentra el lote. El `pg_advisory_xact_lock`
+        serializa dos llamadas con el mismo id: la segunda espera y entra en modo reintento.
+
+        Orden de escritura: las notas en su orden, el status y al final las relaciones. Una
+        relación con un extremo omitido se salta y se devuelve en `skipped`; un `{{#n}}`
+        omitido queda como `NOT_APPROVED` (decidido por Eneko el 27/10/2026).
+
+        ⚠ LO QUE NO HACE: no aplica los enforce de autoría ni de digest de la capa MCP (eso es
+        de `memory_batch`, en N2), no encola nada que no encolen ya `add` y `supersede`, y no
+        valida `predicate` contra un vocabulario, igual que `relation_add`.
+    """
+    relations = list(relations or [])
+    omitted = list(omitted or [])
+    errors = _check_batch(batch_id, notes, status, relations, omitted)
+    if errors:
+        raise ValueError("lote rechazado, no se ha escrito nada: " + "; ".join(errors))
+    bhash = _batch_hash(notes, status, relations, omitted)
+
+    def meta(ref):
+        return {"batch_id": batch_id, "batch_ref": ref, "batch_hash": bhash}
+
+    with conn() as c:
+        c.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (batch_id,))
+        mem = c.execute("SELECT id, content_hash, metadata FROM memory "
+                        "WHERE metadata->>'batch_id' = %s", (batch_id,)).fetchall()
+        rel = c.execute("SELECT id, metadata FROM relation "
+                        "WHERE metadata->>'batch_id' = %s", (batch_id,)).fetchall()
+        if mem or rel:
+            if any(r["metadata"].get("batch_hash") != bhash for r in mem + rel):
+                raise ValueError(f"el batch_id {batch_id} ya se usó con otro contenido; "
+                                 f"un lote nuevo necesita un batch_id nuevo")
+            return _replay(c, batch_id, notes, relations, omitted, mem, rel)
+        errors = _check_targets(c, notes, status, relations)
+        if errors:
+            raise ValueError("lote rechazado, no se ha escrito nada: " + "; ".join(errors))
+
+        ids: dict[str, str] = {}
+        created: dict[str, bool] = {}
+        for n in notes:
+            kw = {"title": n["title"], "memory_type": n["memory_type"], "tags": n["tags"],
+                  "path": n["path"], "metadata": meta(n["ref"]), "source_client": source_client,
+                  "author": author, "digest": n["digest"], "c": c}
+            r = (add(n["content"], **kw) if n["action"] == "add"
+                 else supersede(n["parent"], n["content"], **kw))
+            ids[n["ref"]] = str(r["memory"]["id"])
+            created[n["ref"]] = r["created"]
+
+        status_id = None
+        if status is not None:
+            def fill(text):
+                return _PLACEHOLDER.sub(lambda m: ids.get(m.group(1), NOT_APPROVED), text)
+            kw = {"title": fill(status["title"]), "memory_type": status["memory_type"],
+                  "tags": status["tags"], "path": status["path"], "metadata": meta("status"),
+                  "source_client": source_client, "author": author,
+                  "digest": fill(status["digest"]), "c": c}
+            content = fill(status["content"])
+            r = (add(content, **kw) if status["action"] == "add"
+                 else supersede(status["parent"], content, **kw))
+            status_id = str(r["memory"]["id"])
+
+        written, skipped = [], []
+        for i, r in enumerate(relations):
+            reason = _skip_reason(r, omitted)
+            if reason:
+                skipped.append({"index": i, "reason": reason})
+                continue
+            out = relation_add(ids.get(r["from"], r["from"]), ids.get(r["to"], r["to"]),
+                               r["predicate"], metadata=meta(i), source_client=source_client, c=c)
+            written.append({"index": i, "id": out["id"]})
+
+    return {"batch_id": batch_id, "replayed": False, "ids": ids, "created": created,
+            "status_id": status_id, "relations": written, "skipped": skipped}
+
+
+def _replay(c, batch_id, notes, relations, omitted, mem, rel) -> dict:
+    """El resultado de un lote ya escrito, reconstruido de sus filas sin escribir nada.
+
+    Notes:
+        Una nota `add` que ya existía antes del lote no lleva la marca del lote (`add` devolvió
+        la fila de entonces sin tocarla), así que se busca por su `content_hash`, primero entre
+        lo vigente y si no en todo `memory`.
+    """
+    by_ref = {r["metadata"].get("batch_ref"): str(r["id"]) for r in mem}
+    ids: dict[str, str] = {}
+    for n in notes:
+        if n["ref"] in by_ref:
+            ids[n["ref"]] = by_ref[n["ref"]]
+            continue
+        ch = content_hash(n["title"], n["content"])
+        row = (c.execute("SELECT id FROM memory_current WHERE content_hash = %s LIMIT 1",
+                         (ch,)).fetchone()
+               or c.execute("SELECT id FROM memory WHERE content_hash = %s "
+                            "ORDER BY created_at LIMIT 1", (ch,)).fetchone())
+        ids[n["ref"]] = str(row["id"]) if row else None
+    by_index = {r["metadata"].get("batch_ref"): str(r["id"]) for r in rel}
+    written = [{"index": i, "id": by_index[i]} for i in range(len(relations)) if i in by_index]
+    skipped = [{"index": i, "reason": reason} for i, r in enumerate(relations)
+               if (reason := _skip_reason(r, omitted))]
+    return {"batch_id": batch_id, "replayed": True, "ids": ids,
+            "created": {ref: False for ref in ids}, "status_id": by_ref.get("status"),
+            "relations": written, "skipped": skipped}
 
 
 def _chain_ids(c, memory_id: str) -> list:
