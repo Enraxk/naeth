@@ -7,6 +7,9 @@ Fase 2: los gaps del grafo (relaciones y supersession) -> rojos hasta los fixes 
 """
 from __future__ import annotations
 
+import psycopg
+import pytest
+
 from app import core
 
 
@@ -623,3 +626,57 @@ def test_grafo_knn_sin_embedding_devuelve_vacio():
     # cualquier memoria recien escrita, durante los segundos que tarda su embedding en la cola.
     a = core.add("sin vector todavia", title="knn")["memory"]
     assert core.graph_knn(str(a["id"]), 5) == []
+
+
+# ============================================================
+# N0 de memory_batch (27/10/2026): varias escrituras en UNA transaccion
+# ============================================================
+# Lo que fijan: con `c=`, `add`, `supersede` y `relation_add` escriben dentro de la transaccion
+# de quien llama y no la confirman; si algo falla despues, se deshace todo junto. Es la base de
+# `memory_batch`, que escribe el informe aprobado entero o nada.
+# Punto ciego: no cubren `tombstone` (el lote no lo usa) ni la concurrencia entre dos lotes.
+
+
+def _count(table):
+    with core.conn() as c:
+        return c.execute(f"SELECT count(*) AS n FROM {table}").fetchone()["n"]
+
+
+def test_dos_escrituras_en_la_misma_conexion_se_deshacen_juntas():
+    with pytest.raises(RuntimeError):
+        with core.conn() as c:
+            a = core.add("primera del lote", title="lote", c=c)["memory"]
+            b = core.add("segunda del lote", title="lote", c=c)["memory"]
+            core.relation_add(str(a["id"]), str(b["id"]), "links_to", c=c)
+            raise RuntimeError("falla algo despues de escribir")
+    assert _count("memory") == 0
+    assert _count("relation") == 0
+    assert _count("job") == 0
+
+
+def test_lo_escrito_en_la_conexion_compartida_se_confirma_al_salir():
+    with core.conn() as c:
+        a = core.add("nota uno del lote", title="lote", c=c)["memory"]
+        b = core.supersede(str(a["id"]), "nota uno, version dos", title="lote", c=c)["memory"]
+        r = core.relation_add(str(b["id"]), str(a["id"]), "links_to", c=c)
+    assert _count("memory") == 2
+    assert str(b["id"]) in _ids(core.search("version"))
+    assert str(a["id"]) not in _ids(core.search("lote"))
+    assert r["source_id"] == str(b["id"])
+
+
+def test_un_padre_inexistente_deshace_lo_que_el_lote_ya_habia_escrito():
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        with core.conn() as c:
+            core.add("esto no debe quedar", title="lote", c=c)
+            core.supersede("00000000-0000-0000-0000-000000000000", "huerfana", title="lote", c=c)
+    assert _count("memory") == 0
+
+
+def test_la_idempotencia_de_add_ve_lo_escrito_antes_en_el_mismo_lote():
+    with core.conn() as c:
+        r1 = core.add("repetida en el lote", title="lote", c=c)
+        r2 = core.add("repetida en el lote", title="lote", c=c)
+    assert r1["created"] is True and r2["created"] is False
+    assert r1["memory"]["id"] == r2["memory"]["id"]
+    assert _count("memory") == 1

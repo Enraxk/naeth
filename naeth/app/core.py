@@ -65,6 +65,23 @@ def conn():
         yield c
 
 
+@contextmanager
+def _tx(c=None):
+    """La transacción de quien llama si trae una; si no, una propia que confirma al salir.
+
+    Notes:
+        Existe para `memory_batch` (N0, 27/10/2026): las escrituras que aceptan `c=` lo pasan por
+        aquí, de modo que un lote escribe varias notas y relaciones en UNA transacción y un fallo
+        a mitad deshace todo lo anterior. Con `c`, NO confirma: el commit o el rollback son de
+        quien abrió la conexión. Sin `c`, es exactamente el `with conn()` de siempre.
+    """
+    if c is not None:
+        yield c
+    else:
+        with conn() as own:
+            yield own
+
+
 def content_hash(title: str | None, content: str) -> str:
     """SHA-256 de título y contenido, separados por un byte nulo; es la clave de idempotencia de `add`.
 
@@ -129,18 +146,38 @@ def _digest(d: str | None) -> str | None:
 def add(content: str, *, title: str | None = None, memory_type: str = "observation",
         tags: list[str] | None = None, path: str | None = None,
         metadata: dict | None = None, source_client: str = "web",
-        author: dict | None = None, digest: str | None = None) -> dict:
-    """Alta de memoria (sincrona). Encola el embedding. Idempotente: si ya existe una
-    fila vigente con el mismo content_hash, la devuelve sin duplicar.
-    `author` (Paso 10) = autoria explicita (product/surface/zone/actor/vendor/model...).
-    `digest` (fase 4) = resumen corto escrito a mano; es lo que devuelve `memory_search`.
+        author: dict | None = None, digest: str | None = None, c=None) -> dict:
+    """Alta de una memoria y su embedding en cola; si ya hay una vigente igual, devuelve esa.
 
-    ⚠ EL DIGEST NO ENTRA EN EL content_hash, que sigue siendo de (title, content). O sea que
-    reenviar el MISMO contenido con digest devuelve la fila existente SIN el digest: la
-    idempotencia es de la memoria, no del metadato. Para ponerselo a una fila que ya existe,
-    `supersede` (o el backfill), nunca un UPDATE por la puerta de atras."""
+    Args:
+        content: el texto de la nota.
+        title: título; entra en el `content_hash` junto al contenido.
+        memory_type: uno de los cuatro del vocabulario; aquí no se valida.
+        tags: lista de tags, vacía si no llega.
+        path: `proyecto/subtema`; aquí no se valida.
+        metadata: JSON libre.
+        source_client: de dónde llega la escritura, para el sync.
+        author: autoría explícita del Paso 10 (product, surface, zone, actor, vendor, model).
+        digest: resumen escrito a mano de la fase 4; es lo que devuelve `memory_search`.
+        c: conexión de quien llama, para escribir dentro de su transacción sin confirmarla.
+
+    Returns:
+        `{"memory": fila, "created": bool}`; `created` es `False` si ya existía.
+
+    Raises:
+        ValueError: si el digest pasa de `DIGEST_MAX`.
+
+    Notes:
+        ⚠ EL DIGEST NO ENTRA EN EL content_hash, que sigue siendo de (title, content). O sea que
+        reenviar el MISMO contenido con digest devuelve la fila existente SIN el digest: la
+        idempotencia es de la memoria, no del metadato. Para ponérselo a una fila que ya existe,
+        `supersede` (o el backfill), nunca un UPDATE por la puerta de atrás.
+
+        Con `c`, la búsqueda de la fila existente ve lo escrito antes en el mismo lote: dos notas
+        idénticas dentro de un `memory_batch` dan una sola fila (test del 27/10/2026).
+    """
     ch = content_hash(title, content)
-    with conn() as c:
+    with _tx(c) as c:
         existing = c.execute(
             "SELECT * FROM memory_current WHERE content_hash = %s LIMIT 1", (ch,)
         ).fetchone()
@@ -164,14 +201,39 @@ def supersede(parent_id: str, content: str, *, title: str | None = None,
               memory_type: str = "observation", tags: list[str] | None = None,
               path: str | None = None, metadata: dict | None = None,
               source_client: str = "web", author: dict | None = None,
-              digest: str | None = None) -> dict:
-    """Nueva version que reemplaza a parent_id. La vieja permanece (is_current=false).
+              digest: str | None = None, c=None) -> dict:
+    """Versión nueva que reemplaza a `parent_id`; la vieja permanece con `is_current=false`.
 
-    ⚠ EL DIGEST NO SE HEREDA DEL PADRE, y es deliberado (como el resto de campos, que tampoco).
-    Aqui hay ademas una razon propia: un digest heredado describe el contenido ANTERIOR, o sea
-    que mentiria con la firma de un resumen bueno. Un NULL es honesto y el backfill lo recoge."""
+    Args:
+        parent_id: UUID completo de la versión que se reemplaza.
+        content: el texto de la versión nueva.
+        title: título de la versión nueva.
+        memory_type: uno de los cuatro del vocabulario; aquí no se valida.
+        tags: lista de tags, vacía si no llega.
+        path: `proyecto/subtema`; aquí no se valida.
+        metadata: JSON libre.
+        source_client: de dónde llega la escritura, para el sync.
+        author: autoría explícita de la versión nueva.
+        digest: resumen de la versión nueva.
+        c: conexión de quien llama, para escribir dentro de su transacción sin confirmarla.
+
+    Returns:
+        `{"memory": fila nueva, "created": True}`.
+
+    Raises:
+        ValueError: si el digest pasa de `DIGEST_MAX`.
+        psycopg.errors.ForeignKeyViolation: si `parent_id` no existe.
+
+    Notes:
+        ⚠ EL DIGEST NO SE HEREDA DEL PADRE, y es deliberado (como el resto de campos, que tampoco).
+        Aquí hay además una razón propia: un digest heredado describe el contenido ANTERIOR, o sea
+        que mentiría con la firma de un resumen bueno. Un NULL es honesto y el backfill lo recoge.
+
+        ⚠ NO ES IDEMPOTENTE, a diferencia de `add`: llamarlo dos veces crea dos versiones. Por eso
+        `memory_batch` necesita su propia clave de lote para reintentar sin duplicar.
+    """
     ch = content_hash(title, content)
-    with conn() as c:
+    with _tx(c) as c:
         row = c.execute(
             """INSERT INTO memory (content_hash, title, content, memory_type, tags, path,
                                    metadata, source_client, author, digest)
@@ -206,8 +268,22 @@ def tombstone(target_id: str, *, target_kind: str = "memory",
 # Relaciones (grafo explicito)
 # ============================================================
 def relation_add(source_id: str, target_id: str, predicate: str,
-                 *, metadata: dict | None = None, source_client: str = "web") -> dict:
+                 *, metadata: dict | None = None, source_client: str = "web", c=None) -> dict:
     """Inserta una arista explícita entre dos memorias y devuelve su id con sus extremos.
+
+    Args:
+        source_id: UUID de la memoria de origen.
+        target_id: UUID de la memoria de destino.
+        predicate: tipo de relación, texto libre.
+        metadata: JSON libre.
+        source_client: de dónde llega la escritura, para el sync.
+        c: conexión de quien llama, para escribir dentro de su transacción sin confirmarla.
+
+    Returns:
+        `{"id", "source_id", "target_id", "predicate"}`.
+
+    Raises:
+        psycopg.errors.ForeignKeyViolation: si alguno de los extremos no existe.
 
     Notes:
         Los dos extremos son FK a `memory(id)`, así que solo se pueden relacionar memorias,
@@ -218,7 +294,7 @@ def relation_add(source_id: str, target_id: str, predicate: str,
         ⚠ `predicate` ES TEXTO LIBRE, sin CHECK en la base ni aquí. La convención declara cuatro
         y el corpus usa cinco (`tested_by` entró solo). Medido el 10/09/2026.
     """
-    with conn() as c:
+    with _tx(c) as c:
         row = c.execute(
             """INSERT INTO relation (source_id, target_id, predicate, metadata, source_client)
                VALUES (%s, %s, %s, %s, %s) RETURNING id""",
